@@ -17,12 +17,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   ];
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col md:flex-row font-cairo">
+    <div className="min-h-screen bg-zinc-50 flex flex-col md:flex-row font-cairo">
       {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-zinc-900 border-l border-zinc-800 flex flex-col hidden md:flex shrink-0">
-        <div className="h-16 flex items-center px-6 border-b border-zinc-800">
-          <Link href="/" className="font-alexandria font-bold text-xl text-white">
-            أتمتة <span className="text-indigo-400">برو</span>
+      <aside className="w-full md:w-64 bg-white border-l border-zinc-200 flex flex-col hidden md:flex shrink-0">
+        <div className="h-16 flex items-center px-6 border-b border-zinc-200">
+          <Link href="/" className="font-alexandria font-bold text-xl text-zinc-900">
+            أتمتة <span className="text-blue-600">برو</span>
           </Link>
         </div>
 
@@ -35,8 +35,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 href={item.href}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   isActive 
-                    ? "bg-indigo-500/10 text-indigo-400 font-medium" 
-                    : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                    ? "bg-blue-50 text-blue-600 font-medium" 
+                    : "text-zinc-500 hover:text-blue-600 hover:bg-blue-50/50"
                 }`}
               >
                 <item.icon className="w-5 h-5" />
@@ -46,13 +46,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           })}
         </nav>
 
-        <div className="p-4 border-t border-zinc-800">
+        <div className="p-4 border-t border-zinc-200">
           <button 
             onClick={async () => {
               await fetch('/api/admin/logout', { method: 'POST' });
               window.location.href = '/admin/login';
             }}
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-500/10 w-full transition-colors"
+            className="flex items-center gap-3 px-4 py-3 rounded-lg text-zinc-500 hover:text-red-600 hover:bg-red-50 w-full transition-colors"
           >
             <LogOut className="w-5 h-5" />
             تسجيل الخروج
@@ -63,26 +63,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Top Header */}
-        <header className="h-16 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between px-6 shrink-0">
+        <header className="h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-6 shrink-0">
           <div className="flex-1 max-w-md relative">
-            <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400" />
             <Input 
               type="text" 
               placeholder="ابحث عن منتج أو طلب..." 
-              className="w-full bg-zinc-950 border-zinc-800 pl-4 pr-10 text-white font-cairo focus-visible:ring-indigo-500"
+              className="w-full bg-zinc-50 border-zinc-200 pl-4 pr-10 text-zinc-900 font-cairo focus-visible:ring-blue-500"
             />
           </div>
 
           <div className="flex items-center gap-4">
-            <Avatar className="w-9 h-9 border border-zinc-800">
+            <Avatar className="w-9 h-9 border border-zinc-200">
               <AvatarImage src="https://github.com/shadcn.png" />
-              <AvatarFallback className="bg-zinc-800 text-zinc-400">A</AvatarFallback>
+              <AvatarFallback className="bg-zinc-100 text-zinc-400">A</AvatarFallback>
             </Avatar>
           </div>
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 p-6 md:p-8 overflow-auto bg-zinc-950">
+        <div className="flex-1 p-6 md:p-8 overflow-auto">
           {children}
         </div>
       </main>

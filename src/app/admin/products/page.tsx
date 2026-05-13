@@ -87,10 +87,10 @@ export default function AdminProducts() {
   };
 
   const getFileIcon = (type: string) => {
-    if (type.includes("pdf")) return <FileText className="w-8 h-8 text-red-400" />;
-    if (type.includes("zip") || type.includes("rar")) return <FileArchive className="w-8 h-8 text-amber-400" />;
-    if (type.includes("json")) return <FileJson className="w-8 h-8 text-blue-400" />;
-    if (type.includes("video")) return <PlayCircle className="w-8 h-8 text-emerald-400" />;
+    if (type.includes("pdf")) return <FileText className="w-8 h-8 text-red-500" />;
+    if (type.includes("zip") || type.includes("rar")) return <FileArchive className="w-8 h-8 text-amber-500" />;
+    if (type.includes("json")) return <FileJson className="w-8 h-8 text-blue-500" />;
+    if (type.includes("video")) return <PlayCircle className="w-8 h-8 text-emerald-500" />;
     return <FileText className="w-8 h-8 text-zinc-400" />;
   };
 
@@ -186,71 +186,71 @@ export default function AdminProducts() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-alexandria font-bold text-white">إدارة المنتجات الرقمية</h1>
+        <h1 className="text-3xl font-alexandria font-bold text-zinc-900">إدارة المنتجات الرقمية</h1>
         
         {/* ADD PRODUCT DIALOG */}
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger render={
-            <Button onClick={resetForm} className="bg-indigo-600 hover:bg-indigo-700 text-white font-cairo">
+            <Button onClick={resetForm} className="bg-blue-600 hover:bg-blue-700 text-white font-cairo">
               <Plus className="w-4 h-4 mr-2" />
               إضافة منتج جديد
             </Button>
           } />
-          <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="bg-white border-zinc-200 text-zinc-900 sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="font-alexandria text-xl">منتج رقمي جديد</DialogTitle>
             </DialogHeader>
             <div className="grid gap-6 py-4 font-cairo">
               <div className="space-y-2">
-                <Label className="text-zinc-300">اسم المنتج</Label>
-                <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="مثال: حزمة أتمتة المبيعات" className="bg-zinc-900 border-zinc-800 focus-visible:ring-indigo-500 text-white" />
+                <Label className="text-zinc-600">اسم المنتج</Label>
+                <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="مثال: حزمة أتمتة المبيعات" className="bg-white border-zinc-200 focus-visible:ring-blue-500 text-zinc-900" />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-zinc-300">السعر (ج.م)</Label>
-                  <Input value={price} onChange={e => setPrice(e.target.value)} type="number" placeholder="49.00" className="bg-zinc-900 border-zinc-800 focus-visible:ring-indigo-500 text-white" dir="ltr" />
+                  <Label className="text-zinc-600">السعر (ج.م)</Label>
+                  <Input value={price} onChange={e => setPrice(e.target.value)} type="number" placeholder="49.00" className="bg-white border-zinc-200 focus-visible:ring-blue-500 text-zinc-900" dir="ltr" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-300">السعر قبل الخصم (ج.م)</Label>
-                  <Input value={originalPrice} onChange={e => setOriginalPrice(e.target.value)} type="number" placeholder="99.00" className="bg-zinc-900 border-zinc-800 focus-visible:ring-indigo-500 text-white" dir="ltr" />
+                  <Label className="text-zinc-600">السعر قبل الخصم (ج.م)</Label>
+                  <Input value={originalPrice} onChange={e => setOriginalPrice(e.target.value)} type="number" placeholder="99.00" className="bg-white border-zinc-200 focus-visible:ring-blue-500 text-zinc-900" dir="ltr" />
                 </div>
               </div>
 
               {/* Cover Image Upload */}
               <div className="space-y-2">
-                <Label className="text-zinc-300">صورة الغلاف (Thumbnail)</Label>
+                <Label className="text-zinc-600">صورة الغلاف (Thumbnail)</Label>
                 <div 
-                  className="border-2 border-dashed border-zinc-800 rounded-xl p-8 text-center hover:bg-zinc-900/50 transition-colors cursor-pointer relative overflow-hidden group"
+                  className="border-2 border-dashed border-zinc-200 rounded-xl p-8 text-center hover:bg-zinc-50 transition-colors cursor-pointer relative overflow-hidden group"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageChange} />
                   {imagePreview ? (
-                    <Image src={imagePreview} alt="Preview" fill className="object-cover opacity-50 group-hover:opacity-30 transition-opacity" />
+                    <Image src={imagePreview} alt="Preview" fill className="object-cover opacity-60 group-hover:opacity-40 transition-opacity" />
                   ) : (
-                    <ImageIcon className="w-10 h-10 text-zinc-600 mx-auto mb-2 group-hover:text-indigo-400 transition-colors" />
+                    <ImageIcon className="w-10 h-10 text-zinc-300 mx-auto mb-2 group-hover:text-blue-600 transition-colors" />
                   )}
-                  <p className="text-zinc-400 font-cairo text-sm relative z-10">اضغط لرفع صورة العرض</p>
+                  <p className="text-zinc-500 font-cairo text-sm relative z-10">اضغط لرفع صورة العرض</p>
                 </div>
               </div>
 
               {/* Digital Files Drag & Drop Upload */}
               <div className="space-y-2">
-                <Label className="text-zinc-300">الملفات الرقمية للتسليم (PDF, ZIP, JSON)</Label>
+                <Label className="text-zinc-600">الملفات الرقمية للتسليم (PDF, ZIP, JSON)</Label>
                 <div 
-                  className="border-2 border-dashed border-indigo-500/30 bg-indigo-500/5 rounded-xl p-8 text-center hover:bg-indigo-500/10 transition-colors cursor-pointer"
+                  className="border-2 border-dashed border-blue-200 bg-blue-50 rounded-xl p-8 text-center hover:bg-blue-100 transition-colors cursor-pointer"
                   onClick={() => digitalFilesRef.current?.click()}
                 >
                   <input type="file" ref={digitalFilesRef} className="hidden" multiple accept=".pdf,.zip,.rar,.json,.mp4" onChange={handleDigitalFilesChange} />
-                  <UploadCloud className="w-10 h-10 text-indigo-400 mx-auto mb-2" />
-                  <p className="text-indigo-300 font-cairo font-bold">اسحب الملفات هنا أو اضغط للرفع</p>
+                  <UploadCloud className="w-10 h-10 text-blue-600 mx-auto mb-2" />
+                  <p className="text-blue-700 font-cairo font-bold">اسحب الملفات هنا أو اضغط للرفع</p>
                   <p className="text-zinc-500 font-cairo text-xs mt-2">الحد الأقصى 500MB للملف الواحد</p>
                 </div>
 
                 {/* Upload Progress */}
                 {uploadProgress > 0 && uploadProgress < 100 && (
-                  <div className="w-full bg-zinc-800 rounded-full h-2 mt-4 overflow-hidden">
-                    <div className="bg-indigo-500 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                  <div className="w-full bg-zinc-100 rounded-full h-2 mt-4 overflow-hidden">
+                    <div className="bg-blue-600 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
                   </div>
                 )}
 
@@ -258,15 +258,15 @@ export default function AdminProducts() {
                 {digitalFiles.length > 0 && (
                   <div className="mt-4 space-y-2">
                     {digitalFiles.map((file, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-zinc-900 border border-zinc-800 rounded-lg">
+                      <div key={idx} className="flex items-center justify-between p-3 bg-zinc-50 border border-zinc-200 rounded-lg">
                         <div className="flex items-center gap-3">
                           {getFileIcon(file.type || file.name)}
                           <div>
-                            <p className="text-white text-sm font-cairo font-bold truncate max-w-[200px]" dir="ltr">{file.name}</p>
+                            <p className="text-zinc-900 text-sm font-cairo font-bold truncate max-w-[200px]" dir="ltr">{file.name}</p>
                             <p className="text-zinc-500 text-xs font-cairo">{formatFileSize(file.size)}</p>
                           </div>
                         </div>
-                        <button onClick={() => removeDigitalFile(idx)} className="text-zinc-500 hover:text-red-400 transition-colors">
+                        <button onClick={() => removeDigitalFile(idx)} className="text-zinc-400 hover:text-red-600 transition-colors">
                           <X className="w-5 h-5" />
                         </button>
                       </div>
@@ -277,11 +277,11 @@ export default function AdminProducts() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-zinc-300">حالة المنتج</Label>
+                  <Label className="text-zinc-600">حالة المنتج</Label>
                   <select 
                     value={status} 
                     onChange={e => setStatus(e.target.value)}
-                    className="w-full h-10 rounded-md bg-zinc-900 border border-zinc-800 text-white font-cairo px-3 focus:ring-1 focus:ring-indigo-500 outline-none"
+                    className="w-full h-10 rounded-md bg-white border border-zinc-200 text-zinc-900 font-cairo px-3 focus:ring-1 focus:ring-blue-500 outline-none"
                   >
                     <option value="نشط">نشط (مرئي)</option>
                     <option value="مسودة">مسودة (مخفي)</option>
@@ -294,9 +294,9 @@ export default function AdminProducts() {
                       id="featured" 
                       checked={isFeatured}
                       onChange={(e) => setIsFeatured(e.target.checked)}
-                      className="w-4 h-4 rounded border-zinc-800 bg-zinc-900 text-indigo-600 focus:ring-indigo-500"
+                      className="w-4 h-4 rounded border-zinc-300 bg-white text-blue-600 focus:ring-blue-500"
                     />
-                    <Label htmlFor="featured" className="text-zinc-300 cursor-pointer">تمييز كالأكثر مبيعاً</Label>
+                    <Label htmlFor="featured" className="text-zinc-600 cursor-pointer">تمييز كالأكثر مبيعاً</Label>
                   </div>
                 </div>
               </div>
@@ -304,32 +304,32 @@ export default function AdminProducts() {
             </div>
             <DialogFooter>
               <DialogClose render={
-                <Button variant="ghost" className="text-zinc-400 hover:text-white font-cairo">إلغاء</Button>
+                <Button variant="ghost" className="text-zinc-500 hover:text-zinc-900 font-cairo">إلغاء</Button>
               } />
-              <Button onClick={handleAddProduct} className="bg-indigo-600 hover:bg-indigo-700 text-white font-cairo">حفظ المنتج</Button>
+              <Button onClick={handleAddProduct} className="bg-blue-600 hover:bg-blue-700 text-white font-cairo">حفظ المنتج</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      <Card className="bg-zinc-900 border-zinc-800 overflow-hidden">
+      <Card className="bg-white border-zinc-200 overflow-hidden shadow-sm">
         <Table>
-          <TableHeader className="bg-zinc-950/50">
-            <TableRow className="border-zinc-800 hover:bg-transparent">
-              <TableHead className="font-cairo text-zinc-400 text-right">المنتج</TableHead>
-              <TableHead className="font-cairo text-zinc-400 text-right">السعر</TableHead>
-              <TableHead className="font-cairo text-zinc-400 text-right">المبيعات</TableHead>
-              <TableHead className="font-cairo text-zinc-400 text-right">الحالة</TableHead>
-              <TableHead className="font-cairo text-zinc-400 text-right">الملفات</TableHead>
+          <TableHeader className="bg-zinc-50/50">
+            <TableRow className="border-zinc-200 hover:bg-transparent">
+              <TableHead className="font-cairo text-zinc-500 text-right">المنتج</TableHead>
+              <TableHead className="font-cairo text-zinc-500 text-right">السعر</TableHead>
+              <TableHead className="font-cairo text-zinc-500 text-right">المبيعات</TableHead>
+              <TableHead className="font-cairo text-zinc-500 text-right">الحالة</TableHead>
+              <TableHead className="font-cairo text-zinc-500 text-right">الملفات</TableHead>
               <TableHead className="text-left"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {products.map((product) => (
-              <TableRow key={product.id} className="border-zinc-800 hover:bg-zinc-800/50">
+              <TableRow key={product.id} className="border-zinc-200 hover:bg-zinc-50/50 transition-colors">
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-md bg-zinc-800 relative overflow-hidden shrink-0 border border-zinc-700">
+                    <div className="w-12 h-12 rounded-md bg-zinc-100 relative overflow-hidden shrink-0 border border-zinc-200">
                       <Image 
                         src={product.image || product.img} 
                         alt="Product" 
@@ -338,21 +338,21 @@ export default function AdminProducts() {
                       />
                     </div>
                     <div>
-                      <div className="font-cairo font-bold text-white flex items-center gap-2">
+                      <div className="font-cairo font-bold text-zinc-900 flex items-center gap-2">
                         {product.title || product.name}
-                        {product.isFeatured && <Badge className="bg-indigo-500/10 text-indigo-400 text-[10px] px-1.5 py-0">مميز</Badge>}
+                        {product.isFeatured && <Badge className="bg-blue-50 text-blue-600 text-[10px] px-1.5 py-0 border-blue-100">مميز</Badge>}
                       </div>
-                      <div className="text-xs text-zinc-500 font-cairo mt-1">ID: {product.id}</div>
+                      <div className="text-xs text-zinc-400 font-cairo mt-1">ID: {product.id}</div>
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="font-medium text-white font-sans">{product.price} ج.م</TableCell>
-                <TableCell className="text-zinc-400">{product.sales}</TableCell>
+                <TableCell className="font-medium text-zinc-900 font-sans">{product.price} ج.م</TableCell>
+                <TableCell className="text-zinc-600">{product.sales}</TableCell>
                 <TableCell>
                   <Badge className={
                     product.status === "نشط" 
-                      ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20" 
-                      : "bg-zinc-500/10 text-zinc-400 hover:bg-zinc-500/20"
+                      ? "bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100" 
+                      : "bg-zinc-100 text-zinc-600 border-zinc-200 hover:bg-zinc-200"
                   }>
                     {product.status}
                   </Badge>
@@ -360,26 +360,26 @@ export default function AdminProducts() {
                 <TableCell>
                   <div className="flex gap-1">
                     {product.files?.length > 0 ? (
-                      <Badge className="bg-blue-500/10 text-blue-400 font-sans">{product.files.length} Files</Badge>
+                      <Badge className="bg-blue-50 text-blue-600 border-blue-100 font-sans">{product.files.length} Files</Badge>
                     ) : (
-                      <span className="text-zinc-600 text-xs">لا يوجد</span>
+                      <span className="text-zinc-400 text-xs">لا يوجد</span>
                     )}
                   </div>
                 </TableCell>
                 <TableCell className="text-left">
                   <DropdownMenu>
                     <DropdownMenuTrigger render={
-                      <Button variant="ghost" className="h-8 w-8 p-0 text-zinc-400 hover:text-white">
+                      <Button variant="ghost" className="h-8 w-8 p-0 text-zinc-400 hover:text-zinc-900">
                         <span className="sr-only">فتح القائمة</span>
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     } />
-                    <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 font-cairo">
-                      <DropdownMenuItem onClick={() => openEditDialog(product)} className="text-white hover:bg-zinc-800 focus:bg-zinc-800 cursor-pointer">
+                    <DropdownMenuContent align="end" className="bg-white border-zinc-200 font-cairo shadow-lg">
+                      <DropdownMenuItem onClick={() => openEditDialog(product)} className="text-zinc-700 hover:bg-zinc-50 focus:bg-zinc-50 cursor-pointer">
                         <Edit className="w-4 h-4 ml-2" />
                         تعديل
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDeleteProduct(product.id)} className="text-red-400 hover:bg-red-500/10 focus:bg-red-500/10 cursor-pointer">
+                      <DropdownMenuItem onClick={() => handleDeleteProduct(product.id)} className="text-red-600 hover:bg-red-50 focus:bg-red-50 cursor-pointer">
                         <Trash2 className="w-4 h-4 ml-2" />
                         حذف
                       </DropdownMenuItem>
@@ -390,7 +390,7 @@ export default function AdminProducts() {
             ))}
             {products.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-zinc-500 font-cairo">
+                <TableCell colSpan={6} className="text-center py-8 text-zinc-400 font-cairo">
                   لا توجد منتجات حالياً.
                 </TableCell>
               </TableRow>
@@ -401,58 +401,58 @@ export default function AdminProducts() {
 
       {/* EDIT PRODUCT DIALOG */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-white border-zinc-200 text-zinc-900 sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-alexandria text-xl">تعديل المنتج</DialogTitle>
           </DialogHeader>
           <div className="grid gap-6 py-4 font-cairo">
             <div className="space-y-2">
-              <Label className="text-zinc-300">اسم المنتج</Label>
-              <Input value={title} onChange={e => setTitle(e.target.value)} className="bg-zinc-900 border-zinc-800 focus-visible:ring-indigo-500 text-white" />
+              <Label className="text-zinc-600">اسم المنتج</Label>
+              <Input value={title} onChange={e => setTitle(e.target.value)} className="bg-white border-zinc-200 focus-visible:ring-blue-500 text-zinc-900" />
             </div>
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-zinc-300">السعر (ج.م)</Label>
-                <Input value={price} onChange={e => setPrice(e.target.value)} type="number" className="bg-zinc-900 border-zinc-800 focus-visible:ring-indigo-500 text-white" dir="ltr" />
+                <Label className="text-zinc-600">السعر (ج.م)</Label>
+                <Input value={price} onChange={e => setPrice(e.target.value)} type="number" className="bg-white border-zinc-200 focus-visible:ring-blue-500 text-zinc-900" dir="ltr" />
               </div>
               <div className="space-y-2">
-                <Label className="text-zinc-300">السعر قبل الخصم (ج.م)</Label>
-                <Input value={originalPrice} onChange={e => setOriginalPrice(e.target.value)} type="number" className="bg-zinc-900 border-zinc-800 focus-visible:ring-indigo-500 text-white" dir="ltr" />
+                <Label className="text-zinc-600">السعر قبل الخصم (ج.م)</Label>
+                <Input value={originalPrice} onChange={e => setOriginalPrice(e.target.value)} type="number" className="bg-white border-zinc-200 focus-visible:ring-blue-500 text-zinc-900" dir="ltr" />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-zinc-300">صورة الغلاف (Thumbnail)</Label>
+              <Label className="text-zinc-600">صورة الغلاف (Thumbnail)</Label>
               <div 
-                className="border-2 border-dashed border-zinc-800 rounded-xl p-8 text-center hover:bg-zinc-900/50 transition-colors cursor-pointer relative overflow-hidden group"
+                className="border-2 border-dashed border-zinc-200 rounded-xl p-8 text-center hover:bg-zinc-50 transition-colors cursor-pointer relative overflow-hidden group"
                 onClick={() => fileInputRef.current?.click()}
               >
                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageChange} />
                 {imagePreview ? (
-                  <Image src={imagePreview} alt="Preview" fill className="object-cover opacity-50 group-hover:opacity-30 transition-opacity" />
+                  <Image src={imagePreview} alt="Preview" fill className="object-cover opacity-60 group-hover:opacity-40 transition-opacity" />
                 ) : (
-                  <ImageIcon className="w-10 h-10 text-zinc-600 mx-auto mb-2 group-hover:text-indigo-400 transition-colors" />
+                  <ImageIcon className="w-10 h-10 text-zinc-300 mx-auto mb-2 group-hover:text-blue-600 transition-colors" />
                 )}
-                <p className="text-zinc-400 font-cairo text-sm relative z-10">اضغط لتغيير الصورة</p>
+                <p className="text-zinc-500 font-cairo text-sm relative z-10">اضغط لتغيير الصورة</p>
               </div>
             </div>
 
             {/* Digital Files Drag & Drop Upload */}
             <div className="space-y-2">
-              <Label className="text-zinc-300">إضافة/تحديث الملفات الرقمية</Label>
+              <Label className="text-zinc-600">إضافة/تحديث الملفات الرقمية</Label>
               <div 
-                className="border-2 border-dashed border-indigo-500/30 bg-indigo-500/5 rounded-xl p-6 text-center hover:bg-indigo-500/10 transition-colors cursor-pointer"
+                className="border-2 border-dashed border-blue-200 bg-blue-50 rounded-xl p-6 text-center hover:bg-blue-100 transition-colors cursor-pointer"
                 onClick={() => digitalFilesRef.current?.click()}
               >
                 <input type="file" ref={digitalFilesRef} className="hidden" multiple accept=".pdf,.zip,.rar,.json,.mp4" onChange={handleDigitalFilesChange} />
-                <UploadCloud className="w-8 h-8 text-indigo-400 mx-auto mb-2" />
-                <p className="text-indigo-300 font-cairo font-bold text-sm">اسحب الملفات هنا أو اضغط للرفع</p>
+                <UploadCloud className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+                <p className="text-blue-700 font-cairo font-bold text-sm">اسحب الملفات هنا أو اضغط للرفع</p>
               </div>
 
               {uploadProgress > 0 && uploadProgress < 100 && (
-                <div className="w-full bg-zinc-800 rounded-full h-2 mt-4 overflow-hidden">
-                  <div className="bg-indigo-500 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                <div className="w-full bg-zinc-100 rounded-full h-2 mt-4 overflow-hidden">
+                  <div className="bg-blue-600 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
                 </div>
               )}
 
@@ -460,15 +460,15 @@ export default function AdminProducts() {
               {digitalFiles.length > 0 && (
                 <div className="mt-4 space-y-2">
                   {digitalFiles.map((file, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 bg-zinc-900 border border-zinc-800 rounded-lg">
+                    <div key={idx} className="flex items-center justify-between p-3 bg-zinc-50 border border-zinc-200 rounded-lg">
                       <div className="flex items-center gap-3">
                         {getFileIcon(file.type || file.name)}
                         <div>
-                          <p className="text-white text-sm font-cairo font-bold truncate max-w-[200px]" dir="ltr">{file.name}</p>
+                          <p className="text-zinc-900 text-sm font-cairo font-bold truncate max-w-[200px]" dir="ltr">{file.name}</p>
                           <p className="text-zinc-500 text-xs font-cairo">{formatFileSize(file.size)}</p>
                         </div>
                       </div>
-                      <button onClick={() => removeDigitalFile(idx)} className="text-zinc-500 hover:text-red-400 transition-colors">
+                      <button onClick={() => removeDigitalFile(idx)} className="text-zinc-400 hover:text-red-600 transition-colors">
                         <X className="w-5 h-5" />
                       </button>
                     </div>
@@ -479,11 +479,11 @@ export default function AdminProducts() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-zinc-300">حالة المنتج</Label>
+                <Label className="text-zinc-600">حالة المنتج</Label>
                 <select 
                   value={status} 
                   onChange={e => setStatus(e.target.value)}
-                  className="w-full h-10 rounded-md bg-zinc-900 border border-zinc-800 text-white font-cairo px-3 focus:ring-1 focus:ring-indigo-500 outline-none"
+                  className="w-full h-10 rounded-md bg-white border border-zinc-200 text-zinc-900 font-cairo px-3 focus:ring-1 focus:ring-blue-500 outline-none"
                 >
                   <option value="نشط">نشط (مرئي)</option>
                   <option value="مسودة">مسودة (مخفي)</option>
@@ -496,9 +496,9 @@ export default function AdminProducts() {
                     id="edit_featured" 
                     checked={isFeatured}
                     onChange={(e) => setIsFeatured(e.target.checked)}
-                    className="w-4 h-4 rounded border-zinc-800 bg-zinc-900 text-indigo-600 focus:ring-indigo-500"
+                    className="w-4 h-4 rounded border-zinc-300 bg-white text-blue-600 focus:ring-blue-500"
                   />
-                  <Label htmlFor="edit_featured" className="text-zinc-300 cursor-pointer">تمييز كالأكثر مبيعاً</Label>
+                  <Label htmlFor="edit_featured" className="text-zinc-600 cursor-pointer">تمييز كالأكثر مبيعاً</Label>
                 </div>
               </div>
             </div>
@@ -506,9 +506,9 @@ export default function AdminProducts() {
           </div>
           <DialogFooter>
             <DialogClose render={
-              <Button variant="ghost" className="text-zinc-400 hover:text-white font-cairo">إلغاء</Button>
+              <Button variant="ghost" className="text-zinc-500 hover:text-zinc-900 font-cairo">إلغاء</Button>
             } />
-            <Button onClick={handleEditProduct} className="bg-indigo-600 hover:bg-indigo-700 text-white font-cairo">حفظ التغييرات</Button>
+            <Button onClick={handleEditProduct} className="bg-blue-600 hover:bg-blue-700 text-white font-cairo">حفظ التغييرات</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

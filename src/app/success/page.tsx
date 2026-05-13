@@ -23,9 +23,9 @@ function SuccessContent() {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center py-32 px-4 relative overflow-hidden">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center py-32 px-4 relative overflow-hidden">
         {/* Background Glows */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-emerald-500/20 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-emerald-50 rounded-full blur-[120px] pointer-events-none" />
         
         <motion.div 
           initial={{ opacity: 0, scale: 0.8, y: 20 }}
@@ -33,7 +33,7 @@ function SuccessContent() {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="max-w-2xl w-full relative z-10"
         >
-          <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800 rounded-3xl p-8 md:p-12 shadow-2xl text-center relative overflow-hidden">
+          <div className="bg-white border border-zinc-200 rounded-3xl p-8 md:p-12 shadow-2xl text-center relative overflow-hidden">
             {/* Top Border Highlight */}
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
             
@@ -41,35 +41,35 @@ function SuccessContent() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.3, type: "spring", stiffness: 200, damping: 15 }}
-              className="w-24 h-24 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-8 border-4 border-emerald-500/20 shadow-[0_0_50px_rgba(16,185,129,0.3)]"
+              className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-8 border-4 border-emerald-100 shadow-xl shadow-emerald-500/10"
             >
-              <CheckCircle2 className="w-12 h-12 text-emerald-400" />
+              <CheckCircle2 className="w-12 h-12 text-emerald-600" />
             </motion.div>
 
-            <h1 className="text-4xl md:text-5xl font-alexandria font-bold text-white mb-4">تم الدفع بنجاح!</h1>
-            <p className="text-zinc-400 font-cairo text-lg mb-2">
-              رقم الطلب: <span className="text-white font-mono">{orderId}</span>
+            <h1 className="text-4xl md:text-5xl font-alexandria font-bold text-zinc-900 mb-4">تم الدفع بنجاح!</h1>
+            <p className="text-zinc-600 font-cairo text-lg mb-2">
+              رقم الطلب: <span className="text-zinc-900 font-mono font-bold">{orderId}</span>
             </p>
             
-            <div className="bg-zinc-950/50 border border-zinc-800/50 rounded-xl p-6 my-8 flex items-start gap-4 text-right">
-              <Mail className="w-8 h-8 text-indigo-400 shrink-0 mt-1" />
+            <div className="bg-zinc-50 border border-zinc-100 rounded-xl p-6 my-8 flex items-start gap-4 text-right shadow-sm">
+              <Mail className="w-8 h-8 text-blue-600 shrink-0 mt-1" />
               <div>
-                <h3 className="text-white font-bold font-cairo text-lg mb-2">تم إرسال الملفات إلى بريدك الإلكتروني</h3>
-                <p className="text-zinc-400 font-cairo text-sm leading-relaxed">
+                <h3 className="text-zinc-900 font-bold font-cairo text-lg mb-2">تم إرسال الملفات إلى بريدك الإلكتروني</h3>
+                <p className="text-zinc-600 font-cairo text-sm leading-relaxed">
                   لقد قمنا للتو بإرسال رسالة تحتوي على روابط التحميل الآمنة للمنتجات التي قمت بشرائها. يرجى التحقق من صندوق الوارد (أو مجلد الرسائل المزعجة Spam).
                 </p>
               </div>
             </div>
 
             <div className="space-y-4">
-              <Button className="w-full h-14 text-lg bg-emerald-600 hover:bg-emerald-700 text-white font-cairo shadow-lg shadow-emerald-900/20 rounded-xl" render={
+              <Button className="w-full h-14 text-lg bg-emerald-600 hover:bg-emerald-700 text-white font-cairo shadow-lg shadow-emerald-500/10 rounded-xl" render={
                 <Link href="/download/temporary-direct-link">
                   <Download className="w-5 h-5 ml-2" />
                   تحميل الملفات الآن (رابط مباشر مؤقت)
                 </Link>
               } />
               
-              <Button variant="outline" className="w-full h-14 text-lg border-zinc-800 text-white hover:bg-zinc-800 font-cairo rounded-xl" render={
+              <Button variant="outline" className="w-full h-14 text-lg border-zinc-200 text-zinc-900 hover:bg-zinc-50 font-cairo rounded-xl" render={
                 <Link href="/">
                   العودة للصفحة الرئيسية
                   <ArrowRight className="w-5 h-5 mr-2" />
@@ -79,7 +79,7 @@ function SuccessContent() {
           </div>
 
           <div className="mt-8 flex justify-center items-center gap-2 text-zinc-500 font-cairo text-sm">
-            <ShieldCheck className="w-4 h-4 text-emerald-500" />
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
             بياناتك ومعاملتك محمية ومؤمنة بالكامل
           </div>
         </motion.div>
@@ -92,8 +92,8 @@ function SuccessContent() {
 export default function SuccessPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="text-zinc-400 font-cairo text-lg">جاري التحميل...</div>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-zinc-500 font-cairo text-lg">جاري التحميل...</div>
       </div>
     }>
       <SuccessContent />

@@ -44,29 +44,29 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4">
-      <Link href="/" className="absolute top-8 left-8 text-zinc-400 hover:text-white font-cairo transition-colors">
+    <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center p-4">
+      <Link href="/" className="absolute top-8 left-8 text-zinc-500 hover:text-blue-600 font-cairo transition-colors">
         العودة للمتجر
       </Link>
       
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-indigo-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-indigo-500/20">
-            <ShieldAlert className="w-8 h-8 text-indigo-400" />
+          <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-100">
+            <ShieldAlert className="w-8 h-8 text-blue-600" />
           </div>
-          <h1 className="text-3xl font-alexandria font-bold text-white mb-2">تسجيل الدخول للإدارة</h1>
-          <p className="text-zinc-400 font-cairo">الرجاء إدخال بيانات الدخول للوصول إلى لوحة التحكم</p>
+          <h1 className="text-3xl font-alexandria font-bold text-zinc-900 mb-2">تسجيل الدخول للإدارة</h1>
+          <p className="text-zinc-600 font-cairo">الرجاء إدخال بيانات الدخول للوصول إلى لوحة التحكم</p>
         </div>
 
-        <Card className="bg-zinc-900 border-zinc-800 p-6 shadow-2xl">
+        <Card className="bg-white border-zinc-200 p-6 shadow-xl">
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-4">
               <div className="relative">
-                <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
+                <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
                 <Input 
                   type="email" 
                   placeholder="البريد الإلكتروني..." 
-                  className="bg-zinc-950 border-zinc-800 text-white font-cairo h-12 pr-10 focus-visible:ring-indigo-500 text-left"
+                  className="bg-white border-zinc-200 text-zinc-900 font-cairo h-12 pr-10 focus-visible:ring-blue-500 text-left"
                   dir="ltr"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -75,11 +75,11 @@ export default function AdminLogin() {
               </div>
 
               <div className="relative">
-                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
+                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
                 <Input 
                   type={showPassword ? "text" : "password"} 
                   placeholder="كلمة المرور..." 
-                  className="bg-zinc-950 border-zinc-800 text-white font-cairo h-12 pr-10 pl-10 focus-visible:ring-indigo-500 text-left"
+                  className="bg-white border-zinc-200 text-zinc-900 font-cairo h-12 pr-10 pl-10 focus-visible:ring-blue-500 text-left"
                   dir="ltr"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -88,7 +88,7 @@ export default function AdminLogin() {
                 <button 
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -101,14 +101,14 @@ export default function AdminLogin() {
                 id="remember" 
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 rounded border-zinc-800 bg-zinc-950 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-zinc-900"
+                className="w-4 h-4 rounded border-zinc-300 bg-white text-blue-600 focus:ring-blue-500"
               />
-              <label htmlFor="remember" className="text-sm font-cairo text-zinc-400 cursor-pointer select-none">
+              <label htmlFor="remember" className="text-sm font-cairo text-zinc-600 cursor-pointer select-none">
                 حفظ بيانات الدخول
               </label>
             </div>
 
-            <Button type="submit" className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-cairo text-lg" disabled={isLoading || !email || !password}>
+            <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-cairo text-lg" disabled={isLoading || !email || !password}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />

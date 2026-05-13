@@ -29,12 +29,12 @@ export default function RootLayout({
     <html
       lang="ar"
       dir="rtl"
-      className={`${cairo.variable} ${alexandria.variable} dark`}
-      style={{ colorScheme: 'dark' }}
+      className={`${cairo.variable} ${alexandria.variable}`}
+      style={{ colorScheme: 'light' }}
     >
-      <body className="min-h-screen bg-zinc-950 text-slate-50 font-cairo flex flex-col antialiased">
+      <body className="min-h-screen bg-white text-zinc-900 font-cairo flex flex-col antialiased">
         {children}
-        <Toaster theme="dark" position="top-center" />
+        <Toaster theme="light" position="top-center" />
       </body>
     </html>
   );

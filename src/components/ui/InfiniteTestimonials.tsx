@@ -44,9 +44,9 @@ const testimonials = [
 
 export function InfiniteTestimonials() {
   return (
-    <div className="w-full overflow-hidden bg-zinc-950 py-10 relative">
-      <div className="absolute left-0 top-0 w-32 h-full bg-gradient-to-r from-zinc-950 to-transparent z-10"></div>
-      <div className="absolute right-0 top-0 w-32 h-full bg-gradient-to-l from-zinc-950 to-transparent z-10"></div>
+    <div className="w-full overflow-hidden bg-white py-10 relative">
+      <div className="absolute left-0 top-0 w-32 h-full bg-gradient-to-r from-white to-transparent z-10"></div>
+      <div className="absolute right-0 top-0 w-32 h-full bg-gradient-to-l from-white to-transparent z-10"></div>
       
       <div className="flex w-[200%] md:w-[150%] animate-scroll hover:[animation-play-state:paused] will-change-transform">
         {[...testimonials, ...testimonials].map((testimonial, idx) => (
@@ -54,17 +54,17 @@ export function InfiniteTestimonials() {
             key={`${testimonial.id}-${idx}`} 
             className="w-[300px] md:w-[400px] shrink-0 px-4"
           >
-            <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-6 h-full flex flex-col hover:bg-zinc-900 hover:border-indigo-500/50 transition-colors shadow-lg shadow-black/20">
-              <div className="flex items-center gap-1 mb-4 text-emerald-400">
+            <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-6 h-full flex flex-col hover:bg-white hover:border-blue-500/50 transition-all shadow-sm hover:shadow-md">
+              <div className="flex items-center gap-1 mb-4 text-emerald-500">
                 {[1, 2, 3, 4, 5].map((star) => (
-                  <Star key={star} className="w-4 h-4 fill-emerald-400" />
+                  <Star key={star} className="w-4 h-4 fill-emerald-500" />
                 ))}
               </div>
-              <p className="text-zinc-300 font-cairo leading-relaxed flex-1 mb-6 text-sm md:text-base">
+              <p className="text-zinc-600 font-cairo leading-relaxed flex-1 mb-6 text-sm md:text-base">
                 "{testimonial.content}"
               </p>
               <div className="flex items-center gap-4">
-                <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-zinc-800">
+                <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm">
                   <Image 
                     src={testimonial.avatar} 
                     alt={testimonial.name}
@@ -73,7 +73,7 @@ export function InfiniteTestimonials() {
                   />
                 </div>
                 <div>
-                  <h4 className="font-alexandria font-bold text-white text-sm">{testimonial.name}</h4>
+                  <h4 className="font-alexandria font-bold text-zinc-900 text-sm">{testimonial.name}</h4>
                   <p className="font-cairo text-zinc-500 text-xs">{testimonial.role}</p>
                 </div>
               </div>

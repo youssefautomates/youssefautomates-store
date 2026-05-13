@@ -52,22 +52,22 @@ export function SalesPopup() {
           exit={{ opacity: 0, y: 20, scale: 0.9 }}
           className="fixed bottom-6 left-6 z-50 max-w-sm"
         >
-          <div className="bg-zinc-900/95 backdrop-blur-md border border-indigo-500/30 rounded-xl shadow-2xl p-4 flex items-start gap-4 shadow-[0_10px_40px_rgba(79,70,229,0.15)]">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+          <div className="bg-white/95 backdrop-blur-md border border-blue-100 rounded-xl shadow-xl p-4 flex items-start gap-4 shadow-blue-500/10">
+            <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
             </div>
             <div className="flex-1 font-cairo">
-              <p className="text-sm text-zinc-300">
-                قام <span className="font-bold text-white">{data.name}</span> بشراء
+              <p className="text-sm text-zinc-600">
+                قام <span className="font-bold text-zinc-900">{data.name}</span> بشراء
               </p>
-              <p className="text-sm font-bold text-indigo-400 truncate w-48">
+              <p className="text-sm font-bold text-blue-600 truncate w-48">
                 {data.product}
               </p>
-              <p className="text-xs text-zinc-500 mt-1">{data.time}</p>
+              <p className="text-xs text-zinc-400 mt-1">{data.time}</p>
             </div>
             <button 
               onClick={() => setIsVisible(false)}
-              className="text-zinc-500 hover:text-zinc-300 transition-colors"
+              className="text-zinc-400 hover:text-zinc-600 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
