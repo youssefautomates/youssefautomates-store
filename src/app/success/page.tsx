@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle2, Download, Mail, ArrowRight, ShieldCheck } from "lucide-react";
 import Link from "next/link";
@@ -9,7 +9,7 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { useSearchParams } from "next/navigation";
 
-export default function SuccessPage() {
+function SuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("order_id") || "ORD-" + Math.floor(Math.random() * 100000);
   const [mounted, setMounted] = useState(false);
@@ -69,7 +69,7 @@ export default function SuccessPage() {
                 </Link>
               } />
               
-               <Button variant="outline" className="w-full h-14 text-lg border-zinc-800 text-white hover:bg-zinc-800 font-cairo rounded-xl" render={
+              <Button variant="outline" className="w-full h-14 text-lg border-zinc-800 text-white hover:bg-zinc-800 font-cairo rounded-xl" render={
                 <Link href="/">
                   العودة للصفحة الرئيسية
                   <ArrowRight className="w-5 h-5 mr-2" />
@@ -86,5 +86,17 @@ export default function SuccessPage() {
       </div>
       <Footer />
     </>
+  );
+}
+
+export default function SuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="text-zinc-400 font-cairo text-lg">جاري التحميل...</div>
+      </div>
+    }>
+      <SuccessContent />
+    </Suspense>
   );
 }
