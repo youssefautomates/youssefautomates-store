@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { motion } from "framer-motion";
-import { CheckCircle2, Download, Mail, ArrowRight, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Download, Mail, ArrowRight, ShieldCheck, Sparkles, Star, Rocket, Camera, X } from "lucide-react";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -20,84 +20,127 @@ function SuccessContent() {
   if (!mounted) return null;
 
   return (
-    <>
+    <div className="min-h-screen bg-[#fafafa]">
       <Navbar />
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center py-32 px-4 relative overflow-hidden">
-        {/* Background Glows */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-emerald-50 rounded-full blur-[120px] pointer-events-none" />
-        
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.8, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          className="max-w-2xl w-full relative z-10"
-        >
-          <div className="bg-white border border-zinc-200 rounded-3xl p-8 md:p-12 shadow-2xl text-center relative overflow-hidden">
-            {/* Top Border Highlight */}
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
-            
-            <motion.div 
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.3, type: "spring", stiffness: 200, damping: 15 }}
-              className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-8 border-4 border-emerald-100 shadow-xl shadow-emerald-500/10"
-            >
-              <CheckCircle2 className="w-12 h-12 text-emerald-600" />
-            </motion.div>
+      
+      <main className="pt-32 pb-24 relative overflow-hidden">
+        {/* Celebrate Background Particles/Glows */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none">
+          <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[120px] animate-pulse" />
+          <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[100px] animate-pulse delay-700" />
+        </div>
 
-            <h1 className="text-4xl md:text-5xl font-alexandria font-bold text-zinc-900 mb-4">تم الدفع بنجاح!</h1>
-            <p className="text-zinc-600 font-cairo text-lg mb-2">
-              رقم الطلب: <span className="text-zinc-900 font-mono font-bold">{orderId}</span>
-            </p>
-            
-            <div className="bg-zinc-50 border border-zinc-100 rounded-xl p-6 my-8 flex items-start gap-4 text-right shadow-sm">
-              <Mail className="w-8 h-8 text-blue-600 shrink-0 mt-1" />
-              <div>
-                <h3 className="text-zinc-900 font-bold font-cairo text-lg mb-2">تم إرسال الملفات إلى بريدك الإلكتروني</h3>
-                <p className="text-zinc-600 font-cairo text-sm leading-relaxed">
-                  لقد قمنا للتو بإرسال رسالة تحتوي على روابط التحميل الآمنة للمنتجات التي قمت بشرائها. يرجى التحقق من صندوق الوارد (أو مجلد الرسائل المزعجة Spam).
+        <div className="container mx-auto px-4 flex flex-col items-center">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 40 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="max-w-3xl w-full"
+          >
+            {/* Main Success Card */}
+            <div className="glass-card rounded-[3rem] p-8 md:p-16 border-emerald-100 bg-white/80 shadow-2xl text-center relative overflow-hidden">
+              {/* Confetti-like elements */}
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-emerald-400 via-blue-500 to-teal-500" />
+              
+              <motion.div 
+                initial={{ rotate: -20, scale: 0 }}
+                animate={{ rotate: 0, scale: 1 }}
+                transition={{ type: "spring", stiffness: 260, damping: 20, delay: 0.2 }}
+                className="w-32 h-32 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 shadow-2xl shadow-emerald-500/30 rotate-3"
+              >
+                <CheckCircle2 className="w-16 h-16 text-white" />
+              </motion.div>
+
+              <div className="space-y-4 mb-12">
+                <Badge className="bg-emerald-100 text-emerald-700 border-none px-4 py-1.5 font-cairo text-xs font-bold uppercase tracking-widest">
+                  Order Confirmed ⚡
+                </Badge>
+                <h1 className="text-4xl md:text-6xl font-alexandria font-black text-zinc-900 tracking-tighter">أهلاً بك في المستقبل!</h1>
+                <p className="text-zinc-500 font-cairo text-lg md:text-xl max-w-lg mx-auto leading-relaxed">
+                  تم تأكيد طلبك بنجاح. لقد اتخذت الخطوة الأولى نحو أتمتة أعمالك بذكاء.
                 </p>
+                <div className="inline-flex items-center gap-2 bg-zinc-50 px-6 py-2 rounded-full border border-zinc-100 mt-4">
+                  <span className="font-cairo text-zinc-400 text-sm">رقم الطلب:</span>
+                  <span className="font-mono font-black text-zinc-900">{orderId}</span>
+                </div>
+              </div>
+
+              {/* Action Box */}
+              <div className="grid gap-6 mb-12">
+                <div className="bg-emerald-50/50 border border-emerald-100 rounded-[2rem] p-8 flex flex-col md:flex-row items-center gap-6 text-right">
+                  <div className="w-16 h-16 rounded-2xl bg-emerald-500 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
+                    <Mail className="w-8 h-8 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-alexandria font-bold text-zinc-900 text-xl mb-2">الملفات في طريقها إليك</h3>
+                    <p className="font-cairo text-zinc-600 leading-relaxed text-sm md:text-base">
+                      تحقق من بريدك الإلكتروني الآن. ستجد رسالة من <span className="text-emerald-600 font-bold">يوسف أوتميتس</span> تحتوي على جميع روابط التحميل والتعليمات.
+                    </p>
+                  </div>
+                </div>
+
+                <Link
+                  href="/download/temporary-direct-link"
+                  className="w-full h-20 bg-zinc-900 hover:bg-emerald-600 text-white font-alexandria font-black text-2xl rounded-2xl flex items-center justify-center gap-4 transition-all shadow-2xl shadow-zinc-900/10 active:scale-95 group"
+                >
+                  <Download className="w-7 h-7 group-hover:translate-y-1 transition-transform" />
+                  تحميل الملفات فوراً
+                </Link>
+              </div>
+
+              {/* Share & Support */}
+              <div className="pt-8 border-t border-zinc-100">
+                <p className="font-cairo text-zinc-400 text-sm mb-6">هل أنت متحمس؟ شاركنا نجاحك!</p>
+                <div className="flex justify-center gap-4">
+                  <Link href="#" className="w-12 h-12 rounded-xl bg-zinc-50 border border-zinc-100 flex items-center justify-center text-zinc-400 hover:text-blue-500 transition-colors">
+                    <X className="w-5 h-5" />
+                  </Link>
+                  <Link href="#" className="w-12 h-12 rounded-xl bg-zinc-50 border border-zinc-100 flex items-center justify-center text-zinc-400 hover:text-pink-500 transition-colors">
+                    <Camera className="w-5 h-5" />
+                  </Link>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <Link
-                href="/download/temporary-direct-link"
-                className="w-full h-14 inline-flex items-center justify-center gap-2 text-lg font-semibold bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-cairo rounded-xl shadow-lg shadow-emerald-500/20 transition-all"
-              >
-                <Download className="w-5 h-5" />
-                تحميل الملفات الآن (رابط مباشر مؤقت)
-              </Link>
-              
-              <Link
-                href="/"
-                className="w-full h-14 inline-flex items-center justify-center gap-2 text-lg font-semibold border border-zinc-200 text-zinc-900 hover:bg-zinc-50 font-cairo rounded-xl transition-all"
-              >
-                العودة للصفحة الرئيسية
-                <ArrowRight className="w-5 h-5" />
-              </Link>
+            {/* Support Trust */}
+            <div className="mt-12 text-center space-y-4">
+              <div className="flex items-center justify-center gap-2 text-zinc-400 font-cairo">
+                <ShieldCheck className="w-5 h-5 text-emerald-500" />
+                <span>جميع ملفاتك مؤمنة بضمان يوسف أوتميتس</span>
+              </div>
+              <p className="text-sm text-zinc-400 font-cairo">
+                تواجه مشكلة؟ <Link href="#" className="text-blue-600 font-bold hover:underline">تحدث مع الدعم الفني مباشرة</Link>
+              </p>
             </div>
-          </div>
+          </motion.div>
+        </div>
+      </main>
 
-          <div className="mt-8 flex justify-center items-center gap-2 text-zinc-500 font-cairo text-sm">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            بياناتك ومعاملتك محمية ومؤمنة بالكامل
-          </div>
-        </motion.div>
-      </div>
       <Footer />
-    </>
+    </div>
+  );
+}
+
+function Badge({ children, className }: { children: React.ReactNode, className?: string }) {
+  return (
+    <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${className}`}>
+      {children}
+    </span>
   );
 }
 
 export default function SuccessPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-zinc-500 font-cairo text-lg">جاري التحميل...</div>
+      <div className="min-h-screen bg-[#fafafa] flex items-center justify-center">
+        <motion.div 
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full"
+        />
       </div>
     }>
       <SuccessContent />
     </Suspense>
   );
 }
+

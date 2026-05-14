@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cairo, Alexandria } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -16,8 +16,28 @@ const alexandria = Alexandria({
 });
 
 export const metadata: Metadata = {
-  title: "Youssef Automates",
-  description: "متجر رائد لبيع المنتجات الرقمية وأتمتة n8n",
+  title: {
+    default: "Youssef Automates | حلول الأتمتة والمنتجات الرقمية الفاخرة",
+    template: "%s | Youssef Automates"
+  },
+  description: "انطلق نحو المستقبل مع يوسف أوتميتس. نوفر لك أرقى حلول أتمتة الأعمال n8n والمنتجات الرقمية التي تضاعف إنتاجيتك.",
+  keywords: ["أتمتة", "n8n", "منتجات رقمية", "ذكاء اصطناعي", "تسويق رقمي", "يوسف أوتميتس"],
+  authors: [{ name: "Youssef Ahmed" }],
+  openGraph: {
+    type: "website",
+    locale: "ar_EG",
+    url: "https://youssefautomates.com",
+    title: "Youssef Automates | الحل الأمثل للأتمتة الذكية",
+    description: "ضاعف إنتاجيتك الآن مع أرقى حلول الأتمتة n8n.",
+    siteName: "Youssef Automates",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#000000",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({
@@ -29,13 +49,13 @@ export default function RootLayout({
     <html
       lang="ar"
       dir="rtl"
-      className={`${cairo.variable} ${alexandria.variable}`}
-      style={{ colorScheme: 'light' }}
+      className={`${cairo.variable} ${alexandria.variable} scroll-smooth`}
     >
-      <body className="min-h-screen bg-white text-zinc-900 font-cairo flex flex-col antialiased">
+      <body className="min-h-screen bg-white text-zinc-900 font-cairo flex flex-col antialiased selection:bg-blue-600/10 selection:text-blue-600">
         {children}
-        <Toaster theme="light" position="top-center" />
+        <Toaster theme="light" position="top-center" closeButton richColors />
       </body>
     </html>
   );
 }
+
