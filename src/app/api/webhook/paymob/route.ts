@@ -48,48 +48,78 @@ function buildEmailHtml(
   return parts.join("\n");
 }
 
+import { supabase } from "@/lib/supabase";
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // Verify Paymob Webhook signature here (HMAC verification)
-    // const hmac = request.headers.get('hmac');
-    // verifyHmac(body, hmac, process.env.PAYMOB_HMAC_SECRET);
-
     // Check if the transaction is successful
     if (body.obj && body.obj.success === true) {
       const order = body.obj.order;
-      const customerEmail =
-        body.obj.payment_key_claims.billing_data.email;
-      const customerName =
-        body.obj.payment_key_claims.billing_data.first_name;
+      const customerEmail = body.obj.payment_key_claims.billing_data.email;
+      const customerName = body.obj.payment_key_claims.billing_data.first_name;
+      const amount = body.obj.amount_cents / 100;
+      const currency = body.obj.currency;
 
-      // Generate secure download link (Expires in 24 hours)
-      const baseUrl =
-        process.env.NEXT_PUBLIC_APP_URL || "https://youssefautomates.com";
-      const secureDownloadLink =
-        baseUrl + "/download/secure-token-" + String(Date.now());
+      // Extract Product ID from items (we passed it in initiate/route.ts)
+      const productId = order.items?.[0]?.name;
+      let secureDownloadLink = "";
+      let productName = "حزمة الأتمتة الخاصة بك";
+
+      if (productId) {
+        // Fetch real file URL from Supabase
+        const { data: product, error: productError } = await supabase
+          .from("products")
+          .select("title, file_url")
+          .eq("id", productId)
+          .single();
+
+        if (product && product.file_url) {
+          secureDownloadLink = product.file_url;
+          productName = product.title;
+          console.log(`[Webhook] Found product ${product.title} with file: ${product.file_url}`);
+        }
+      }
+
+      // Fallback if no specific file found (redirect to success page)
+      if (!secureDownloadLink) {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://youssefautomates.com";
+        secureDownloadLink = baseUrl + "/success?order_id=" + String(order.id);
+      }
+
+      // Log transaction details
+      console.log(`[Webhook] Successful transaction: Order ${order.id}, Customer: ${customerEmail}, Amount: ${amount} ${currency}`);
 
       // Build the email HTML
       const emailHtml = buildEmailHtml(customerName, secureDownloadLink);
 
       // Send the email
       if (process.env.RESEND_API_KEY) {
-        await resend.emails.send({
-          from: "Youssef Automates <delivery@youssefautomates.com>",
-          to: customerEmail,
-          subject:
-            "\u062a\u0645 \u062a\u0633\u0644\u064a\u0645 \u0637\u0644\u0628\u0643 \u0628\u0646\u062c\u0627\u062d \ud83d\ude80 - \u0631\u0627\u0628\u0637 \u0627\u0644\u062a\u062d\u0645\u064a\u0644 \u0628\u0627\u0644\u062f\u0627\u062e\u0644",
-          html: emailHtml,
-        });
-      }
+        try {
+          const { data, error } = await resend.emails.send({
+            from: "Youssef Automates <delivery@youssefautomates.com>",
+            to: customerEmail,
+            subject: `تم تسليم طلبك بنجاح 🚀 - ${productName}`,
+            html: emailHtml,
+          });
 
-      // Log success
-      console.log("Successfully processed and sent email to " + customerEmail); 
+          if (error) {
+            console.error("[Resend Error]:", error);
+            throw error;
+          }
+
+          console.log(`[Webhook] Email sent successfully to ${customerEmail}. Resend ID: ${data?.id}`);
+        } catch (resendError) {
+          console.error("[Webhook] Failed to send email via Resend:", resendError);
+        }
+      } else {
+        console.warn("[Webhook] RESEND_API_KEY is not set. Skipping email sending.");
+      }
 
       return NextResponse.json({
         success: true,
-        message: "Order processed and email sent",
+        message: "Order processed and email delivery attempted",
       });
     }
 

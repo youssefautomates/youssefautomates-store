@@ -1,23 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Plus, Search, Edit, Trash2, Image as ImageIcon, UploadCloud, FileText, FileArchive, FileJson, X, PlayCircle } from "lucide-react";
-import { toast } from "sonner";
-import Image from "next/image";
+import { supabase } from "@/lib/supabase";
 
 export default function AdminProducts() {
   const [products, setProducts] = useState<any[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Form States
   const [title, setTitle] = useState("");
@@ -25,6 +15,7 @@ export default function AdminProducts() {
   const [originalPrice, setOriginalPrice] = useState("");
   const [status, setStatus] = useState("نشط");
   const [isFeatured, setIsFeatured] = useState(false);
+  const [fileUrl, setFileUrl] = useState(""); // New state for real file URL
   
   // Media & Files States
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -34,23 +25,26 @@ export default function AdminProducts() {
   const digitalFilesRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem("store_products");
-    if (saved) {
-      setProducts(JSON.parse(saved));
-    } else {
-      const initialProducts = [
-        { id: 1, title: "حزمة أتمتة خدمة العملاء الذكية", price: "49.00", originalPrice: "99.00", status: "نشط", sales: 124, image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=800", isFeatured: true, files: [] },
-        { id: 2, title: "دليل بناء بوت تليجرام متقدم", price: "39.00", originalPrice: "79.00", status: "نشط", sales: 89, image: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=800", isFeatured: false, files: [] },
-      ];
-      setProducts(initialProducts);
-      localStorage.setItem("store_products", JSON.stringify(initialProducts));
-    }
+    fetchProducts();
   }, []);
 
-  const saveProducts = (newProducts: any[]) => {
-    setProducts(newProducts);
-    localStorage.setItem("store_products", JSON.stringify(newProducts));
-  };
+  async function fetchProducts() {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (error: any) {
+      console.error("Error fetching products:", error);
+      toast.error("فشل تحميل المنتجات من قاعدة البيانات");
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -66,19 +60,20 @@ export default function AdminProducts() {
   const handleDigitalFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length > 0) {
-      // Simulate upload progress
+      // For now we still simulate upload progress, 
+      // but we encourage users to provide a direct link (e.g. Google Drive/Dropbox/S3)
       setUploadProgress(0);
       const interval = setInterval(() => {
         setUploadProgress(prev => {
           if (prev >= 100) {
             clearInterval(interval);
             setDigitalFiles(prevFiles => [...prevFiles, ...files]);
-            toast.success(`تم رفع ${files.length} ملفات بنجاح`);
+            toast.success(`تم رفع ${files.length} ملفات (محلياً للمعاينة)`);
             return 100;
           }
           return prev + 10;
         });
-      }, 200);
+      }, 100);
     }
   };
 
@@ -102,70 +97,85 @@ export default function AdminProducts() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const handleAddProduct = () => {
+  const handleAddProduct = async () => {
     if (!title || !price) {
       toast.error("الرجاء إدخال اسم المنتج والسعر");
       return;
     }
 
-    const newProduct = {
-      id: Date.now(),
-      title,
-      price,
-      originalPrice,
-      status,
-      sales: 0,
-      image: imagePreview || "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=800",
-      isFeatured,
-      // Store mock files info
-      files: digitalFiles.map(f => ({ name: f.name, size: f.size, type: f.type }))
-    };
+    try {
+      const { error } = await supabase.from("products").insert({
+        title,
+        price: parseFloat(price),
+        original_price: parseFloat(originalPrice) || null,
+        status,
+        image_url: imagePreview || "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=800",
+        is_featured: isFeatured,
+        file_url: fileUrl,
+      });
 
-    saveProducts([...products, newProduct]);
-    toast.success("تم إضافة المنتج بنجاح");
-    resetForm();
-    setIsAddOpen(false);
+      if (error) throw error;
+      
+      toast.success("تم إضافة المنتج بنجاح");
+      fetchProducts();
+      resetForm();
+      setIsAddOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || "حدث خطأ أثناء الحفظ");
+    }
   };
 
-  const handleEditProduct = () => {
+  const handleEditProduct = async () => {
     if (!title || !price || !editingProduct) return;
 
-    const updatedProducts = products.map(p => 
-      p.id === editingProduct.id ? { 
-        ...p, 
-        title, 
-        price, 
-        originalPrice, 
-        status, 
-        image: imagePreview || p.image,
-        isFeatured,
-        files: digitalFiles.length > 0 ? digitalFiles.map(f => ({ name: f.name, size: f.size, type: f.type })) : p.files
-      } : p
-    );
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update({
+          title,
+          price: parseFloat(price),
+          original_price: parseFloat(originalPrice) || null,
+          status,
+          image_url: imagePreview,
+          is_featured: isFeatured,
+          file_url: fileUrl,
+        })
+        .eq("id", editingProduct.id);
 
-    saveProducts(updatedProducts);
-    toast.success("تم تحديث المنتج بنجاح");
-    resetForm();
-    setIsEditOpen(false);
+      if (error) throw error;
+
+      toast.success("تم تحديث المنتج بنجاح");
+      fetchProducts();
+      resetForm();
+      setIsEditOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || "حدث خطأ أثناء التحديث");
+    }
   };
 
-  const handleDeleteProduct = (id: number) => {
+  const handleDeleteProduct = async (id: number) => {
     if (confirm("هل أنت متأكد من حذف هذا المنتج؟")) {
-      const updatedProducts = products.filter(p => p.id !== id);
-      saveProducts(updatedProducts);
-      toast.success("تم حذف المنتج");
+      try {
+        const { error } = await supabase.from("products").delete().eq("id", id);
+        if (error) throw error;
+        toast.success("تم حذف المنتج");
+        fetchProducts();
+      } catch (error: any) {
+        toast.error("فشل الحذف");
+      }
     }
   };
 
   const openEditDialog = (product: any) => {
     setEditingProduct(product);
-    setTitle(product.title || product.name);
-    setPrice(product.price);
-    setOriginalPrice(product.originalPrice || "");
+    setTitle(product.title);
+    setPrice(product.price.toString());
+    setOriginalPrice(product.original_price?.toString() || "");
     setStatus(product.status);
-    setIsFeatured(product.isFeatured || false);
-    setImagePreview(product.image);
-    setDigitalFiles([]); // Reset files, in reality we'd fetch existing files
+    setIsFeatured(product.is_featured || false);
+    setImagePreview(product.image_url);
+    setFileUrl(product.file_url || "");
+    setDigitalFiles([]);
     setUploadProgress(0);
     setIsEditOpen(true);
   };
@@ -176,6 +186,7 @@ export default function AdminProducts() {
     setOriginalPrice("");
     setStatus("نشط");
     setIsFeatured(false);
+    setFileUrl("");
     setImagePreview(null);
     setDigitalFiles([]);
     setUploadProgress(0);
@@ -254,25 +265,18 @@ export default function AdminProducts() {
                   </div>
                 )}
 
-                {/* Uploaded Files List */}
-                {digitalFiles.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {digitalFiles.map((file, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-zinc-50 border border-zinc-200 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          {getFileIcon(file.type || file.name)}
-                          <div>
-                            <p className="text-zinc-900 text-sm font-cairo font-bold truncate max-w-[200px]" dir="ltr">{file.name}</p>
-                            <p className="text-zinc-500 text-xs font-cairo">{formatFileSize(file.size)}</p>
-                          </div>
-                        </div>
-                        <button onClick={() => removeDigitalFile(idx)} className="text-zinc-400 hover:text-red-600 transition-colors">
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {/* Digital Delivery Link */}
+                <div className="mt-6 space-y-2">
+                  <Label className="text-blue-700 font-bold">رابط الملف الفعلي (Google Drive / Dropbox / S3)</Label>
+                  <Input 
+                    value={fileUrl} 
+                    onChange={e => setFileUrl(e.target.value)} 
+                    placeholder="https://drive.google.com/..." 
+                    className="bg-white border-blue-100 focus-visible:ring-blue-500 text-zinc-900" 
+                    dir="ltr"
+                  />
+                  <p className="text-[10px] text-zinc-400">هذا الرابط هو ما سيتم إرساله للعميل تلقائياً بعد الدفع الناجح.</p>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -359,10 +363,10 @@ export default function AdminProducts() {
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
-                    {product.files?.length > 0 ? (
-                      <Badge className="bg-blue-50 text-blue-600 border-blue-100 font-sans">{product.files.length} Files</Badge>
+                    {product.file_url ? (
+                      <Badge className="bg-blue-50 text-blue-600 border-blue-100 font-sans">Ready for Delivery</Badge>
                     ) : (
-                      <span className="text-zinc-400 text-xs">لا يوجد</span>
+                      <span className="text-zinc-400 text-xs">رابط مفقود</span>
                     )}
                   </div>
                 </TableCell>
@@ -413,11 +417,11 @@ export default function AdminProducts() {
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-zinc-600">السعر (ج.م)</Label>
+                <Label className="text-zinc-600">السعر ($)</Label>
                 <Input value={price} onChange={e => setPrice(e.target.value)} type="number" className="bg-white border-zinc-200 focus-visible:ring-blue-500 text-zinc-900" dir="ltr" />
               </div>
               <div className="space-y-2">
-                <Label className="text-zinc-600">السعر قبل الخصم (ج.م)</Label>
+                <Label className="text-zinc-600">السعر قبل الخصم ($)</Label>
                 <Input value={originalPrice} onChange={e => setOriginalPrice(e.target.value)} type="number" className="bg-white border-zinc-200 focus-visible:ring-blue-500 text-zinc-900" dir="ltr" />
               </div>
             </div>

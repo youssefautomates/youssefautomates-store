@@ -24,6 +24,8 @@ const checkoutSchema = z.object({
 
 type CheckoutValues = z.infer<typeof checkoutSchema>;
 
+import { supabase } from "@/lib/supabase";
+
 export default function CheckoutPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const [isLoading, setIsLoading] = useState(false);
@@ -31,21 +33,37 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
   const router = useRouter();
 
   useEffect(() => {
-    const saved = localStorage.getItem("store_products");
-    if (saved) {
-      const products = JSON.parse(saved);
-      const found = products.find((p: any) => p.id.toString() === resolvedParams.id);
-      if (found) setProduct(found);
-    }
+    fetchProduct();
   }, [resolvedParams.id]);
 
+  async function fetchProduct() {
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("id", resolvedParams.id)
+        .single();
+
+      if (error) throw error;
+      setProduct(data);
+    } catch (error) {
+      console.error("Error fetching product:", error);
+    }
+  }
+
   const defaultProduct = {
-    name: "مكتبة الأتمتة الشاملة: +2000 تدفق عمل (n8n Workflows) جاهز للاستخدام",
+    title: "مكتبة الأتمتة الشاملة: +2000 تدفق عمل (n8n Workflows) جاهز للاستخدام",
     price: "49.00",
-    originalPrice: "199.00",
+    original_price: "199.00",
   };
 
   const currentProduct = product || defaultProduct;
+  
+  const displayProduct = {
+    name: currentProduct.title || currentProduct.name,
+    price: currentProduct.price,
+    originalPrice: currentProduct.original_price || currentProduct.originalPrice,
+  };
 
   const { register, handleSubmit, formState: { errors } } = useForm<CheckoutValues>({
     resolver: zodResolver(checkoutSchema),
@@ -59,12 +77,30 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
   async function onSubmit(data: CheckoutValues) {
     setIsLoading(true);
     try {
-      console.log("Processing payment for", data);
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      toast.success("تم إرسال الطلب بنجاح، جاري التحويل للدفع...");
-      router.push(`/success?order_id=ORD-${Math.floor(Math.random() * 100000)}`);
-    } catch (error) {
-      toast.error("حدث خطأ أثناء معالجة الطلب");
+      const response = await fetch("/api/paymob/initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: currentProduct.price,
+          email: data.email,
+          firstName: data.fullName.split(" ")[0],
+          lastName: data.fullName.split(" ").slice(1).join(" ") || "Customer",
+          phone: data.phone,
+          productId: resolvedParams.id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.iframeUrl) {
+        toast.success("جاري تحويلك لبوابة الدفع الآمنة...");
+        window.location.href = result.iframeUrl;
+      } else {
+        throw new Error(result.error || "فشل بدء عملية الدفع");
+      }
+    } catch (error: any) {
+      console.error("Payment Error:", error);
+      toast.error(error.message || "حدث خطأ أثناء معالجة الطلب");
     } finally {
       setIsLoading(false);
     }
@@ -153,7 +189,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                         </div>
                       ) : (
                         <div className="flex items-center gap-3">
-                          أكمل الطلب الآن
+                          متابعة الدفع ({currentProduct.price} ج.م)
                           <ArrowLeft className="w-6 h-6 rtl:rotate-180" />
                         </div>
                       )}
@@ -212,20 +248,20 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                     </div>
                   </div>
 
-                  <div className="space-y-4 mb-8 font-cairo">
+                  <div className="space-y-4 mb-8 font-cairo text-right">
                     <div className="flex justify-between text-zinc-500 text-lg">
-                      <span>السعر الأصلي</span>
-                      <span className="line-through">{currentProduct.originalPrice} ج.م</span>
+                      <span className="order-1">{currentProduct.originalPrice} ج.م</span>
+                      <span className="line-through order-2">السعر الأصلي</span>
                     </div>
                     <div className="flex justify-between text-emerald-600 font-bold text-lg bg-emerald-50 px-3 py-1 rounded-lg">
-                      <span>خصم خاص (75%)</span>
-                      <span>-{parseFloat(currentProduct.originalPrice) - parseFloat(currentProduct.price)} ج.م</span>
+                      <span className="order-1">-{parseFloat(currentProduct.originalPrice || "0") - parseFloat(currentProduct.price || "0")} ج.م</span>
+                      <span className="order-2">خصم خاص (75%)</span>
                     </div>
                   </div>
 
                   <div className="flex justify-between items-center text-zinc-900 font-alexandria text-3xl pt-8 border-t border-zinc-100">
-                    <span className="font-black">الإجمالي</span>
                     <span className="text-blue-600 font-black">{currentProduct.price} ج.م</span>
+                    <span className="font-black">الإجمالي</span>
                   </div>
                 </Card>
 

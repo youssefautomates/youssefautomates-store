@@ -17,28 +17,52 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
+import { supabase } from "@/lib/supabase";
+
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const [product, setProduct] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"details" | "previews" | "reviews">("details");
 
   useEffect(() => {
-    const saved = localStorage.getItem("store_products");
-    if (saved) {
-      const products = JSON.parse(saved);
-      const found = products.find((p: any) => p.id.toString() === resolvedParams.id);
-      if (found) setProduct(found);
-    }
+    fetchProduct();
   }, [resolvedParams.id]);
 
+  async function fetchProduct() {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("id", resolvedParams.id)
+        .single();
+
+      if (error) throw error;
+      setProduct(data);
+    } catch (error) {
+      console.error("Error fetching product:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   const defaultProduct = {
-    name: "مكتبة الأتمتة الشاملة: +2000 تدفق عمل (n8n Workflows) جاهز للاستخدام",
+    title: "مكتبة الأتمتة الشاملة: +2000 تدفق عمل (n8n Workflows) جاهز للاستخدام",
     price: "49.00",
-    originalPrice: "199.00",
-    image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1200&auto=format&fit=crop"
+    original_price: "199.00",
+    image_url: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1200&auto=format&fit=crop"
   };
 
   const currentProduct = product || defaultProduct;
+  
+  // Normalize fields in case they come from DB or default
+  const displayProduct = {
+    name: currentProduct.title || currentProduct.name,
+    price: currentProduct.price,
+    originalPrice: currentProduct.original_price || currentProduct.originalPrice,
+    image: currentProduct.image_url || currentProduct.image
+  };
 
   return (
     <div className="min-h-screen bg-[#fafafa]">
@@ -190,7 +214,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
             </div>
 
             <div className="mt-20 p-12 rounded-[3rem] bg-blue-600 text-white text-center shadow-2xl shadow-blue-500/20">
-              <p className="text-xl md:text-3xl font-alexandria font-bold mb-4">إجمالي قيمة ما تحصل عليه: <span className="line-through opacity-60">948$</span></p>
+              <p className="text-xl md:text-3xl font-alexandria font-bold mb-4">إجمالي قيمة ما تحصل عليه: <span className="line-through opacity-60">948 ج.م</span></p>
               <h3 className="text-4xl md:text-7xl font-alexandria font-black">احصل عليها اليوم بـ {currentProduct.price} ج.م فقط!</h3>
             </div>
           </div>
@@ -361,7 +385,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
         <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-zinc-200 p-6 z-50 flex items-center justify-between gap-6 shadow-[0_-10px_50px_rgba(0,0,0,0.1)] pb-safe">
           <div className="flex flex-col">
             <span className="text-zinc-400 font-cairo text-sm line-through">{currentProduct.originalPrice} ج.م</span>
-            <span className="text-3xl font-alexandria font-black text-zinc-900">{currentProduct.price} ج.m</span>
+            <span className="text-3xl font-alexandria font-black text-zinc-900">{currentProduct.price} ج.م</span>
           </div>
           <Link
             href={`/checkout/${resolvedParams.id}`}

@@ -14,20 +14,33 @@ import { CountdownTimer } from "@/components/ui/CountdownTimer";
 import { InfiniteTestimonials } from "@/components/ui/InfiniteTestimonials";
 import { cn } from "@/lib/utils";
 
+import { supabase } from "@/lib/supabase";
+
 export default function Home() {
   const [products, setProducts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem("store_products");
-    if (saved) {
-      setProducts(JSON.parse(saved).filter((p: any) => p.status === "نشط"));
-    } else {
-      setProducts([
-        { id: 1, name: "حزمة أتمتة خدمة العملاء الذكية", price: "49.00", originalPrice: "99.00", image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=800&auto=format&fit=crop", isFeatured: true },
-        { id: 2, name: "دليل بناء بوت تليجرام متقدم", price: "39.00", originalPrice: "79.00", image: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=800&auto=format&fit=crop", isFeatured: false },
-      ]);
-    }
+    fetchProducts();
   }, []);
+
+  async function fetchProducts() {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("status", "نشط")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (error) {
+      console.error("Error fetching products:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   return (
     <>
@@ -71,7 +84,7 @@ export default function Home() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
                 </span>
-                <span className="font-cairo text-sm font-bold text-blue-700">تحديث مايو 2024: 12 حزمة جديدة متاحة الآن</span>
+                <span className="font-cairo text-sm font-bold text-blue-700">خصومات حصرية متاحة الآن لفترة محدودة</span>
               </motion.div>
 
               <motion.h1
@@ -234,7 +247,7 @@ export default function Home() {
                       </div>
 
                       <div className="absolute bottom-4 right-4 text-white font-alexandria font-bold text-2xl drop-shadow-lg">
-                        {product.price} <span className="text-sm font-cairo font-normal">ج.م</span>
+                        {product.price} <span className="text-sm font-cairo font-normal mr-1">ج.م</span>
                       </div>
                     </div>
 

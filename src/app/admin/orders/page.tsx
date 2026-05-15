@@ -11,10 +11,10 @@ import { toast } from "sonner";
 
 export default function AdminOrders() {
   const orders = [
-    { id: "ORD-7352", customer: "محمد أحمد", email: "mohamed@example.com", phone: "+966500000000", product: "حزمة أتمتة الرد التلقائي", amount: "49.00 ج.م", status: "مكتمل", date: "2026-05-13 10:30" },
-    { id: "ORD-7351", customer: "خالد عبدالله", email: "khalid@example.com", phone: "+966500000001", product: "دليل بناء بوت تليجرام", amount: "39.00 ج.م", status: "مكتمل", date: "2026-05-13 09:15" },
-    { id: "ORD-7350", customer: "سارة محمد", email: "sara@example.com", phone: "+966500000002", product: "حزمة أتمتة الرد التلقائي", amount: "49.00 ج.م", status: "فشل الدفع", date: "2026-05-12 18:45" },
-    { id: "ORD-7349", customer: "فهد عبدالرحمن", email: "fahad@example.com", phone: "+966500000003", product: "حزمة أتمتة الرد التلقائي", amount: "49.00 ج.م", status: "مكتمل", date: "2026-05-12 14:20" },
+    { id: "ORD-7352", customer: "محمد أحمد", email: "mohamed@example.com", phone: "+966500000000", product: "حزمة أتمتة الرد التلقائي", amount: "$49.00", status: "مكتمل", date: "2026-05-13 10:30" },
+    { id: "ORD-7351", customer: "خالد عبدالله", email: "khalid@example.com", phone: "+966500000001", product: "دليل بناء بوت تليجرام", amount: "$39.00", status: "مكتمل", date: "2026-05-13 09:15" },
+    { id: "ORD-7350", customer: "سارة محمد", email: "sara@example.com", phone: "+966500000002", product: "حزمة أتمتة الرد التلقائي", amount: "$49.00", status: "فشل الدفع", date: "2026-05-12 18:45" },
+    { id: "ORD-7349", customer: "فهد عبدالرحمن", email: "fahad@example.com", phone: "+966500000003", product: "حزمة أتمتة الرد التلقائي", amount: "$49.00", status: "مكتمل", date: "2026-05-12 14:20" },
   ];
 
   const handleResendEmail = (email: string) => {

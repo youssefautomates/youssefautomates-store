@@ -11,7 +11,7 @@ export default function AdminDashboard() {
   const stats = [
     { 
       title: "إجمالي الإيرادات", 
-      value: "45,231.89 ج.م", 
+      value: "$45,231.89", 
       icon: DollarSign, 
       trend: "+20.1%", 
       isUp: true,
@@ -44,11 +44,11 @@ export default function AdminDashboard() {
   ];
 
   const recentOrders = [
-    { id: "ORD-7352", customer: "محمد أحمد", email: "mohamed@example.com", amount: "49.00 ج.م", status: "مكتمل", date: "منذ 5 دقائق" },
-    { id: "ORD-7351", customer: "خالد عبدالله", email: "khalid@example.com", amount: "99.00 ج.م", status: "مكتمل", date: "منذ 15 دقيقة" },
-    { id: "ORD-7350", customer: "سارة محمد", email: "sara@example.com", amount: "49.00 ج.م", status: "قيد المراجعة", date: "منذ ساعة" },
-    { id: "ORD-7349", customer: "فهد عبدالرحمن", email: "fahad@example.com", amount: "149.00 ج.م", status: "مكتمل", date: "منذ ساعتين" },
-    { id: "ORD-7348", customer: "نورة سعد", email: "noura@example.com", amount: "49.00 ج.م", status: "مكتمل", date: "منذ 3 ساعات" },
+    { id: "ORD-7352", customer: "محمد أحمد", email: "mohamed@example.com", amount: "$49.00", status: "مكتمل", date: "منذ 5 دقائق" },
+    { id: "ORD-7351", customer: "خالد عبدالله", email: "khalid@example.com", amount: "$99.00", status: "مكتمل", date: "منذ 15 دقيقة" },
+    { id: "ORD-7350", customer: "سارة محمد", email: "sara@example.com", amount: "$49.00", status: "قيد المراجعة", date: "منذ ساعة" },
+    { id: "ORD-7349", customer: "فهد عبدالرحمن", email: "fahad@example.com", amount: "$149.00", status: "مكتمل", date: "منذ ساعتين" },
+    { id: "ORD-7348", customer: "نورة سعد", email: "noura@example.com", amount: "$49.00", status: "مكتمل", date: "منذ 3 ساعات" },
   ];
 
   return (
