@@ -190,21 +190,32 @@ export default function Home() {
                       className="block relative h-full flex flex-col bg-[#0a0a0f] border border-white/5 hover:border-rose-500/30 rounded-[2.5rem] overflow-hidden group-hover:-translate-y-2 transition-all duration-500 shadow-2xl hover:shadow-[0_20px_40px_rgba(239,0,85,0.1)] cursor-pointer"
                     >
                       {/* Image Area */}
-                      <div className="relative h-64 overflow-hidden bg-zinc-900 p-6 flex items-center justify-center">
+                      <div className="relative h-64 overflow-hidden bg-zinc-950 flex items-center justify-center border-b border-white/5">
                         <div className="absolute inset-0 bg-gradient-to-b from-rose-500/5 to-transparent z-0" />
-                        <Image 
-                          src={product.image_url && !product.image_url.includes("unsplash.com") ? product.image_url : "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=800"} 
-                          alt={product.title}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-700 opacity-80 group-hover:opacity-100"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f]/40 to-transparent" />
                         
-                        {/* Video Indicator */}
+                        {product.image_url && !product.image_url.includes("unsplash.com") ? (
+                          <Image 
+                            src={product.image_url} 
+                            alt={product.title}
+                            fill
+                            className="object-cover group-hover:scale-110 transition-transform duration-700 opacity-90 group-hover:opacity-100"
+                          />
+                        ) : (
+                          /* If no image, show a clean techy background or video icon */
+                          <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0f]">
+                            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform duration-500">
+                               <PlayCircle className="w-10 h-10 text-zinc-800 group-hover:text-rose-500 transition-colors" />
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-transparent to-transparent opacity-80" />
+                        
+                        {/* Video Indicator Badge */}
                         {product.tags?.some(t => t.startsWith("video:")) && (
-                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10">
-                            <div className="w-16 h-16 bg-rose-600/80 rounded-full flex items-center justify-center backdrop-blur-md">
-                              <PlayCircle className="w-8 h-8 text-white" />
+                          <div className="absolute top-6 right-6 z-10">
+                            <div className="bg-rose-600/90 backdrop-blur-md p-2 rounded-xl border border-rose-400/30 shadow-lg group-hover:scale-110 transition-all">
+                              <Play className="w-3 h-3 text-white fill-current" />
                             </div>
                           </div>
                         )}

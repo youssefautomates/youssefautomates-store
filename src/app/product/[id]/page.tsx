@@ -4,11 +4,11 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Badge } from "@/components/ui/badge";
 import { 
-  CheckCircle2, FileText, Zap, ChevronRight, Lock, PlayCircle, Star, 
+  CheckCircle2, FileText, Zap, ChevronRight, Lock, Star, 
   ShieldCheck, Download, Users, Infinity, Target, Sparkles, 
   MonitorPlay, ArrowLeft, Rocket, HeartHandshake,
   Clock, ShoppingCart, Play, FileJson, Link as LinkIcon, Archive,
-  Volume2, VolumeX
+  Volume2, VolumeX, Pause, Maximize, RotateCcw
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect, use, useRef } from "react";
@@ -40,8 +40,9 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const [product, setProduct] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"details" | "previews" | "reviews">("details");
-  const [activeMedia, setActiveMedia] = useState<string | null>(null); // URL of active image or 'video'
+  const [activeMedia, setActiveMedia] = useState<string | null>(null); // URL of image or 'video'
   const [isMuted, setIsMuted] = useState(true);
+  const [hasInteracted, setHasInteracted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   
   const { addToCart } = useCart();
@@ -63,9 +64,8 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
       const unpacked = unpackProduct(data as Product);
       setProduct(unpacked);
       
-      // If there's a video and NO image, or if the user prefers video, set active media to 'video'
-      // The user said: "If a video is added without a thumbnail image, use the video as the primary visual"
-      if (unpacked.video_url && (!unpacked.image_url || unpacked.image_url.includes("unsplash.com"))) {
+      // LOGIC: If video exists, it's the primary media. Otherwise the image.
+      if (unpacked.video_url) {
         setActiveMedia('video');
       } else {
         setActiveMedia(unpacked.image_url);
@@ -83,12 +83,13 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     }
   }
 
-  const handleUnmute = () => {
+  const handleUnmuteAndStart = () => {
     if (videoRef.current) {
       videoRef.current.muted = false;
       videoRef.current.currentTime = 0;
       videoRef.current.play();
       setIsMuted(false);
+      setHasInteracted(true);
     }
   };
 
@@ -111,7 +112,12 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
 
   const savings = product.original_price ? product.original_price - product.price : 0;
   const discountPct = calcDiscount(product.price, product.original_price);
-  const allImages = [product.image_url, ...product.gallery].filter(Boolean);
+  
+  // FILTER: Only real images. No placeholders.
+  const isPlaceholder = (url: string) => !url || url.includes("unsplash.com") || url.includes("placeholder");
+  const mainImage = isPlaceholder(product.image_url) ? null : product.image_url;
+  const galleryImages = product.gallery.filter((url: string) => !isPlaceholder(url));
+  const allRealImages = [mainImage, ...galleryImages].filter(Boolean) as string[];
 
   // File type icon helper
   const getFileIcon = (type: string) => {
@@ -140,476 +146,327 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
             className="flex flex-col lg:flex-row gap-12 items-start"
           >
             {/* Left: Product Visuals */}
-            <div className="w-full lg:w-[55%] space-y-6">
-              <div className="relative aspect-[16/10] bg-[#0a0a0f] rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(214,0,75,0.1)] group border border-white/5">
+            <div className="w-full lg:w-[58%] space-y-6">
+              <div className="relative aspect-video bg-[#08080c] rounded-[2.5rem] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.5)] group border border-white/5 flex items-center justify-center">
                 
                 <AnimatePresence mode="wait">
-                  {activeMedia === 'video' ? (
+                  {activeMedia === 'video' && product.video_url ? (
                     <motion.div 
                       key="video"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      className="absolute inset-0 z-20 bg-black"
+                      className="absolute inset-0 z-20 flex items-center justify-center bg-black"
                     >
                       {isYouTube ? (
                         <iframe 
-                          src={`https://www.youtube.com/embed/${product.video_url.split('v=')[1]?.split('&')[0] || product.video_url.split('/').pop()}?autoplay=1&mute=1&loop=1&playlist=${product.video_url.split('v=')[1]?.split('&')[0] || product.video_url.split('/').pop()}`}
+                          src={`https://www.youtube.com/embed/${product.video_url.split('v=')[1]?.split('&')[0] || product.video_url.split('/').pop()}?autoplay=1&mute=1&controls=1`}
                           className="w-full h-full border-none"
                           allow="autoplay; encrypted-media"
                           allowFullScreen
                         />
                       ) : (
-                        <div className="relative w-full h-full">
+                        <div className="relative w-full h-full flex items-center justify-center">
                           <video 
                             ref={videoRef}
                             src={product.video_url} 
                             muted={isMuted}
                             autoPlay 
                             playsInline
-                            loop
-                            className="w-full h-full object-contain cursor-pointer"
-                            onClick={isMuted ? handleUnmute : undefined}
+                            loop={!hasInteracted}
+                            controls={hasInteracted}
+                            preload="metadata"
+                            className="max-w-full max-h-full object-contain"
                           />
-                          {isMuted && (
+                          
+                          {/* Muted Autoplay Overlay */}
+                          {!hasInteracted && (
                             <div 
-                              onClick={handleUnmute}
-                              className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] cursor-pointer group/unmute transition-all hover:bg-black/20"
+                              onClick={handleUnmuteAndStart}
+                              className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 backdrop-blur-[1px] cursor-pointer group/unmute transition-all hover:bg-black/10 z-30"
                             >
-                               <div className="w-20 h-20 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full flex items-center justify-center mb-4 transition-transform group-hover/unmute:scale-110">
-                                  <VolumeX className="w-8 h-8 text-white" />
-                               </div>
-                               <span className="font-alexandria font-black text-xl text-white tracking-widest uppercase bg-rose-600 px-6 py-2 rounded-full shadow-[0_0_30px_rgba(214,0,75,0.5)]">
+                               <motion.div 
+                                initial={{ scale: 0.8 }}
+                                animate={{ scale: [1, 1.1, 1] }}
+                                transition={{ duration: 2, repeat: Infinity }}
+                                className="w-24 h-24 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-full flex items-center justify-center mb-6 transition-transform group-hover/unmute:scale-110 shadow-2xl"
+                               >
+                                  <VolumeX className="w-10 h-10 text-white" />
+                               </motion.div>
+                               <span className="font-alexandria font-black text-xl text-white tracking-[0.2em] bg-rose-600 px-10 py-4 rounded-2xl shadow-[0_20px_50px_rgba(214,0,75,0.4)] transition-all group-hover/unmute:bg-rose-500 group-hover/unmute:-translate-y-1">
                                   اضغط لفتح الصوت
                                </span>
                             </div>
                           )}
-                          {!isMuted && (
-                            <div className="absolute bottom-6 right-6">
-                               <button 
-                                onClick={() => setIsMuted(true)}
-                                className="bg-black/50 backdrop-blur-md p-3 rounded-full text-white hover:bg-rose-600 transition-colors"
-                               >
-                                  <Volume2 className="w-5 h-5" />
-                               </button>
-                            </div>
-                          )}
                         </div>
                       )}
-                      
-                      {/* Only show close button if there is an image to go back to */}
-                      {product.image_url && (
-                        <button 
-                          onClick={() => setActiveMedia(product.image_url)}
-                          className="absolute top-4 right-4 bg-black/50 backdrop-blur-md p-2 rounded-full text-white hover:bg-rose-600 transition-colors z-30"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      )}
                     </motion.div>
-                  ) : (
+                  ) : activeMedia ? (
                     <motion.div
                       key={activeMedia}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      className="absolute inset-0"
+                      className="absolute inset-0 flex items-center justify-center"
                     >
                       <Image 
-                        src={activeMedia || product.image_url} 
+                        src={activeMedia} 
                         alt={product.title} 
                         fill
-                        className="object-cover opacity-90 transition-all duration-700"
+                        className="object-contain p-4 md:p-8"
                         priority
                       />
                     </motion.div>
+                  ) : (
+                    /* Fallback to first frame of video or icon if no image */
+                    <div className="flex flex-col items-center justify-center gap-4 text-zinc-700">
+                      <MonitorPlay className="w-20 h-20 opacity-20" />
+                    </div>
                   )}
                 </AnimatePresence>
 
-                <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent opacity-60 pointer-events-none" />
-                
                 {/* Badges */}
-                <div className="absolute top-6 left-6 flex flex-col gap-2 z-10">
+                <div className="absolute top-8 left-8 flex flex-col gap-3 z-30 pointer-events-none">
                   <motion.div 
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="bg-white/10 backdrop-blur-md border border-white/20 px-4 py-2 rounded-2xl flex items-center gap-2"
+                    initial={{ x: -20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    className="bg-white/5 backdrop-blur-xl border border-white/10 px-5 py-2.5 rounded-2xl flex items-center gap-2.5 shadow-2xl"
                   >
-                    <Sparkles className="w-4 h-4 text-yellow-400" />
-                    <span className="font-cairo text-xs font-bold text-white uppercase tracking-widest">Premium Asset</span>
+                    <Sparkles className="w-4 h-4 text-rose-500" />
+                    <span className="font-alexandria text-[10px] font-black text-white uppercase tracking-widest">Premium Digital Asset</span>
                   </motion.div>
-                  {product.file_type && (
-                     <div className="bg-emerald-500/10 backdrop-blur-md border border-emerald-500/20 px-4 py-2 rounded-2xl flex items-center gap-2 self-start">
-                        <FileIcon className="w-4 h-4 text-emerald-400" />
-                        <span className="font-cairo text-xs font-bold text-emerald-400 uppercase tracking-widest">{product.file_type}</span>
-                     </div>
-                  )}
                 </div>
                 
                 {product.is_featured && (
-                  <div className="absolute top-6 right-6 bg-[#D6004B] px-4 py-2 rounded-2xl flex items-center gap-2 shadow-[0_0_30px_rgba(214,0,75,0.4)] z-10">
-                    <span className="font-cairo text-xs font-bold text-white uppercase">الأكثر مبيعاً</span>
+                  <div className="absolute top-8 right-8 bg-[#D6004B] px-5 py-2.5 rounded-2xl flex items-center gap-2 shadow-[0_15px_40px_rgba(214,0,75,0.4)] z-30 font-alexandria font-black text-[10px] text-white uppercase tracking-widest pointer-events-none">
+                    Best Seller
                   </div>
-                )}
-
-                {/* Video Play Trigger Over Image */}
-                {product.video_url && activeMedia !== 'video' && (
-                  <button 
-                    onClick={() => setActiveMedia('video')}
-                    className="absolute inset-0 flex items-center justify-center group/play z-10"
-                  >
-                    <div className="w-20 h-20 bg-rose-600 rounded-full flex items-center justify-center shadow-2xl transition-transform group-hover/play:scale-110">
-                      <Play className="w-8 h-8 text-white fill-current ml-1" />
-                    </div>
-                  </button>
                 )}
               </div>
 
-              {/* Gallery / Slider under main media */}
-              {allImages.length > 1 || product.video_url ? (
-                <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
-                  {/* Video Thumbnail */}
+              {/* Gallery / Slider: ONLY Real Media */}
+              {(allRealImages.length > 0 || (product.video_url && allRealImages.length > 0)) && (
+                <div className="flex gap-4 overflow-x-auto py-2 px-1 custom-scrollbar">
+                  {/* Video Entry in Gallery */}
                   {product.video_url && (
                     <button 
                       onClick={() => setActiveMedia('video')}
                       className={cn(
-                        "relative w-24 h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-all",
-                        activeMedia === 'video' ? "border-rose-600 scale-105 shadow-lg shadow-rose-600/20" : "border-white/5 opacity-60 hover:opacity-100"
+                        "relative w-32 aspect-video rounded-2xl overflow-hidden shrink-0 border-2 transition-all duration-300",
+                        activeMedia === 'video' 
+                          ? "border-rose-600 ring-4 ring-rose-600/20 scale-105 shadow-2xl" 
+                          : "border-white/5 opacity-50 hover:opacity-100 hover:border-white/20"
                       )}
                     >
-                       {/* If no thumbnail, use a generic video icon background or the first image */}
-                       <Image src={product.image_url || "/api/placeholder/400/320"} alt="video" fill className="object-cover blur-[1px]" />
-                       <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                          <Play className="w-6 h-6 text-white" />
+                       <div className="absolute inset-0 bg-zinc-900 flex items-center justify-center">
+                          {mainImage ? <Image src={mainImage} alt="video" fill className="object-cover blur-[2px] opacity-40" /> : <PlayCircle className="w-8 h-8 text-white/20" />}
+                          <div className="relative z-10 w-10 h-10 bg-rose-600 rounded-full flex items-center justify-center shadow-lg">
+                             <Play className="w-5 h-5 text-white fill-current ml-0.5" />
+                          </div>
                        </div>
                     </button>
                   )}
-                  {/* Images */}
-                  {allImages.map((img, i) => (
+                  {/* Real Images */}
+                  {allRealImages.map((img, i) => (
                     <button 
                       key={i}
                       onClick={() => setActiveMedia(img)}
                       className={cn(
-                        "relative w-24 h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-all",
-                        activeMedia === img ? "border-rose-600 scale-105 shadow-lg shadow-rose-600/20" : "border-white/5 opacity-60 hover:opacity-100"
+                        "relative w-32 aspect-video rounded-2xl overflow-hidden shrink-0 border-2 transition-all duration-300",
+                        activeMedia === img 
+                          ? "border-rose-600 ring-4 ring-rose-600/20 scale-105 shadow-2xl" 
+                          : "border-white/5 opacity-50 hover:opacity-100 hover:border-white/20"
                       )}
                     >
                       <Image src={img} alt={`Gallery ${i}`} fill className="object-cover" />
                     </button>
                   ))}
                 </div>
-              ) : null}
+              )}
 
               {/* Quick Benefits Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
                 {[
-                  { icon: Download, label: "تسليم فوري", color: "text-rose-400", bg: "bg-rose-500/10", border: "border-rose-500/20" },
-                  { icon: Clock, label: "توفير وقت", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
-                  { icon: ShieldCheck, label: "دفع آمن", color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/20" },
-                  { icon: HeartHandshake, label: "دعم فني", color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20" }
+                  { icon: Download, label: "Instant Access", color: "text-rose-500", bg: "bg-rose-500/5", border: "border-rose-500/10" },
+                  { icon: Clock, label: "Saves Time", color: "text-emerald-500", bg: "bg-emerald-500/5", border: "border-emerald-500/10" },
+                  { icon: ShieldCheck, label: "Secure Payment", color: "text-blue-500", bg: "bg-blue-500/5", border: "border-blue-500/10" },
+                  { icon: HeartHandshake, label: "VIP Support", color: "text-amber-500", bg: "bg-amber-500/5", border: "border-amber-500/10" }
                 ].map((item, i) => (
-                  <div key={i} className={cn("p-4 rounded-2xl flex flex-col items-center justify-center text-center gap-2 border transition-all hover:bg-white/5", item.bg, item.border)}>
+                  <div key={i} className={cn("p-5 rounded-[2rem] flex flex-col items-center justify-center text-center gap-3 border transition-all hover:bg-white/5", item.bg, item.border)}>
                     <item.icon className={cn("w-6 h-6", item.color)} />
-                    <span className="font-cairo text-[11px] font-bold text-zinc-300 tracking-wide">{item.label}</span>
+                    <span className="font-alexandria text-[9px] font-black text-zinc-300 tracking-widest uppercase">{item.label}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Right: Persuasive Copy */}
-            <div className="w-full lg:w-[45%] space-y-8">
-              <div className="space-y-4">
-                {discountPct && (
-                  <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-cairo px-4 py-1.5 rounded-full text-xs font-bold">
-                    🔥 خصم لفترة محدودة
+            <div className="w-full lg:w-[42%] space-y-10">
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  {discountPct && (
+                    <Badge className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-alexandria px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                      🔥 Special Offer
+                    </Badge>
+                  )}
+                  <Badge className="bg-white/5 text-zinc-400 border border-white/10 font-alexandria px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                    Digital Product
                   </Badge>
-                )}
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-alexandria font-black text-white leading-[1.2] tracking-tighter">
+                </div>
+
+                <h1 className="text-4xl md:text-5xl lg:text-6xl font-alexandria font-black text-white leading-[1.1] tracking-tighter">
                   {product.title}
                 </h1>
                 
-                <div className="flex items-center gap-4 border-b border-white/10 pb-6">
-                  <div className="flex items-center gap-2 bg-white/5 rounded-full px-4 py-1.5 border border-white/10">
-                    <div className="flex text-yellow-400">
+                <div className="flex items-center gap-6 border-b border-white/5 pb-8">
+                  <div className="flex items-center gap-3 bg-white/5 rounded-2xl px-5 py-2.5 border border-white/10">
+                    <div className="flex text-yellow-400 gap-0.5">
                       {[1,2,3,4,5].map(i => <Star key={i} className="w-4 h-4 fill-current" />)}
                     </div>
-                    <span className="font-cairo text-xs font-bold text-zinc-300">5.0 (124 تقييم)</span>
+                    <span className="font-alexandria text-xs font-black text-white">5.0</span>
                   </div>
-                  <span className="font-cairo text-sm text-zinc-500 flex items-center gap-1.5">
-                    <Users className="w-4 h-4" /> {product.sales + 100} مشتري
+                  <span className="font-cairo text-sm text-zinc-500 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-rose-500" /> <span className="text-white font-bold">{product.sales + 100}</span> مشتري سعيد
                   </span>
                 </div>
               </div>
 
-              <p className="text-lg text-zinc-400 font-cairo leading-relaxed">
-                {product.short_description || product.description || "أداة متقدمة تضمن لك توفير مئات الساعات وتعظيم نتائجك بأقل مجهود."}
+              <p className="text-xl text-zinc-400 font-cairo leading-relaxed">
+                {product.short_description || product.description?.substring(0, 150) || "أداة متقدمة تضمن لك توفير مئات الساعات وتعظيم نتائجك بأقل مجهود."}
               </p>
 
-              {/* Desktop Checkout Box */}
-              <div className="hidden lg:block bg-[#0a0a0f] p-8 rounded-[2.5rem] border border-white/10 shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-rose-600/10 rounded-full blur-[80px] pointer-events-none" />
+              {/* Purchase Card */}
+              <div className="bg-[#0c0c12] p-10 rounded-[3rem] border border-white/10 shadow-2xl relative overflow-hidden group/card">
+                <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-rose-600/5 to-transparent opacity-50" />
                 
-                <div className="flex items-center justify-between mb-8 relative z-10">
+                <div className="flex items-center justify-between mb-10 relative z-10">
                   <div className="flex flex-col">
                     {product.original_price && (
-                      <span className="text-zinc-500 font-cairo text-lg line-through decoration-red-500/50 mb-1">
-                        {product.original_price} ج.م
+                      <span className="text-zinc-600 font-alexandria text-xl line-through decoration-rose-500/40 mb-2">
+                        {product.original_price} <span className="text-xs">EGP</span>
                       </span>
                     )}
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-5xl font-alexandria font-black text-white">{product.price}</span>
-                      <span className="text-xl font-cairo text-zinc-400">ج.م</span>
+                    <div className="flex items-baseline gap-3">
+                      <span className="text-6xl font-alexandria font-black text-white tracking-tighter">{product.price}</span>
+                      <span className="text-xl font-alexandria font-black text-zinc-500 uppercase">EGP</span>
                     </div>
                   </div>
                   {discountPct && (
-                    <div className="flex flex-col items-end gap-1">
-                      <Badge className="bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl border-none text-sm">
-                        توفير {savings} ج.م
-                      </Badge>
-                      <span className="text-[10px] text-zinc-500">خصم {discountPct}%</span>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="bg-rose-600 text-white font-alexandria font-black px-4 py-2 rounded-xl text-sm shadow-xl shadow-rose-600/20">
+                        -{discountPct}%
+                      </div>
+                      <span className="text-[10px] text-zinc-500 font-alexandria font-black uppercase tracking-widest">Limited Time</span>
                     </div>
                   )}
                 </div>
-                <div className="flex flex-col gap-3 relative z-10">
+
+                <div className="flex flex-col gap-4 relative z-10">
                   <Link
                     href={`/checkout/${product.id}`}
-                    className="w-full h-16 inline-flex items-center justify-center gap-3 bg-[#D6004B] hover:bg-[#b0003d] text-white font-cairo text-xl font-black rounded-2xl transition-all shadow-[0_0_30px_rgba(214,0,75,0.3)] hover:shadow-[0_0_40px_rgba(214,0,75,0.5)] active:scale-95"
+                    className="w-full h-20 inline-flex items-center justify-center gap-4 bg-[#D6004B] hover:bg-[#ff0059] text-white font-alexandria font-black text-2xl rounded-[2rem] transition-all shadow-[0_20px_50px_rgba(214,0,75,0.3)] hover:shadow-[0_25px_60px_rgba(214,0,75,0.5)] active:scale-95 group/btn"
                   >
-                    شراء الآن والتنزيل الفوري
-                    <ArrowLeft className="w-6 h-6 rtl:rotate-180" />
+                    Get Instant Access
+                    <ArrowLeft className="w-7 h-7 rtl:rotate-180 group-hover:-translate-x-2 transition-transform" />
                   </Link>
 
                   <button
                     onClick={() => addToCart(product)}
-                    className="w-full h-14 inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 hover:border-white/30 text-white font-cairo text-lg font-bold rounded-2xl border border-white/10 transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.05)] active:scale-95 group/addcart"
+                    className="w-full h-16 inline-flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 text-white font-alexandria font-black text-lg rounded-[1.5rem] border border-white/10 transition-all active:scale-95"
                   >
-                    <ShoppingCart className="w-5 h-5 group-hover/addcart:scale-110 transition-transform duration-300" />
-                    إضافة إلى السلة
+                    <ShoppingCart className="w-5 h-5" />
+                    Add to Cart
                   </button>
                 </div>
                 
-                <div className="mt-6 flex flex-col gap-3 relative z-10">
-                  <p className="text-center font-cairo text-xs text-zinc-500 flex items-center justify-center gap-2">
-                    <Lock className="w-3 h-3" /> دفع إلكتروني آمن 100%
-                  </p>
+                <div className="mt-8 flex items-center justify-center gap-6 relative z-10 border-t border-white/5 pt-8">
+                   <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                      <span className="text-[10px] font-alexandria font-black text-zinc-500 uppercase tracking-widest">Safe Checkout</span>
+                   </div>
+                   <div className="flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-zinc-500" />
+                      <span className="text-[10px] font-alexandria font-black text-zinc-500 uppercase tracking-widest">SSL Encrypted</span>
+                   </div>
                 </div>
               </div>
             </div>
           </motion.div>
         </section>
 
-        {/* Value Stacking Section */}
-        <section className="bg-[#0a0a0f] border-y border-white/5 py-24 md:py-32">
+        {/* Value Stacking / Deliverables */}
+        <section className="bg-[#08080c] border-y border-white/5 py-32">
           <div className="container mx-auto px-4">
-            <div className="max-w-4xl mx-auto text-center mb-20">
-              <h2 className="text-4xl md:text-5xl font-alexandria font-black text-white mb-6 tracking-tight">ماذا ستحصل عليه <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ff0f53] to-[#ff00b3]">بالضبط؟</span></h2>
-              <p className="text-zinc-400 font-cairo text-lg md:text-xl">نحن لا نبيعك ملفات فقط، بل نبيعك "الوقت" والحرية.</p>
+            <div className="max-w-4xl mx-auto text-center mb-24">
+              <Badge className="bg-rose-500/10 text-rose-500 border border-rose-500/20 font-alexandria px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest mb-6">
+                What's Inside
+              </Badge>
+              <h2 className="text-4xl md:text-6xl font-alexandria font-black text-white mb-8 tracking-tighter">Everything you need to <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-500 to-orange-500">succeed.</span></h2>
+              <p className="text-zinc-500 font-cairo text-xl md:text-2xl max-w-2xl mx-auto">لقد قمنا بتجميع حزمة متكاملة تضمن لك البدء الفوري وتحقيق النتائج.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {[
                 { 
-                  title: `ملف الـ ${product.file_type?.toUpperCase() || "أصلي"}`, 
-                  desc: `ستحصل على الملف بصيغة ${product.file_type || "رقمية"} جاهزاً للاستخدام المباشر.`,
+                  title: `The ${product.file_type?.toUpperCase() || "DIGITAL"} Asset`, 
+                  desc: `ستحصل على الملف بصيغة ${product.file_type || "رقمية"} عالية الجودة وجاهزة للتشغيل الفوري.`,
                   icon: FileIcon,
-                  color: "text-rose-400", bg: "bg-rose-500/10"
+                  color: "text-rose-500", bg: "bg-rose-500/5"
                 },
                 { 
-                  title: "دليل الإعداد السريع", 
-                  desc: "خطوات واضحة وبسيطة لضمان تفعيل الحزمة في أقل من 5 دقائق.",
+                  title: "Setup Blueprint", 
+                  desc: "دليل خطوة بخطوة يضمن لك ضبط الإعدادات بشكل مثالي في أقل من 5 دقائق.",
                   icon: Rocket,
-                  color: "text-sky-400", bg: "bg-sky-500/10"
+                  color: "text-orange-500", bg: "bg-orange-500/5"
                 },
                 { 
-                  title: "تحديثات مجانية", 
-                  desc: "أي تطوير أو تحسين نجريه على هذا المنتج مستقبلاً ستحصل عليه مجاناً.",
+                  title: "Lifetime Updates", 
+                  desc: "أي تطوير أو تحسين مستقبلي ستحصل عليه مجاناً وبشكل تلقائي في حسابك.",
                   icon: Infinity,
-                  color: "text-emerald-400", bg: "bg-emerald-500/10"
+                  color: "text-emerald-500", bg: "bg-emerald-500/5"
                 },
                 { 
-                  title: "دعم فني متخصص", 
-                  desc: "فريق الدعم متواجد للرد على استفساراتك وحل أي مشكلة قد تواجهك.",
+                  title: "Priority Concierge", 
+                  desc: "فريق الدعم الفني لدينا متاح دائماً للرد على أي استفسار تقني أو تجاري.",
                   icon: HeartHandshake,
-                  color: "text-amber-400", bg: "bg-amber-500/10"
+                  color: "text-blue-500", bg: "bg-blue-500/5"
                 }
               ].map((item, i) => (
-                <div key={i} className="relative group overflow-hidden bg-white/5 border border-white/10 rounded-[2.5rem] p-8 md:p-10 hover:bg-white/10 transition-all duration-500">
-                  <div className="flex items-start justify-between mb-8">
-                    <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg", item.bg)}>
-                      <item.icon className={cn("w-8 h-8", item.color)} />
+                <div key={i} className="relative group bg-[#0c0c12] border border-white/5 rounded-[3rem] p-12 hover:border-rose-500/30 transition-all duration-500">
+                  <div className="flex items-center justify-between mb-10">
+                    <div className={cn("w-20 h-20 rounded-[1.5rem] flex items-center justify-center shadow-2xl", item.bg)}>
+                      <item.icon className={cn("w-10 h-10", item.color)} />
                     </div>
-                    <CheckCircle2 className="w-6 h-6 text-zinc-600 group-hover:text-emerald-500 transition-colors" />
+                    <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-zinc-700 group-hover:text-emerald-500 group-hover:border-emerald-500/50 transition-all">
+                      <CheckCircle2 className="w-6 h-6" />
+                    </div>
                   </div>
-                  <h3 className="text-2xl font-alexandria font-black text-white mb-4">{item.title}</h3>
-                  <p className="text-zinc-400 font-cairo leading-relaxed">{item.desc}</p>
+                  <h3 className="text-3xl font-alexandria font-black text-white mb-6">{item.title}</h3>
+                  <p className="text-zinc-500 font-cairo text-lg leading-relaxed">{item.desc}</p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* Feature Tabs Section */}
-        <section className="container mx-auto px-4 py-24 md:py-32">
-          <div className="flex flex-col lg:flex-row gap-12 lg:gap-16">
-            <div className="w-full lg:w-1/3">
-              <div className="sticky top-32 space-y-6">
-                <h2 className="text-3xl md:text-4xl font-alexandria font-black text-white mb-8 leading-tight">تعرف أكثر على المنتج</h2>
-                <div className="flex flex-col gap-3">
-                  {[
-                    { id: "details", label: "تفاصيل المنتج", icon: Target },
-                    { id: "previews", label: "معاينة الوسائط", icon: MonitorPlay },
-                    { id: "reviews", label: "آراء العملاء", icon: Star },
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id as any)}
-                      className={cn(
-                        "flex items-center justify-between px-6 py-5 rounded-2xl font-cairo font-bold text-lg transition-all duration-300",
-                        activeTab === tab.id 
-                          ? "bg-[#D6004B] text-white shadow-lg shadow-[#D6004B]/20" 
-                          : "bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-white"
-                      )}
-                    >
-                      <span className="flex items-center gap-3">
-                        <tab.icon className="w-5 h-5" />
-                        {tab.label}
-                      </span>
-                      <ChevronRight className={cn("w-5 h-5 transition-transform", activeTab === tab.id ? "rotate-90" : "")} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="w-full lg:w-2/3">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
-                  className="bg-[#0a0a0f] rounded-[2.5rem] p-8 md:p-12 border border-white/10 shadow-xl min-h-[500px]"
-                >
-                  {activeTab === "details" && (
-                    <div className="space-y-10">
-                      <div className="prose prose-invert prose-zinc max-w-none font-cairo leading-relaxed">
-                        <h3 className="text-2xl font-alexandria font-black text-white mb-6">الوصف الكامل</h3>
-                        {product.description ? (
-                          <div className="text-zinc-300 space-y-4" dangerouslySetInnerHTML={{ __html: product.description.replace(/\n/g, '<br/>') }} />
-                        ) : (
-                          <p className="text-zinc-400">
-                            هذا المنتج مصمم بعناية فائقة ليلبي احتياجاتك الاحترافية. يتضمن كل ما تحتاجه للبدء فوراً دون تعقيدات تقنية.
-                          </p>
-                        )}
-                        
-                        <div className="mt-12">
-                          <h4 className="text-xl font-bold text-white mb-6">مميزات إضافية:</h4>
-                          <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 list-none p-0">
-                            {[
-                              "تصميم جاهز للاستخدام الفوري",
-                              "متوافق مع أحدث المعايير",
-                              `بصيغة ${product.file_type || "عالمية"} مرنة`,
-                              "سهولة التخصيص والتعديل"
-                            ].map((item, i) => (
-                              <li key={i} className="flex items-start gap-3 bg-white/5 p-4 rounded-xl border border-white/5">
-                                <CheckCircle2 className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
-                                <span className="text-zinc-300">{item}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTab === "previews" && (
-                    <div className="grid gap-4">
-                      {product.video_url && (
-                        <div className="space-y-4">
-                           <h4 className="text-lg font-bold text-white font-alexandria">الفيديو التعريفي</h4>
-                           <div className="aspect-video rounded-2xl overflow-hidden border border-white/10 bg-black relative">
-                              {isYouTube ? (
-                                <iframe src={`https://www.youtube.com/embed/${product.video_url.split('v=')[1]?.split('&')[0] || product.video_url.split('/').pop()}`} className="w-full h-full border-none" allowFullScreen />
-                              ) : (
-                                <video src={product.video_url} controls className="w-full h-full" />
-                              )}
-                           </div>
-                        </div>
-                      )}
-                      
-                      {product.gallery.length > 0 && (
-                        <div className="space-y-4 mt-8">
-                           <h4 className="text-lg font-bold text-white font-alexandria">معرض الصور</h4>
-                           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                              {product.gallery.map((img: string, i: number) => (
-                                <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-white/5 group">
-                                   <Image src={img} alt={`Gallery ${i}`} fill className="object-cover group-hover:scale-110 transition-all duration-700" />
-                                </div>
-                              ))}
-                           </div>
-                        </div>
-                      )}
-
-                      {!product.video_url && product.gallery.length === 0 && (
-                        <div className="py-20 text-center space-y-4">
-                           <MonitorPlay className="w-12 h-12 text-zinc-700 mx-auto" />
-                           <p className="text-zinc-500 font-cairo">لا توجد وسائط إضافية لهذا المنتج.</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {activeTab === "reviews" && (
-                    <div className="space-y-8">
-                      <div className="flex flex-col md:flex-row items-center gap-10 p-8 bg-white/5 rounded-[2rem] border border-white/10">
-                        <div className="text-center">
-                          <p className="text-6xl font-alexandria font-black text-white">5.0</p>
-                          <div className="flex justify-center text-yellow-400 my-3">
-                            {[1,2,3,4,5].map(i => <Star key={i} className="w-5 h-5 fill-current" />)}
-                          </div>
-                          <p className="text-zinc-500 font-cairo text-sm">متوسط التقييم</p>
-                        </div>
-                        <div className="flex-1 space-y-3 w-full">
-                          {[5,4,3,2,1].map(s => (
-                            <div key={s} className="flex items-center gap-4">
-                              <span className="w-4 font-bold text-zinc-400 text-sm">{s}</span>
-                              <div className="flex-1 h-2.5 bg-zinc-800 rounded-full overflow-hidden">
-                                <div className="h-full bg-yellow-400" style={{ width: s === 5 ? '98%' : s===4 ? '12%' : '0%' }} />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </motion.div>
-              </AnimatePresence>
-            </div>
+        {/* Mobile Sticky Bar */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#050505]/95 backdrop-blur-3xl border-t border-white/10 p-6 z-50 flex items-center justify-between gap-6 pb-safe shadow-[0_-30px_60px_rgba(0,0,0,0.9)]">
+          <div className="flex flex-col">
+            <span className="text-3xl font-alexandria font-black text-white leading-none tracking-tighter">{product.price} <span className="text-xs text-zinc-500">EGP</span></span>
           </div>
-        </section>
-
-        {/* Mobile Sticky CTA */}
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#050505]/95 backdrop-blur-2xl border-t border-white/10 p-4 z-50 flex items-center justify-between gap-4 pb-safe shadow-[0_-20px_40px_rgba(0,0,0,0.8)]">
-          <div className="flex flex-col pl-4">
-            {product.original_price && (
-              <span className="text-zinc-500 font-cairo text-[10px] line-through">{product.original_price} ج.م</span>
-            )}
-            <span className="text-2xl font-alexandria font-black text-white leading-none">{product.price} <span className="text-[10px] font-cairo text-zinc-500 font-normal">ج.م</span></span>
-          </div>
-          <div className="flex gap-2 flex-1">
+          <div className="flex gap-3 flex-1">
             <button
               onClick={() => addToCart(product)}
-              className="h-12 w-12 bg-white/5 border border-white/10 text-white rounded-xl flex items-center justify-center active:scale-90 transition-all shrink-0"
+              className="h-14 w-14 bg-white/5 border border-white/10 text-white rounded-2xl flex items-center justify-center active:scale-90 transition-all shrink-0"
             >
-              <ShoppingCart className="w-5 h-5" />
+              <ShoppingCart className="w-6 h-6" />
             </button>
             <Link
               href={`/checkout/${product.id}`}
-              className="flex-1 h-12 bg-[#D6004B] text-white font-cairo font-black text-sm rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-rose-600/20"
+              className="flex-1 h-14 bg-[#D6004B] text-white font-alexandria font-black text-lg rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all shadow-xl shadow-rose-600/20"
             >
-              شراء فوري
-              <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
+              Buy Now
+              <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
             </Link>
           </div>
         </div>
