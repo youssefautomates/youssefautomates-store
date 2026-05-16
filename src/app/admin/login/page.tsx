@@ -86,13 +86,9 @@ export default function AdminLogin() {
             initial={{ scale: 0.75, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.15, type: "spring", stiffness: 200, damping: 16 }}
-            className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6"
-            style={{
-              background: "linear-gradient(135deg, #D6004B 0%, #ff2d6b 100%)",
-              boxShadow: "0 20px 60px rgba(214,0,75,0.4), 0 0 0 1px rgba(214,0,75,0.25)",
-            }}
+            className="w-20 h-20 flex items-center justify-center mx-auto mb-6 relative"
           >
-            <Fingerprint className="w-10 h-10 text-white" />
+            <img src="/logo.png" alt="Admin Logo" className="w-full h-full object-contain drop-shadow-[0_0_25px_rgba(214,0,75,0.6)]" />
           </motion.div>
 
           <h1 className="text-4xl font-alexandria font-black tracking-tighter mb-2" style={{ color: "#ffffff" }}>
