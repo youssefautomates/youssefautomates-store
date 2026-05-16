@@ -176,10 +176,7 @@ export async function POST(req: Request) {
           card_holdername: cardName
         },
         payment_token: paymentKey,
-        billing: {
-          first_name: firstName,
-          last_name: lastName || "Customer"
-        },
+        billing: billingData,
         cardholder_name: cardName,
         card_holdername: cardName
       };
