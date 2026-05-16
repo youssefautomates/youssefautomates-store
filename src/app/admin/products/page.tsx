@@ -68,21 +68,19 @@ function useFileUpload() {
   const upload = async (file: File, folder: string = "products") => {
     setUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-      const filePath = `${folder}/${fileName}`;
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", folder);
 
-      const { error: uploadError } = await supabase.storage
-        .from('products')
-        .upload(filePath, file);
+      const res = await fetch("/api/admin/upload", {
+        method: "POST",
+        body: formData,
+      });
 
-      if (uploadError) throw uploadError;
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "فشل الرفع");
 
-      const { data } = supabase.storage
-        .from('products')
-        .getPublicUrl(filePath);
-
-      return data.publicUrl;
+      return data.url;
     } catch (err: any) {
       toast.error(`فشل الرفع: ${err.message}`);
       return null;
