@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Badge } from "@/components/ui/badge";
-import { Zap, Shield, Clock, CheckCircle2, ChevronDown, ChevronLeft, Sparkles, ShieldCheck, Download, PlayCircle, Star, ArrowLeft, Package, ShoppingCart } from "lucide-react";
+import { Zap, Shield, Clock, CheckCircle2, ChevronDown, ChevronLeft, Sparkles, ShieldCheck, Download, PlayCircle, Play, Star, ArrowLeft, Package, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
