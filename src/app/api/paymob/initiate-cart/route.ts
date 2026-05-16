@@ -175,9 +175,16 @@ export async function POST(req: Request) {
           expiry_year: cardData.expiry.split("/")[1],
           name: cardName,
           cardholder_name: cardName,
-          card_holder_name: cardName
+          card_holder_name: cardName,
+          card_holdername: cardName
         },
-        payment_token: paymentKey
+        payment_token: paymentKey,
+        billing: {
+          first_name: firstName,
+          last_name: lastName || "Customer"
+        },
+        cardholder_name: cardName,
+        card_holdername: cardName
       };
 
       console.log("[FINAL_CART_PAYLOAD] Submitting to Paymob:", JSON.stringify({ ...payPayload, source: { ...payPayload.source, identifier: "MASKED", cvn: "***" } }, null, 2));
