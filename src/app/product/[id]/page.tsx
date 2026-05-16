@@ -5,7 +5,7 @@ import { Footer } from "@/components/Footer";
 import { Badge } from "@/components/ui/badge";
 import { 
   CheckCircle2, FileText, Zap, ChevronRight, Lock, Star, 
-  ShieldCheck, Download, Users, Infinity, Target, Sparkles, 
+  ShieldCheck, Download, Users, Infinity as InfinityIcon, Target, Sparkles, 
   MonitorPlay, ArrowLeft, Rocket, HeartHandshake,
   Clock, ShoppingCart, Play, FileJson, Link as LinkIcon, Archive,
   Volume2, VolumeX, Pause, Maximize, RotateCcw
@@ -39,7 +39,6 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const resolvedParams = use(params);
   const [product, setProduct] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"details" | "previews" | "reviews">("details");
   const [activeMedia, setActiveMedia] = useState<string | null>(null); // URL of image or 'video'
   const [isMuted, setIsMuted] = useState(true);
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -64,7 +63,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
       const unpacked = unpackProduct(data as Product);
       setProduct(unpacked);
       
-      // LOGIC: If video exists, it's the primary media. Otherwise the image.
+      // LOGIC: Video is primary.
       if (unpacked.video_url) {
         setActiveMedia('video');
       } else {
@@ -113,7 +112,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const savings = product.original_price ? product.original_price - product.price : 0;
   const discountPct = calcDiscount(product.price, product.original_price);
   
-  // FILTER: Only real images. No placeholders.
+  // FILTER: Only real images.
   const isPlaceholder = (url: string) => !url || url.includes("unsplash.com") || url.includes("placeholder");
   const mainImage = isPlaceholder(product.image_url) ? null : product.image_url;
   const galleryImages = product.gallery.filter((url: string) => !isPlaceholder(url));
@@ -138,17 +137,13 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
       <Navbar />
       
       <main className="pt-24 md:pt-32 pb-24">
-        {/* Cinematic Header Section */}
-        <section className="container mx-auto px-4 mb-16">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col lg:flex-row gap-12 items-start"
-          >
-            {/* Left: Product Visuals */}
-            <div className="w-full lg:w-[58%] space-y-6">
-              <div className="relative aspect-video bg-[#08080c] rounded-[2.5rem] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.5)] group border border-white/5 flex items-center justify-center">
-                
+        <section className="container mx-auto px-4">
+          <div className="flex flex-col lg:flex-row gap-12 items-start">
+            
+            {/* Left Column: Visuals & Description */}
+            <div className="w-full lg:w-[62%] space-y-8">
+              {/* Main Viewer */}
+              <div className="relative aspect-video bg-[#08080c] rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/5 flex items-center justify-center">
                 <AnimatePresence mode="wait">
                   {activeMedia === 'video' && product.video_url ? (
                     <motion.div 
@@ -176,24 +171,24 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                             loop={!hasInteracted}
                             controls={hasInteracted}
                             preload="metadata"
+                            controlsList="nodownload"
+                            onContextMenu={(e) => e.preventDefault()}
                             className="max-w-full max-h-full object-contain"
                           />
                           
-                          {/* Muted Autoplay Overlay */}
                           {!hasInteracted && (
                             <div 
                               onClick={handleUnmuteAndStart}
-                              className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 backdrop-blur-[1px] cursor-pointer group/unmute transition-all hover:bg-black/10 z-30"
+                              className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] cursor-pointer group/unmute transition-all hover:bg-black/20 z-30"
                             >
                                <motion.div 
-                                initial={{ scale: 0.8 }}
                                 animate={{ scale: [1, 1.1, 1] }}
                                 transition={{ duration: 2, repeat: Infinity }}
-                                className="w-24 h-24 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-full flex items-center justify-center mb-6 transition-transform group-hover/unmute:scale-110 shadow-2xl"
+                                className="w-20 h-20 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-full flex items-center justify-center mb-6 shadow-2xl"
                                >
-                                  <VolumeX className="w-10 h-10 text-white" />
+                                  <VolumeX className="w-8 h-8 text-white" />
                                </motion.div>
-                               <span className="font-alexandria font-black text-xl text-white tracking-[0.2em] bg-rose-600 px-10 py-4 rounded-2xl shadow-[0_20px_50px_rgba(214,0,75,0.4)] transition-all group-hover/unmute:bg-rose-500 group-hover/unmute:-translate-y-1">
+                               <span className="font-alexandria font-black text-xl text-white tracking-widest bg-rose-600 px-8 py-3 rounded-2xl shadow-[0_15px_40px_rgba(214,0,75,0.4)]">
                                   اضغط لفتح الصوت
                                </span>
                             </div>
@@ -218,255 +213,203 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                       />
                     </motion.div>
                   ) : (
-                    /* Fallback to first frame of video or icon if no image */
-                    <div className="flex flex-col items-center justify-center gap-4 text-zinc-700">
+                    <div className="flex flex-col items-center justify-center gap-4 text-zinc-800">
                       <MonitorPlay className="w-20 h-20 opacity-20" />
                     </div>
                   )}
                 </AnimatePresence>
 
                 {/* Badges */}
-                <div className="absolute top-8 left-8 flex flex-col gap-3 z-30 pointer-events-none">
-                  <motion.div 
-                    initial={{ x: -20, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    className="bg-white/5 backdrop-blur-xl border border-white/10 px-5 py-2.5 rounded-2xl flex items-center gap-2.5 shadow-2xl"
-                  >
+                <div className="absolute top-6 left-6 flex flex-col gap-3 z-30 pointer-events-none">
+                  <div className="bg-white/5 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-xl flex items-center gap-2 shadow-2xl">
                     <Sparkles className="w-4 h-4 text-rose-500" />
-                    <span className="font-alexandria text-[10px] font-black text-white uppercase tracking-widest">Premium Digital Asset</span>
-                  </motion.div>
-                </div>
-                
-                {product.is_featured && (
-                  <div className="absolute top-8 right-8 bg-[#D6004B] px-5 py-2.5 rounded-2xl flex items-center gap-2 shadow-[0_15px_40px_rgba(214,0,75,0.4)] z-30 font-alexandria font-black text-[10px] text-white uppercase tracking-widest pointer-events-none">
-                    Best Seller
+                    <span className="font-alexandria text-[9px] font-black text-white uppercase tracking-widest">Premium Content</span>
                   </div>
-                )}
+                </div>
               </div>
 
-              {/* Gallery / Slider: ONLY Real Media */}
-              {(allRealImages.length > 0 || (product.video_url && allRealImages.length > 0)) && (
-                <div className="flex gap-4 overflow-x-auto py-2 px-1 custom-scrollbar">
-                  {/* Video Entry in Gallery */}
-                  {product.video_url && (
-                    <button 
-                      onClick={() => setActiveMedia('video')}
-                      className={cn(
-                        "relative w-32 aspect-video rounded-2xl overflow-hidden shrink-0 border-2 transition-all duration-300",
-                        activeMedia === 'video' 
-                          ? "border-rose-600 ring-4 ring-rose-600/20 scale-105 shadow-2xl" 
-                          : "border-white/5 opacity-50 hover:opacity-100 hover:border-white/20"
-                      )}
-                    >
-                       <div className="absolute inset-0 bg-zinc-900 flex items-center justify-center">
-                          {mainImage ? <Image src={mainImage} alt="video" fill className="object-cover blur-[2px] opacity-40" /> : <PlayCircle className="w-8 h-8 text-white/20" />}
-                          <div className="relative z-10 w-10 h-10 bg-rose-600 rounded-full flex items-center justify-center shadow-lg">
-                             <Play className="w-5 h-5 text-white fill-current ml-0.5" />
-                          </div>
-                       </div>
-                    </button>
-                  )}
-                  {/* Real Images */}
-                  {allRealImages.map((img, i) => (
-                    <button 
-                      key={i}
-                      onClick={() => setActiveMedia(img)}
-                      className={cn(
-                        "relative w-32 aspect-video rounded-2xl overflow-hidden shrink-0 border-2 transition-all duration-300",
-                        activeMedia === img 
-                          ? "border-rose-600 ring-4 ring-rose-600/20 scale-105 shadow-2xl" 
-                          : "border-white/5 opacity-50 hover:opacity-100 hover:border-white/20"
-                      )}
-                    >
-                      <Image src={img} alt={`Gallery ${i}`} fill className="object-cover" />
-                    </button>
-                  ))}
+              {/* Enhanced Horizontal Gallery (Slides) */}
+              {(allRealImages.length > 0 || product.video_url) && (
+                <div className="w-full overflow-hidden">
+                  <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar snap-x">
+                    {/* Video Slide */}
+                    {product.video_url && (
+                      <button 
+                        onClick={() => { setActiveMedia('video'); setHasInteracted(false); setIsMuted(true); }}
+                        className={cn(
+                          "relative aspect-video h-20 md:h-24 rounded-2xl overflow-hidden shrink-0 border-2 transition-all duration-500 snap-start",
+                          activeMedia === 'video' 
+                            ? "border-rose-600 ring-4 ring-rose-600/20 scale-105 shadow-[0_0_20px_rgba(214,0,75,0.3)]" 
+                            : "border-white/5 opacity-40 hover:opacity-100 hover:border-white/20"
+                        )}
+                      >
+                         <div className="absolute inset-0 bg-zinc-900 flex items-center justify-center">
+                            {mainImage && <Image src={mainImage} alt="video" fill className="object-cover blur-[1px] opacity-30" />}
+                            <div className="relative z-10 w-8 h-8 bg-rose-600 rounded-full flex items-center justify-center">
+                               <Play className="w-4 h-4 text-white fill-current ml-0.5" />
+                            </div>
+                         </div>
+                      </button>
+                    )}
+                    {/* Image Slides */}
+                    {allRealImages.map((img, i) => (
+                      <button 
+                        key={i}
+                        onClick={() => setActiveMedia(img)}
+                        className={cn(
+                          "relative aspect-video h-20 md:h-24 rounded-2xl overflow-hidden shrink-0 border-2 transition-all duration-500 snap-start",
+                          activeMedia === img 
+                            ? "border-rose-600 ring-4 ring-rose-600/20 scale-105 shadow-[0_0_20px_rgba(214,0,75,0.3)]" 
+                            : "border-white/5 opacity-40 hover:opacity-100 hover:border-white/20"
+                        )}
+                      >
+                        <Image src={img} alt={`Gallery ${i}`} fill className="object-cover" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {/* Quick Benefits Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
-                {[
-                  { icon: Download, label: "Instant Access", color: "text-rose-500", bg: "bg-rose-500/5", border: "border-rose-500/10" },
-                  { icon: Clock, label: "Saves Time", color: "text-emerald-500", bg: "bg-emerald-500/5", border: "border-emerald-500/10" },
-                  { icon: ShieldCheck, label: "Secure Payment", color: "text-blue-500", bg: "bg-blue-500/5", border: "border-blue-500/10" },
-                  { icon: HeartHandshake, label: "VIP Support", color: "text-amber-500", bg: "bg-amber-500/5", border: "border-amber-500/10" }
-                ].map((item, i) => (
-                  <div key={i} className={cn("p-5 rounded-[2rem] flex flex-col items-center justify-center text-center gap-3 border transition-all hover:bg-white/5", item.bg, item.border)}>
-                    <item.icon className={cn("w-6 h-6", item.color)} />
-                    <span className="font-alexandria text-[9px] font-black text-zinc-300 tracking-widest uppercase">{item.label}</span>
+              {/* Description Section (Now directly below images) */}
+              <div className="bg-[#0c0c12] rounded-[3rem] p-10 md:p-14 border border-white/5 shadow-xl space-y-10">
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="w-12 h-12 bg-rose-600/10 rounded-2xl flex items-center justify-center">
+                    <Target className="w-6 h-6 text-rose-500" />
                   </div>
-                ))}
+                  <h2 className="text-3xl font-alexandria font-black text-white tracking-tighter">وصف المنتج الكامل</h2>
+                </div>
+                
+                <div className="prose prose-invert prose-rose max-w-none">
+                  {product.description ? (
+                    <div className="text-zinc-400 font-cairo text-lg leading-[1.8] space-y-6" dangerouslySetInnerHTML={{ __html: product.description.replace(/\n/g, '<br/>') }} />
+                  ) : (
+                    <p className="text-zinc-500 font-cairo text-lg">هذا المنتج الرقمي مصمم لمساعدتك في أتمتة أعمالك وتوفير مئات الساعات من الجهد اليدوي.</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
+                   {[
+                     { title: "جاهز للاستخدام", desc: "بمجرد الشراء ستحصل على روابط التحميل فوراً.", icon: Zap },
+                     { title: "دعم فني متميز", desc: "نحن معك خطوة بخطوة في حال واجهت أي استفسار.", icon: ShieldCheck }
+                   ].map((feature, idx) => (
+                     <div key={idx} className="bg-white/5 p-6 rounded-3xl border border-white/5 group hover:bg-white/10 transition-colors">
+                        <feature.icon className="w-8 h-8 text-rose-500 mb-4" />
+                        <h4 className="text-xl font-alexandria font-bold text-white mb-2">{feature.title}</h4>
+                        <p className="text-zinc-500 font-cairo text-sm leading-relaxed">{feature.desc}</p>
+                     </div>
+                   ))}
+                </div>
               </div>
             </div>
 
-            {/* Right: Persuasive Copy */}
-            <div className="w-full lg:w-[42%] space-y-10">
-              <div className="space-y-6">
-                <div className="flex items-center gap-3">
-                  {discountPct && (
-                    <Badge className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-alexandria px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                      🔥 Special Offer
-                    </Badge>
-                  )}
-                  <Badge className="bg-white/5 text-zinc-400 border border-white/10 font-alexandria px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                    Digital Product
-                  </Badge>
-                </div>
-
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-alexandria font-black text-white leading-[1.1] tracking-tighter">
-                  {product.title}
-                </h1>
-                
-                <div className="flex items-center gap-6 border-b border-white/5 pb-8">
-                  <div className="flex items-center gap-3 bg-white/5 rounded-2xl px-5 py-2.5 border border-white/10">
-                    <div className="flex text-yellow-400 gap-0.5">
-                      {[1,2,3,4,5].map(i => <Star key={i} className="w-4 h-4 fill-current" />)}
-                    </div>
-                    <span className="font-alexandria text-xs font-black text-white">5.0</span>
-                  </div>
-                  <span className="font-cairo text-sm text-zinc-500 flex items-center gap-2">
-                    <Users className="w-4 h-4 text-rose-500" /> <span className="text-white font-bold">{product.sales + 100}</span> مشتري سعيد
-                  </span>
-                </div>
-              </div>
-
-              <p className="text-xl text-zinc-400 font-cairo leading-relaxed">
-                {product.short_description || product.description?.substring(0, 150) || "أداة متقدمة تضمن لك توفير مئات الساعات وتعظيم نتائجك بأقل مجهود."}
-              </p>
-
-              {/* Purchase Card */}
-              <div className="bg-[#0c0c12] p-10 rounded-[3rem] border border-white/10 shadow-2xl relative overflow-hidden group/card">
+            {/* Right Column: Pricing & Conversion */}
+            <div className="w-full lg:w-[38%] sticky top-32 space-y-8">
+              <div className="bg-[#0c0c12] p-10 md:p-12 rounded-[3rem] border border-white/10 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-rose-600/5 to-transparent opacity-50" />
                 
-                <div className="flex items-center justify-between mb-10 relative z-10">
-                  <div className="flex flex-col">
-                    {product.original_price && (
-                      <span className="text-zinc-600 font-alexandria text-xl line-through decoration-rose-500/40 mb-2">
-                        {product.original_price} <span className="text-xs">EGP</span>
-                      </span>
+                <div className="relative z-10 space-y-8">
+                  <div className="space-y-4">
+                    {discountPct && (
+                      <Badge className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-alexandria px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                        🔥 عرض خاص لفترة محدودة
+                      </Badge>
                     )}
-                    <div className="flex items-baseline gap-3">
-                      <span className="text-6xl font-alexandria font-black text-white tracking-tighter">{product.price}</span>
-                      <span className="text-xl font-alexandria font-black text-zinc-500 uppercase">EGP</span>
-                    </div>
+                    <h1 className="text-4xl md:text-5xl font-alexandria font-black text-white leading-tight tracking-tighter">
+                      {product.title}
+                    </h1>
                   </div>
-                  {discountPct && (
-                    <div className="flex flex-col items-end gap-2">
+
+                  <div className="flex items-center justify-between py-6 border-y border-white/5">
+                    <div className="flex flex-col">
+                      {product.original_price && (
+                        <span className="text-zinc-600 font-alexandria text-xl line-through decoration-rose-500/30 mb-1">
+                          {product.original_price} <span className="text-xs">ج.م</span>
+                        </span>
+                      )}
+                      <div className="flex items-baseline gap-3">
+                        <span className="text-6xl font-alexandria font-black text-white tracking-tighter">{product.price}</span>
+                        <span className="text-xl font-alexandria font-black text-rose-500 uppercase">ج.م</span>
+                      </div>
+                    </div>
+                    {discountPct && (
                       <div className="bg-rose-600 text-white font-alexandria font-black px-4 py-2 rounded-xl text-sm shadow-xl shadow-rose-600/20">
                         -{discountPct}%
                       </div>
-                      <span className="text-[10px] text-zinc-500 font-alexandria font-black uppercase tracking-widest">Limited Time</span>
+                    )}
+                  </div>
+
+                  <div className="space-y-4 pt-4">
+                    <Link
+                      href={`/checkout/${product.id}`}
+                      className="w-full h-20 inline-flex items-center justify-center gap-4 bg-[#D6004B] hover:bg-[#ff0059] text-white font-alexandria font-black text-2xl rounded-[2rem] transition-all shadow-[0_20px_50px_rgba(214,0,75,0.4)] hover:shadow-[0_25px_60px_rgba(214,0,75,0.6)] active:scale-95 group"
+                    >
+                      شراء الآن (تحميل فوري)
+                      <ArrowLeft className="w-7 h-7 rtl:rotate-180 group-hover:-translate-x-2 transition-transform" />
+                    </Link>
+
+                    <button
+                      onClick={() => addToCart(product)}
+                      className="w-full h-16 inline-flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 text-white font-alexandria font-black text-lg rounded-[1.5rem] border border-white/10 transition-all active:scale-95"
+                    >
+                      <ShoppingCart className="w-5 h-5" />
+                      إضافة إلى السلة
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-6 pt-6 text-zinc-500">
+                    <div className="flex items-center gap-2">
+                       <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                       <span className="text-[9px] font-alexandria font-black uppercase tracking-widest">آمن 100%</span>
                     </div>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-4 relative z-10">
-                  <Link
-                    href={`/checkout/${product.id}`}
-                    className="w-full h-20 inline-flex items-center justify-center gap-4 bg-[#D6004B] hover:bg-[#ff0059] text-white font-alexandria font-black text-2xl rounded-[2rem] transition-all shadow-[0_20px_50px_rgba(214,0,75,0.3)] hover:shadow-[0_25px_60px_rgba(214,0,75,0.5)] active:scale-95 group/btn"
-                  >
-                    Get Instant Access
-                    <ArrowLeft className="w-7 h-7 rtl:rotate-180 group-hover:-translate-x-2 transition-transform" />
-                  </Link>
-
-                  <button
-                    onClick={() => addToCart(product)}
-                    className="w-full h-16 inline-flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 text-white font-alexandria font-black text-lg rounded-[1.5rem] border border-white/10 transition-all active:scale-95"
-                  >
-                    <ShoppingCart className="w-5 h-5" />
-                    Add to Cart
-                  </button>
-                </div>
-                
-                <div className="mt-8 flex items-center justify-center gap-6 relative z-10 border-t border-white/5 pt-8">
-                   <div className="flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                      <span className="text-[10px] font-alexandria font-black text-zinc-500 uppercase tracking-widest">Safe Checkout</span>
-                   </div>
-                   <div className="flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-zinc-500" />
-                      <span className="text-[10px] font-alexandria font-black text-zinc-500 uppercase tracking-widest">SSL Encrypted</span>
-                   </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </section>
-
-        {/* Value Stacking / Deliverables */}
-        <section className="bg-[#08080c] border-y border-white/5 py-32">
-          <div className="container mx-auto px-4">
-            <div className="max-w-4xl mx-auto text-center mb-24">
-              <Badge className="bg-rose-500/10 text-rose-500 border border-rose-500/20 font-alexandria px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest mb-6">
-                What's Inside
-              </Badge>
-              <h2 className="text-4xl md:text-6xl font-alexandria font-black text-white mb-8 tracking-tighter">Everything you need to <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-500 to-orange-500">succeed.</span></h2>
-              <p className="text-zinc-500 font-cairo text-xl md:text-2xl max-w-2xl mx-auto">لقد قمنا بتجميع حزمة متكاملة تضمن لك البدء الفوري وتحقيق النتائج.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {[
-                { 
-                  title: `The ${product.file_type?.toUpperCase() || "DIGITAL"} Asset`, 
-                  desc: `ستحصل على الملف بصيغة ${product.file_type || "رقمية"} عالية الجودة وجاهزة للتشغيل الفوري.`,
-                  icon: FileIcon,
-                  color: "text-rose-500", bg: "bg-rose-500/5"
-                },
-                { 
-                  title: "Setup Blueprint", 
-                  desc: "دليل خطوة بخطوة يضمن لك ضبط الإعدادات بشكل مثالي في أقل من 5 دقائق.",
-                  icon: Rocket,
-                  color: "text-orange-500", bg: "bg-orange-500/5"
-                },
-                { 
-                  title: "Lifetime Updates", 
-                  desc: "أي تطوير أو تحسين مستقبلي ستحصل عليه مجاناً وبشكل تلقائي في حسابك.",
-                  icon: Infinity,
-                  color: "text-emerald-500", bg: "bg-emerald-500/5"
-                },
-                { 
-                  title: "Priority Concierge", 
-                  desc: "فريق الدعم الفني لدينا متاح دائماً للرد على أي استفسار تقني أو تجاري.",
-                  icon: HeartHandshake,
-                  color: "text-blue-500", bg: "bg-blue-500/5"
-                }
-              ].map((item, i) => (
-                <div key={i} className="relative group bg-[#0c0c12] border border-white/5 rounded-[3rem] p-12 hover:border-rose-500/30 transition-all duration-500">
-                  <div className="flex items-center justify-between mb-10">
-                    <div className={cn("w-20 h-20 rounded-[1.5rem] flex items-center justify-center shadow-2xl", item.bg)}>
-                      <item.icon className={cn("w-10 h-10", item.color)} />
-                    </div>
-                    <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-zinc-700 group-hover:text-emerald-500 group-hover:border-emerald-500/50 transition-all">
-                      <CheckCircle2 className="w-6 h-6" />
+                    <div className="flex items-center gap-2">
+                       <Lock className="w-4 h-4" />
+                       <span className="text-[9px] font-alexandria font-black uppercase tracking-widest">تشفير SSL</span>
                     </div>
                   </div>
-                  <h3 className="text-3xl font-alexandria font-black text-white mb-6">{item.title}</h3>
-                  <p className="text-zinc-500 font-cairo text-lg leading-relaxed">{item.desc}</p>
                 </div>
-              ))}
+              </div>
+
+              {/* Social Proof */}
+              <div className="bg-white/5 rounded-[2.5rem] p-8 border border-white/5 flex items-center justify-between">
+                 <div className="flex -space-x-3 rtl:space-x-reverse">
+                   {[1,2,3,4].map(i => (
+                     <div key={i} className="w-10 h-10 rounded-full border-2 border-[#050505] bg-zinc-800 overflow-hidden relative">
+                        <Image src={`https://i.pravatar.cc/100?img=${i+20}`} alt="user" fill />
+                     </div>
+                   ))}
+                 </div>
+                 <div className="text-right">
+                    <p className="text-white font-alexandria font-black text-sm">+{product.sales + 150} مبيعات</p>
+                    <div className="flex text-yellow-400 gap-0.5 justify-end">
+                       {[1,2,3,4,5].map(i => <Star key={i} className="w-3 h-3 fill-current" />)}
+                    </div>
+                 </div>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Mobile Sticky Bar */}
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#050505]/95 backdrop-blur-3xl border-t border-white/10 p-6 z-50 flex items-center justify-between gap-6 pb-safe shadow-[0_-30px_60px_rgba(0,0,0,0.9)]">
-          <div className="flex flex-col">
-            <span className="text-3xl font-alexandria font-black text-white leading-none tracking-tighter">{product.price} <span className="text-xs text-zinc-500">EGP</span></span>
+        {/* Mobile Sticky Bar - Professional & Compact */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#050505]/95 backdrop-blur-3xl border-t border-white/10 p-5 z-50 flex items-center justify-between gap-4 pb-safe shadow-[0_-20px_50px_rgba(0,0,0,0.9)]">
+          <div className="flex flex-col pl-2">
+            <span className="text-2xl font-alexandria font-black text-white leading-none tracking-tighter">
+              {product.price} <span className="text-[10px] text-zinc-500 font-black">ج.م</span>
+            </span>
+            {product.original_price && <span className="text-[10px] text-zinc-600 line-through">توفير {savings}ج.م</span>}
           </div>
-          <div className="flex gap-3 flex-1">
+          <div className="flex gap-2 flex-1">
             <button
               onClick={() => addToCart(product)}
-              className="h-14 w-14 bg-white/5 border border-white/10 text-white rounded-2xl flex items-center justify-center active:scale-90 transition-all shrink-0"
+              className="h-12 w-12 bg-white/5 border border-white/10 text-white rounded-xl flex items-center justify-center active:scale-90 shrink-0"
             >
-              <ShoppingCart className="w-6 h-6" />
+              <ShoppingCart className="w-5 h-5" />
             </button>
             <Link
               href={`/checkout/${product.id}`}
-              className="flex-1 h-14 bg-[#D6004B] text-white font-alexandria font-black text-lg rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all shadow-xl shadow-rose-600/20"
+              className="flex-1 h-12 bg-[#D6004B] text-white font-alexandria font-black text-sm rounded-xl flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-rose-600/20"
             >
-              Buy Now
-              <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
+              شراء الآن
+              <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
             </Link>
           </div>
         </div>
