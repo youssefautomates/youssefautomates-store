@@ -173,18 +173,13 @@ export async function POST(req: Request) {
           cvn: cardData.cvv,
           expiry_month: cardData.expiry.split("/")[0],
           expiry_year: cardData.expiry.split("/")[1],
-          name: cardName,
-          cardholder_name: cardName,
-          card_holder_name: cardName,
-          card_holdername: cardName
+          sourceholder_name: cardName
         },
         payment_token: paymentKey,
-        billing: billingData,
-        cardholder_name: cardName,
-        card_holdername: cardName
+        billing: billingData
       };
 
-      console.log("[FINAL_CART_PAYLOAD] Submitting to Paymob:", JSON.stringify({ ...payPayload, source: { ...payPayload.source, identifier: "MASKED", cvn: "***" } }, null, 2));
+      console.log("[FINAL_CART_PAYLOAD] cardName:", cardName, "| Submitting to Paymob:", JSON.stringify({ ...payPayload, source: { ...payPayload.source, identifier: "MASKED", cvn: "***" } }, null, 2));
       
       const payResponse = await fetch("https://accept.paymob.com/api/acceptance/payments/pay", {
         method: "POST",
