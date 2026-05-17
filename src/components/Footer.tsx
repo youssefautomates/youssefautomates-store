@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Mail, Camera, MessageCircle, ArrowLeft, ShieldCheck, Zap, Heart } from "lucide-react";
+import { ArrowLeft, ShieldCheck, Zap, Heart } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { SocialLinks } from "./SocialLinks";
 
 export function Footer() {
   const [email, setEmail] = useState("");
@@ -118,32 +119,8 @@ export function Footer() {
             </form>
             
             {/* Social Icons Row */}
-            <div className="flex items-center gap-3 pt-2">
-              <a 
-                href="https://instagram.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-9 h-9 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-zinc-400 hover:bg-[#D6004B] hover:text-white transition-all duration-300"
-                title="Instagram"
-              >
-                <Camera className="w-4 h-4" />
-              </a>
-              <a 
-                href="https://facebook.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-9 h-9 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-zinc-400 hover:bg-[#1877F2] hover:text-white transition-all duration-300"
-                title="Facebook"
-              >
-                <MessageCircle className="w-4 h-4" />
-              </a>
-              <a 
-                href="mailto:support@youssefautomates.com" 
-                className="w-9 h-9 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-zinc-400 hover:bg-emerald-600 hover:text-white transition-all duration-300"
-                title="Email Support"
-              >
-                <Mail className="w-4 h-4" />
-              </a>
+            <div className="pt-2 flex justify-start">
+              <SocialLinks />
             </div>
           </div>
 
