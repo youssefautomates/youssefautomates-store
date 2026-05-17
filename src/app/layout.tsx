@@ -27,6 +27,11 @@ export const metadata: Metadata = {
   description: "انطلق نحو المستقبل مع يوسف أوتميتس. نوفر لك أرقى حلول أتمتة الأعمال n8n والمنتجات الرقمية التي تضاعف إنتاجيتك.",
   keywords: ["أتمتة", "n8n", "منتجات رقمية", "ذكاء اصطناعي", "تسويق رقمي", "يوسف أوتميتس"],
   authors: [{ name: "Youssef Ahmed" }],
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
   openGraph: {
     type: "website",
     locale: "ar_EG",

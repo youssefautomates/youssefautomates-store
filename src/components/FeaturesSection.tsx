@@ -1,51 +1,80 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Zap, Clock, ShieldCheck, Sparkles, Download, RefreshCw, Smartphone, Headphones } from "lucide-react";
+import { Zap, ShieldCheck, Sparkles, RefreshCw, Smartphone, Headphones } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-const features = [
+interface Feature {
+  title: string;
+  desc: string;
+  icon: any;
+  color: string;
+  glow: string;
+  accent: string;
+}
+
+const features: Feature[] = [
   {
     title: "تسليم فوري",
     desc: "احصل على ملفاتك فوراً بعد الدفع مباشرة دون انتظار، النظام مؤتمت بالكامل.",
     icon: Zap,
-    color: "from-rose-500 to-pink-500"
+    color: "from-rose-500 to-pink-500",
+    glow: "rgba(244,63,94,0.15)",
+    accent: "group-hover:border-rose-500/30"
   },
   {
     title: "أنظمة جاهزة",
     desc: "تدفقات عمل n8n وقوالب ذكاء اصطناعي مختبرة وجاهزة للربط والتشغيل فوراً.",
     icon: Sparkles,
-    color: "from-blue-500 to-cyan-500"
+    color: "from-blue-500 to-cyan-500",
+    glow: "rgba(59,130,246,0.15)",
+    accent: "group-hover:border-blue-500/30"
   },
   {
     title: "دعم مستمر",
     desc: "فريقنا متواجد للإجابة على استفساراتك ومساعدتك في إعداد الأنظمة بنجاح.",
     icon: Headphones,
-    color: "from-emerald-500 to-teal-500"
+    color: "from-emerald-500 to-teal-500",
+    glow: "rgba(16,185,129,0.15)",
+    accent: "group-hover:border-emerald-500/30"
   },
   {
     title: "تحديثات مجانية",
     desc: "نحدث منتجاتنا دورياً لمواكبة التغيرات، وستحصل على التحديثات مجاناً دائماً.",
     icon: RefreshCw,
-    color: "from-orange-500 to-amber-500"
+    color: "from-orange-500 to-amber-500",
+    glow: "rgba(245,158,11,0.15)",
+    accent: "group-hover:border-amber-500/30"
   },
   {
     title: "أمان عالي",
     desc: "بياناتك ومدفوعاتك محمية بأعلى معايير التشفير العالمية لضمان تجربة آمنة.",
     icon: ShieldCheck,
-    color: "from-indigo-500 to-purple-500"
+    color: "from-indigo-500 to-purple-500",
+    glow: "rgba(99,102,241,0.15)",
+    accent: "group-hover:border-indigo-500/30"
   },
   {
     title: "سهولة الاستخدام",
     desc: "لا تحتاج لخبرة برمجية عميقة، نوفر لك أدلة تشغيل مبسطة لكل منتج.",
     icon: Smartphone,
-    color: "from-violet-500 to-fuchsia-500"
+    color: "from-violet-500 to-fuchsia-500",
+    glow: "rgba(168,85,247,0.15)",
+    accent: "group-hover:border-purple-500/30"
   }
 ];
 
 export function FeaturesSection() {
   return (
-    <section id="features" className="py-24 md:py-32 relative overflow-hidden">
+    <section id="features" className="py-24 md:py-32 relative bg-[#050505] overflow-hidden select-none">
+      
+      {/* Background glow lines */}
+      <div className="absolute top-0 right-1/4 w-[600px] h-[600px] bg-rose-600/[0.02] rounded-full blur-[150px] pointer-events-none" />
+      <div className="absolute bottom-0 left-1/4 w-[600px] h-[600px] bg-rose-600/[0.02] rounded-full blur-[150px] pointer-events-none" />
+
       <div className="container mx-auto px-4 relative z-10">
+        
+        {/* Section Title */}
         <div className="text-center mb-16 md:mb-24">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -56,42 +85,65 @@ export function FeaturesSection() {
             <Sparkles className="w-4 h-4" />
             لماذا يختارنا المحترفون؟
           </motion.div>
-          <h2 className="text-3xl md:text-5xl font-alexandria font-black text-white mb-6 tracking-tight">مميزات تجعلنا خيارك الأول</h2>
-          <p className="text-zinc-400 font-cairo text-lg max-w-2xl mx-auto leading-relaxed">
+          <h2 className="text-3xl md:text-5xl font-alexandria font-black text-white mb-6 tracking-tighter">
+            مميزات تجعلنا خيارك الأول
+          </h2>
+          <p className="text-zinc-500 font-cairo text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
             نحن لا نبيع مجرد ملفات، بل نوفر لك حلولاً متكاملة ترفع كفاءة عملك وتوفر وقتك الثمين.
           </p>
         </div>
 
+        {/* Feature Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
           {features.map((feature, idx) => (
             <motion.div
               key={idx}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 25 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: idx * 0.1 }}
+              transition={{ delay: idx * 0.05, duration: 0.4 }}
               className="group relative"
             >
-              <div className="h-full bg-white/[0.03] border border-white/5 p-8 rounded-[2rem] hover:bg-white/[0.05] transition-all duration-500 hover:border-rose-500/30 group-hover:-translate-y-2">
-                {/* Glow Effect */}
-                <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-[2rem]" />
+              <div className={cn(
+                "h-full bg-[#0a0a0f]/60 backdrop-blur-xl border border-white/5 p-8 rounded-[2.5rem] transition-all duration-500 group-hover:-translate-y-2 relative overflow-hidden",
+                feature.accent
+              )}>
                 
-                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${feature.color} p-0.5 mb-6 group-hover:scale-110 transition-transform duration-500`}>
-                  <div className="w-full h-full bg-[#050505] rounded-[0.9rem] flex items-center justify-center">
-                    <feature.icon className="w-7 h-7 text-white" />
+                {/* Radial Glow matching card accent color */}
+                <div 
+                  className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" 
+                  style={{ background: feature.glow }} 
+                />
+
+                {/* Futuristic Icon Frame */}
+                <div className={cn(
+                  "w-14 h-14 rounded-2xl bg-gradient-to-br p-0.5 mb-6 group-hover:scale-110 transition-all duration-500 shadow-lg",
+                  feature.color
+                )}>
+                  <div className="w-full h-full bg-[#050505] rounded-[0.9rem] flex items-center justify-center group-hover:bg-transparent transition-colors duration-500">
+                    <feature.icon className="w-6 h-6 text-white group-hover:scale-110 transition-transform duration-500" />
                   </div>
                 </div>
 
-                <h3 className="text-xl font-alexandria font-bold text-white mb-4 group-hover:text-rose-400 transition-colors">
+                {/* Feature Content */}
+                <h3 className="text-xl font-alexandria font-bold text-white mb-4 group-hover:text-white transition-colors">
                   {feature.title}
                 </h3>
-                <p className="text-zinc-400 font-cairo leading-relaxed">
+                <p className="text-zinc-400 font-cairo text-sm leading-relaxed group-hover:text-zinc-300 transition-colors">
                   {feature.desc}
                 </p>
+
+                {/* Subtle outer bottom border highlight */}
+                <div className={cn(
+                  "absolute bottom-0 left-10 right-10 h-[2px] bg-gradient-to-r opacity-0 group-hover:opacity-100 transition-opacity duration-500",
+                  feature.color
+                )} />
+
               </div>
             </motion.div>
           ))}
         </div>
+
       </div>
     </section>
   );

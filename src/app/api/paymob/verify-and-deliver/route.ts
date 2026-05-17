@@ -7,56 +7,69 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 /**
  * POST /api/paymob/verify-and-deliver
  * 
- * This endpoint verifies payment directly with Paymob API (no webhook needed)
- * and delivers the digital product via email.
- * 
- * Called from the success page after payment completion.
- * Safe to call multiple times — it checks if delivery was already done.
+ * Verifies payment directly with Paymob API and delivers the product.
+ * Used as a fallback or immediate fulfillment on the success page.
  */
 export async function POST(req: Request) {
+  const requestId = Math.random().toString(36).substring(7);
+  console.log(`[VERIFY][${requestId}] Verifying transaction...`);
+
   try {
     const { orderId } = await req.json();
     if (!orderId) {
       return NextResponse.json({ error: "Missing orderId" }, { status: 400 });
     }
 
-    // 1. Fetch order(s) from Supabase
+    console.log(`[VERIFY][${requestId}] Internal Order ID: ${orderId}`);
+
+    // 1. Fetch order from Supabase
     const { data: orders, error: orderError } = await supabase
       .from("orders")
       .select("*")
       .eq("id", orderId);
 
     if (orderError || !orders || orders.length === 0) {
+      console.error(`[VERIFY][${requestId}] ❌ Order not found in DB`);
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
     const order = orders[0];
 
-    // 2. Already delivered? Skip.
+    // Check if already completed
     if (order.status === "completed") {
-      console.log(`[VERIFY] Order ${orderId} already completed. Skipping.`);
-      return NextResponse.json({ success: true, alreadyDelivered: true });
+      console.log(`[VERIFY][${requestId}] ✅ Order already marked as completed. Skipping verification.`);
+      return NextResponse.json({ 
+        success: true, 
+        alreadyDelivered: true,
+        productTitle: order.product_title,
+        customerName: order.customer_name,
+        customerEmail: order.customer_email,
+        orderValue: order.amount,
+        currency: order.currency,
+        downloadToken: order.id
+      });
     }
 
     const paymobPaymentId = order.payment_id;
     if (!paymobPaymentId || paymobPaymentId === "PENDING") {
+      console.warn(`[VERIFY][${requestId}] ⚠️ Payment not initiated or pending in DB`);
       return NextResponse.json({ error: "Payment not initiated yet", status: "pending" }, { status: 200 });
     }
 
-    // 3. Authenticate with Paymob
+    // 2. Authenticate with Paymob
     const apiKey = process.env.PAYMOB_API_KEY;
-    if (!apiKey) {
-      throw new Error("PAYMOB_API_KEY is missing");
-    }
+    if (!apiKey) throw new Error("PAYMOB_API_KEY is missing");
 
     const authRes = await fetch("https://accept.paymob.com/api/auth/tokens", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ api_key: apiKey }),
     });
-    const authToken = (await authRes.json()).token;
+    const authData = await authRes.json();
+    const authToken = authData.token;
 
-    // 4. Fetch order transactions from Paymob
+    // 3. Fetch order status from Paymob
+    console.log(`[VERIFY][${requestId}] 🔍 Checking Paymob Order: ${paymobPaymentId}...`);
     const txnRes = await fetch(`https://accept.paymob.com/api/ecommerce/orders/${paymobPaymentId}`, {
       method: "GET",
       headers: { 
@@ -66,17 +79,12 @@ export async function POST(req: Request) {
     });
     
     const paymobOrder = await txnRes.json();
-    console.log("[VERIFY] Paymob order status:", paymobOrder.id, "| paid_amount_cents:", paymobOrder.paid_amount_cents, "| is_cancel:", paymobOrder.is_cancel);
-
-    // Check if there are successful transactions
+    
     let isPaymentSuccessful = false;
     let transactionId = "";
     let amountCents = 0;
-    let currency = "EGP";
-    let customerEmail = order.customer_email;
-    let customerName = order.customer_name;
 
-    // Try to get transactions for this order
+    // Try to find a successful transaction in the order's transactions list
     const txnListRes = await fetch(`https://accept.paymob.com/api/ecommerce/orders/${paymobPaymentId}/transactions`, {
       method: "GET",
       headers: { 
@@ -87,251 +95,112 @@ export async function POST(req: Request) {
 
     if (txnListRes.ok) {
       const transactions = await txnListRes.json();
-      console.log("[VERIFY] Transactions count:", Array.isArray(transactions) ? transactions.length : "not array");
-      
       if (Array.isArray(transactions)) {
         const successfulTxn = transactions.find((t: any) => t.success === true);
         if (successfulTxn) {
           isPaymentSuccessful = true;
           transactionId = successfulTxn.id;
           amountCents = successfulTxn.amount_cents;
-          currency = successfulTxn.currency || "EGP";
-          // Try to get email from transaction
-          if (successfulTxn.payment_key_claims?.billing_data?.email) {
-            customerEmail = successfulTxn.payment_key_claims.billing_data.email;
-          }
-          if (successfulTxn.payment_key_claims?.billing_data?.first_name) {
-            customerName = successfulTxn.payment_key_claims.billing_data.first_name;
-          }
+          console.log(`[VERIFY][${requestId}] ✅ Successful transaction found: ${transactionId}`);
         }
       }
     }
 
-    // Also check paid_amount_cents from order itself
     if (!isPaymentSuccessful && paymobOrder.paid_amount_cents > 0) {
       isPaymentSuccessful = true;
       amountCents = paymobOrder.paid_amount_cents;
       transactionId = paymobOrder.id;
+      console.log(`[VERIFY][${requestId}] ✅ Order marked as paid in Paymob: ${amountCents} cents`);
     }
 
     if (!isPaymentSuccessful) {
-      console.log(`[VERIFY] Order ${orderId} payment not confirmed yet.`);
-      return NextResponse.json({ success: false, status: "pending", message: "Payment not confirmed yet" });
+      console.warn(`[VERIFY][${requestId}] ⏳ Payment not yet confirmed by Paymob`);
+      return NextResponse.json({ success: false, status: "pending", message: "Payment not confirmed" });
     }
 
-    // 5. Payment confirmed! Update order status
-    await supabase
+    // 4. Update order in Supabase
+    console.log(`[VERIFY][${requestId}] 🔄 Updating DB status to completed...`);
+    const completedAt = new Date().toISOString();
+    const { error: updateError } = await supabase
       .from("orders")
-      .update({ status: "completed" })
+      .update({ 
+        status: "completed",
+        completed_at: completedAt,
+        transaction_id: String(transactionId)
+      })
       .eq("id", orderId);
 
-    // Also update any related cart orders with same payment_id
-    await supabase
-      .from("orders")
-      .update({ status: "completed" })
-      .eq("payment_id", paymobPaymentId);
-
-    console.log(`[VERIFY] ✅ Order ${orderId} marked as completed.`);
-
-    // 6. Fetch product details for email
-    const { data: allOrders } = await supabase
-      .from("orders")
-      .select("product_id, product_title")
-      .eq("payment_id", paymobPaymentId);
-
-    if (!allOrders || allOrders.length === 0) {
-      return NextResponse.json({ success: true, emailSent: false, reason: "No products found" });
+    if (updateError) {
+      console.error(`[VERIFY][${requestId}] ❌ Update Error:`, updateError);
+    } else {
+      console.log(`[VERIFY][${requestId}] ✅ DB Updated`);
     }
 
-    // 7. Build and send email
-    const productBlocks: string[] = [];
-    const productTitles: string[] = [];
+    // 5. Update Product Sales
+    const { data: product } = await supabase
+      .from("products")
+      .select("title, sales")
+      .eq("id", order.product_id)
+      .single();
 
-    for (const o of allOrders) {
-      const { data: product } = await supabase
+    if (product) {
+      await supabase
         .from("products")
-        .select("file_url, title")
-        .eq("id", o.product_id)
-        .single();
-
-      const downloadLink = product?.file_url || "https://youssefautomates.com";
-      const productTitle = product?.title || o.product_title;
-      productTitles.push(productTitle);
-
-      productBlocks.push(`
-        <tr>
-          <td style="padding: 12px 0;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #1a1a2e; border-radius: 12px; overflow: hidden;">
-              <tr>
-                <td style="padding: 20px 24px;">
-                  <table width="100%" cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td>
-                        <p style="margin: 0 0 4px 0; font-size: 11px; color: #D6004B; text-transform: uppercase; letter-spacing: 2px; font-weight: 700;">منتج رقمي</p>
-                        <h3 style="margin: 0 0 16px 0; font-size: 18px; color: #ffffff; font-weight: 700;">${productTitle}</h3>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td>
-                        <table cellpadding="0" cellspacing="0">
-                          <tr>
-                            <td style="background: linear-gradient(135deg, #D6004B, #ff1a6d); border-radius: 8px;">
-                              <a href="${downloadLink}" style="display: inline-block; padding: 12px 32px; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 14px; letter-spacing: 0.5px;">⬇ تحميل الملف الآن</a>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      `);
+        .update({ sales: (product.sales || 0) + 1 })
+        .eq("id", order.product_id);
+      console.log(`[VERIFY][${requestId}] 📈 Product sales incremented`);
     }
 
-    const isMultiple = productTitles.length > 1;
-    const subjectTitle = isMultiple ? `${productTitles.length} منتجات جاهزة للتحميل` : productTitles[0];
+    // 6. Build and send email (Fallback if webhook failed or is slow)
+    const downloadToken = order.id;
+    const downloadLink = `${process.env.NEXT_PUBLIC_APP_URL}/api/download?token=${downloadToken}`;
     const amountPaid = (amountCents / 100).toFixed(2);
 
     const emailHtml = `
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="color-scheme" content="light">
-  <meta name="supported-color-schemes" content="light">
-  <title>طلبك جاهز - Youssef Automates</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; direction: rtl;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f5;">
-    <tr>
-      <td align="center" style="padding: 40px 16px;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #0d0d1a; border-radius: 24px; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.15);">
-          
-          <tr>
-            <td style="padding: 40px 32px 24px 32px; text-align: center; background: linear-gradient(180deg, #1a1a2e 0%, #0d0d1a 100%);">
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center">
-                    <div style="display: inline-block; background: linear-gradient(135deg, #D6004B, #ff1a6d); padding: 12px 16px; border-radius: 14px; margin-bottom: 20px;">
-                      <span style="color: #ffffff; font-size: 20px; font-weight: 900; letter-spacing: -0.5px;">Y</span>
-                    </div>
-                    <p style="margin: 0; color: #ffffff; font-size: 18px; font-weight: 800; letter-spacing: -0.3px;">Youssef Automates</p>
-                    <p style="margin: 4px 0 0 0; color: #71717a; font-size: 12px; text-transform: uppercase; letter-spacing: 3px; font-weight: 600;">PREMIUM WORKFLOWS</p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <tr>
-            <td style="padding: 0 32px 8px 32px; text-align: center;">
-              <table cellpadding="0" cellspacing="0" style="margin: 0 auto;">
-                <tr>
-                  <td style="background-color: #052e16; border-radius: 99px; padding: 8px 20px;">
-                    <span style="color: #4ade80; font-size: 13px; font-weight: 700;">✓ تم تأكيد الدفع بنجاح</span>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <tr>
-            <td style="padding: 24px 32px 8px 32px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 800; line-height: 1.3;">أهلاً ${customerName}! 🎉</h1>
-              <p style="margin: 12px 0 0 0; color: #a1a1aa; font-size: 16px; line-height: 1.7;">شكراً لثقتك بنا. منتجاتك الرقمية جاهزة للتحميل الفوري.</p>
-            </td>
-          </tr>
-
-          <tr><td style="padding: 24px 32px;"><div style="height: 1px; background: linear-gradient(90deg, transparent, #27272a, transparent);"></div></td></tr>
-
-          <tr>
-            <td style="padding: 0 32px;">
-              <p style="margin: 0 0 8px 0; color: #71717a; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; font-weight: 700;">${isMultiple ? "منتجاتك الرقمية" : "منتجك الرقمي"}</p>
-              <table width="100%" cellpadding="0" cellspacing="0">${productBlocks.join("")}</table>
-            </td>
-          </tr>
-
-          <tr>
-            <td style="padding: 24px 32px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #1a1a2e; border-radius: 12px;">
-                <tr>
-                  <td style="padding: 20px 24px;">
-                    <p style="margin: 0 0 12px 0; color: #71717a; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; font-weight: 700;">ملخص الطلب</p>
-                    <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="padding: 6px 0; color: #a1a1aa; font-size: 14px;">رقم المعاملة</td>
-                        <td style="padding: 6px 0; color: #ffffff; font-size: 14px; font-weight: 600; text-align: left; direction: ltr; font-family: monospace;">#${transactionId}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 6px 0; color: #a1a1aa; font-size: 14px;">المبلغ المدفوع</td>
-                        <td style="padding: 6px 0; color: #4ade80; font-size: 14px; font-weight: 700; text-align: left; direction: ltr;">${amountPaid} ${currency}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 6px 0; color: #a1a1aa; font-size: 14px;">الحالة</td>
-                        <td style="padding: 6px 0; text-align: left;"><span style="background-color: #052e16; color: #4ade80; padding: 2px 10px; border-radius: 99px; font-size: 12px; font-weight: 700;">مكتمل ✓</span></td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <tr>
-            <td style="padding: 0 32px 24px 32px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #1c1917; border-radius: 12px; border-right: 4px solid #D6004B;">
-                <tr>
-                  <td style="padding: 16px 20px;">
-                    <p style="margin: 0 0 4px 0; color: #D6004B; font-size: 13px; font-weight: 700;">⚡ ملاحظة مهمة</p>
-                    <p style="margin: 0; color: #a1a1aa; font-size: 13px; line-height: 1.7;">احتفظ بهذا الإيميل كمرجع. روابط التحميل ستظل متاحة. إذا واجهت أي مشكلة، ببساطة رد على هذه الرسالة وسنساعدك فوراً.</p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <tr>
-            <td style="padding: 24px 32px 32px 32px; text-align: center; background-color: #0a0a14;">
-              <p style="margin: 0 0 8px 0; color: #52525b; font-size: 13px;">تم الإرسال بواسطة <span style="color: #D6004B; font-weight: 700;">Youssef Automates</span></p>
-              <p style="margin: 0; color: #3f3f46; font-size: 11px;">&copy; ${new Date().getFullYear()} Youssef Automates. جميع الحقوق محفوظة.</p>
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background-color:#050505;color:#ffffff;direction:rtl;">
+  <div style="max-width:600px;margin:20px auto;background-color:#0a0a0a;border-radius:20px;padding:40px;border:1px solid #1a1a1a;">
+    <h1 style="text-align:center;">مبروك! 🎉</h1>
+    <p style="text-align:center;color:#a1a1aa;">تم تأكيد طلبك للمنتج: <b>${order.product_title}</b></p>
+    <div style="margin:30px 0;text-align:center;">
+      <a href="${downloadLink}" style="background-color:#ef0055;color:#fff;padding:15px 30px;border-radius:10px;text-decoration:none;font-weight:bold;display:inline-block;">تحميل المنتج الآن ⬇</a>
+    </div>
+    <div style="border-top:1px solid #1a1a1a;padding-top:20px;color:#555;font-size:12px;">
+      <p>رقم الطلب: ${orderId}</p>
+      <p>المبلغ: ${amountPaid} EGP</p>
+    </div>
+  </div>
 </body>
 </html>`.trim();
 
-    const emailResult = await resend.emails.send({
-      from: "Youssef Automates <delivery@youssefautomates.com>",
-      to: customerEmail,
-      replyTo: "youssefautomates@gmail.com",
-      subject: `🎉 طلبك جاهز! ${subjectTitle} - Youssef Automates`,
-      html: emailHtml,
-      headers: {
-        "X-Entity-Ref-ID": `order-${orderId}-${Date.now()}`,
-      },
-    });
-
-    console.log(`[VERIFY] 📧 Email sent to ${customerEmail} for ${allOrders.length} item(s). Resend ID: ${emailResult?.data?.id}`);
+    try {
+      console.log(`[VERIFY][${requestId}] 📧 Sending email to ${order.customer_email}...`);
+      await resend.emails.send({
+        from: "Youssef Automates <delivery@youssefautomates.com>",
+        to: order.customer_email,
+        subject: `🎉 طلبك جاهز! ${order.product_title} - Youssef Automates`,
+        html: emailHtml,
+      });
+      console.log(`[VERIFY][${requestId}] 📧 Email sent`);
+    } catch (e) {
+      console.error(`[VERIFY][${requestId}] 📧 Resend Error:`, e);
+    }
 
     return NextResponse.json({ 
       success: true, 
-      emailSent: true,
-      transactionId,
+      productTitle: order.product_title,
+      customerName: order.customer_name,
+      customerEmail: order.customer_email,
       orderValue: amountPaid,
-      currency: currency,
-      productNames: productTitles.join(", ")
+      currency: "EGP",
+      downloadToken: downloadToken,
+      downloadUrl: downloadLink
     });
 
   } catch (error: any) {
-    console.error("[VERIFY_ERROR]", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error(`[VERIFY][${requestId}] 💥 ERROR:`, error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

@@ -2,22 +2,45 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, ShoppingCart, Settings, LogOut, Search, Bell, Sparkles, Target, Star } from "lucide-react";
+import {
+  LayoutDashboard, Package, ShoppingCart, Settings, LogOut,
+  Search, Bell, Sparkles, Target, Star, BarChart3, ShieldAlert,
+  Flame, Globe, ShieldCheck
+} from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  const navItems = [
-    { name: "لوحة التحكم", href: "/admin", icon: LayoutDashboard },
-    { name: "المنتجات", href: "/admin/products", icon: Package },
-    { name: "الطلبات", href: "/admin/orders", icon: ShoppingCart },
-    { name: "التسويق", href: "/admin/marketing", icon: Target },
-    { name: "التقييمات", href: "/admin/reviews", icon: Star },
-    { name: "الإعدادات", href: "/admin/settings", icon: Settings },
+  const navGroups = [
+    {
+      title: "التحليلات والمقاييس",
+      items: [
+        { name: "لوحة التحكم", href: "/admin", icon: LayoutDashboard },
+        { name: "التحليلات المفصلة", href: "/admin/analytics", icon: BarChart3 },
+        { name: "فيسبوك بيكسل", href: "/admin/analytics/facebook-pixel", icon: Target },
+        { name: "تيك توك بيكسل", href: "/admin/analytics/tiktok-pixel", icon: Globe }
+      ]
+    },
+    {
+      title: "عمليات المتجر",
+      items: [
+        { name: "المنتجات", href: "/admin/products", icon: Package },
+        { name: "أداء المنتجات الرقمية", href: "/admin/products/performance", icon: Sparkles },
+        { name: "الطلبات", href: "/admin/orders", icon: ShoppingCart },
+        { name: "تغذية المبيعات الحية", href: "/admin/orders/live", icon: Flame }
+      ]
+    },
+    {
+      title: "الإدارة والأمن",
+      items: [
+        { name: "التقييمات", href: "/admin/reviews", icon: Star },
+        { name: "الإعدادات العامة", href: "/admin/settings", icon: Settings },
+        { name: "حماية وأمن النظام", href: "/admin/settings/security", icon: ShieldCheck }
+      ]
+    }
   ];
 
   if (pathname === "/admin/login") return <>{children}</>;
@@ -36,36 +59,40 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
 
-        <nav className="flex-1 p-6 space-y-2 overflow-y-auto custom-scrollbar">
-          <p className="px-4 pb-4 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">القائمة الرئيسية</p>
-          {navItems.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group relative",
-                  isActive 
-                    ? "bg-rose-600 text-white shadow-xl shadow-rose-600/20" 
-                    : "text-zinc-500 hover:text-white hover:bg-white/5"
-                )}
-              >
-                {isActive && (
-                  <motion.div 
-                    layoutId="sidebar-active"
-                    className="absolute right-0 w-1 h-6 bg-white rounded-l-full"
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  />
-                )}
-                <item.icon className={cn(
-                  "w-5 h-5 transition-colors", 
-                  isActive ? "text-white" : "group-hover:text-rose-400"
-                )} />
-                <span className="font-bold text-sm tracking-wide font-cairo">{item.name}</span>
-              </Link>
-            );
-          })}
+        <nav className="flex-1 p-6 space-y-6 overflow-y-auto custom-scrollbar">
+          {navGroups.map((group) => (
+            <div key={group.title} className="space-y-2">
+              <p className="px-4 text-[9px] font-black text-zinc-500 uppercase tracking-widest">{group.title}</p>
+              {group.items.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300 group relative",
+                      isActive 
+                        ? "bg-rose-600 text-white shadow-xl shadow-rose-600/20" 
+                        : "text-zinc-500 hover:text-white hover:bg-white/5"
+                    )}
+                  >
+                    {isActive && (
+                      <motion.div 
+                        layoutId="sidebar-active"
+                        className="absolute right-0 w-1 h-6 bg-white rounded-l-full"
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      />
+                    )}
+                    <item.icon className={cn(
+                      "w-4 h-4 transition-colors", 
+                      isActive ? "text-white" : "group-hover:text-rose-400"
+                    )} />
+                    <span className="font-bold text-xs tracking-wide font-cairo">{item.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         <div className="p-6 border-t border-white/5 space-y-4">
@@ -77,7 +104,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-red-400 hover:bg-red-500/10 transition-all font-cairo font-bold group"
           >
             <LogOut className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-            <span>تسجيل الخروج</span>
+            <span className="text-xs">تسجيل الخروج</span>
           </button>
         </div>
       </aside>
@@ -120,17 +147,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </header>
 
         {/* Page Content */}
-        <div className="p-8 lg:p-12 max-w-[1600px] mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            {children}
-          </motion.div>
+        <div className="p-8 lg:p-12 max-w-[1600px] mx-auto font-cairo">
+          {children}
         </div>
       </main>
     </div>
   );
 }
-

@@ -11,6 +11,7 @@ import {
   Volume2, VolumeX, Pause, Maximize, RotateCcw
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useEffect, use, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
@@ -25,51 +26,103 @@ import { useCart } from "@/context/CartContext";
 
 // ── Helper: Unpack Tags ───────────────────────────────────────────────
 function unpackProduct(p: Product) {
-  const video_url = p.tags?.find(t => t.startsWith("video:"))?.replace("video:", "") || "";
-  const gallery = p.tags?.filter(t => t.startsWith("gallery:"))?.map(t => t.replace("gallery:", "")) || [];
+  const mediaTags = p.tags?.filter(t => t.startsWith("media:")) || [];
+  const slides = Array(5).fill(null).map((_, i) => {
+    const tag = mediaTags.find(t => t.startsWith(`media:${i}:`));
+    if (tag) {
+      const parts = tag.split(":");
+      return { type: parts[2] as 'image' | 'video', url: parts.slice(3).join(":") };
+    }
+    return null;
+  }).filter(Boolean) as { type: 'image' | 'video', url: string }[];
+
+  // Fallback for legacy data if no media tags exist
+  if (slides.length === 0) {
+    const video_url = p.tags?.find(t => t.startsWith("video:"))?.replace("video:", "");
+    if (video_url) slides.push({ type: 'video', url: video_url });
+    if (p.image_url) slides.push({ type: 'image', url: p.image_url });
+    const legacyGallery = p.tags?.filter(t => t.startsWith("gallery:"))?.map(t => t.replace("gallery:", "")) || [];
+    legacyGallery.forEach(url => slides.push({ type: 'image', url }));
+  }
+
   const file_type = p.tags?.find(t => t.startsWith("type:"))?.replace("type:", "") || "zip";
   
   return {
     ...p,
-    video_url,
-    gallery: gallery.length > 0 ? gallery : [],
+    slides,
     file_type
   };
 }
 
-export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
+export default function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params);
   const [product, setProduct] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeMedia, setActiveMedia] = useState<string | null>(null); // URL of image or 'video'
+  const [activeMedia, setActiveMedia] = useState<{ type: 'image' | 'video', url: string } | null>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [hasInteracted, setHasInteracted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const router = useRouter();
   
   const { addToCart } = useCart();
 
   useEffect(() => {
     fetchProduct();
-  }, [resolvedParams.id]); // eslint-disable-line
+  }, [resolvedParams.slug]); // eslint-disable-line
 
   async function fetchProduct() {
     setIsLoading(true);
+    const rawSlug = resolvedParams.slug;
+    const decodedSlug = decodeURIComponent(rawSlug);
+    
     try {
-      const { data, error } = await supabase
+      console.log("[PRODUCT_PAGE] Fetching product for slug:", decodedSlug);
+      
+      // 1. Try to fetch by slug
+      let { data, error } = await supabase
         .from("products")
         .select("*")
-        .eq("id", resolvedParams.id)
+        .eq("slug", decodedSlug)
         .single();
 
-      if (error) throw error;
+      // 2. If not found, try to fetch by ID (legacy support)
+      if (error || !data) {
+        // Only try to fetch by ID if the slug looks like a UUID to avoid Postgres cast errors
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decodedSlug);
+        
+        if (isUUID) {
+          console.log("[PRODUCT_PAGE] Slug is UUID, trying ID lookup...");
+          const { data: idData, error: idError } = await supabase
+            .from("products")
+            .select("*")
+            .eq("id", decodedSlug)
+            .single();
+          
+          if (!idError && idData) {
+            console.log("[PRODUCT_PAGE] Found by ID, redirecting to slug:", idData.slug);
+            router.replace(`/product/${idData.slug}`);
+            return;
+          }
+        }
+        
+        // If it's a "No rows found" error, just stop loading and show "Product not found"
+        if (error && (error.code === 'PGRST116' || error.message?.includes('no rows'))) {
+          console.log("[PRODUCT_PAGE] Product not found in database.");
+          setProduct(null);
+          return;
+        }
+
+        if (error) throw error;
+      }
+
       const unpacked = unpackProduct(data as Product);
       setProduct(unpacked);
       
-      // LOGIC: Video is primary.
-      if (unpacked.video_url) {
-        setActiveMedia('video');
+      // LOGIC: First slide is primary
+      if (unpacked.slides.length > 0) {
+        setActiveMedia(unpacked.slides[0]);
       } else {
-        setActiveMedia(unpacked.image_url);
+        setActiveMedia(unpacked.image_url ? { type: 'image', url: unpacked.image_url } : null);
       }
       
       // Update views non-blocking
@@ -97,9 +150,12 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
           }
         }
       }
-    } catch (error) {
-      console.error("Error fetching product:", error);
-      toast.error("حدث خطأ أثناء تحميل المنتج");
+    } catch (err: any) {
+      console.error("[PRODUCT_PAGE] Fetch Error Details:", {
+        message: err.message,
+        code: err.code,
+        details: err.details
+      });
     } finally {
       setIsLoading(false);
     }
@@ -135,12 +191,6 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const savings = product.original_price ? product.original_price - product.price : 0;
   const discountPct = calcDiscount(product.price, product.original_price);
   
-  // FILTER: Only real images.
-  const isPlaceholder = (url: string) => !url || url.includes("unsplash.com") || url.includes("placeholder");
-  const mainImage = isPlaceholder(product.image_url) ? null : product.image_url;
-  const galleryImages = product.gallery.filter((url: string) => !isPlaceholder(url));
-  const allRealImages = [mainImage, ...galleryImages].filter(Boolean) as string[];
-
   // File type icon helper
   const getFileIcon = (type: string) => {
     switch (type) {
@@ -168,7 +218,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
               {/* Main Viewer */}
               <div className="relative aspect-video bg-[#08080c] rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/5 flex items-center justify-center">
                 <AnimatePresence mode="wait">
-                  {activeMedia === 'video' && product.video_url ? (
+                  {activeMedia?.type === 'video' ? (
                     <motion.div 
                       key="video"
                       initial={{ opacity: 0 }}
@@ -176,9 +226,9 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                       exit={{ opacity: 0 }}
                       className="absolute inset-0 z-20 flex items-center justify-center bg-black"
                     >
-                      {isYouTube ? (
+                      {activeMedia.url.includes('youtube.com') || activeMedia.url.includes('youtu.be') ? (
                         <iframe 
-                          src={`https://www.youtube.com/embed/${product.video_url.split('v=')[1]?.split('&')[0] || product.video_url.split('/').pop()}?autoplay=1&mute=1&controls=1`}
+                          src={`https://www.youtube.com/embed/${activeMedia.url.split('v=')[1]?.split('&')[0] || activeMedia.url.split('/').pop()}?autoplay=1&mute=1&controls=1`}
                           className="w-full h-full border-none"
                           allow="autoplay; encrypted-media"
                           allowFullScreen
@@ -187,7 +237,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                         <div className="relative w-full h-full flex items-center justify-center">
                           <video 
                             ref={videoRef}
-                            src={product.video_url} 
+                            src={activeMedia.url} 
                             muted={isMuted}
                             autoPlay 
                             playsInline
@@ -196,7 +246,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                             preload="metadata"
                             controlsList="nodownload"
                             onContextMenu={(e) => e.preventDefault()}
-                            className="max-w-full max-h-full object-contain"
+                            className="w-full h-full object-cover"
                           />
                           
                           {!hasInteracted && (
@@ -219,19 +269,19 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                         </div>
                       )}
                     </motion.div>
-                  ) : activeMedia ? (
+                  ) : activeMedia?.url ? (
                     <motion.div
-                      key={activeMedia}
+                      key={activeMedia.url}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      className="absolute inset-0 flex items-center justify-center"
+                      className="absolute inset-0"
                     >
                       <Image 
-                        src={activeMedia} 
+                        src={activeMedia.url} 
                         alt={product.title} 
                         fill
-                        className="object-contain p-4 md:p-8"
+                        className="object-cover"
                         priority
                       />
                     </motion.div>
@@ -251,44 +301,106 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                 </div>
               </div>
 
-              {/* Enhanced Horizontal Gallery (Slides) */}
-              {(allRealImages.length > 0 || product.video_url) && (
-                <div className="w-full overflow-hidden">
-                  <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar snap-x">
-                    {/* Video Slide */}
-                    {product.video_url && (
-                      <button 
-                        onClick={() => { setActiveMedia('video'); setHasInteracted(false); setIsMuted(true); }}
-                        className={cn(
-                          "relative aspect-video h-20 md:h-24 rounded-2xl overflow-hidden shrink-0 border-2 transition-all duration-500 snap-start",
-                          activeMedia === 'video' 
-                            ? "border-rose-600 ring-4 ring-rose-600/20 scale-105 shadow-[0_0_20px_rgba(214,0,75,0.3)]" 
-                            : "border-white/5 opacity-40 hover:opacity-100 hover:border-white/20"
-                        )}
-                      >
-                         <div className="absolute inset-0 bg-zinc-900 flex items-center justify-center">
-                            {mainImage && <Image src={mainImage} alt="video" fill className="object-cover blur-[1px] opacity-30" />}
-                            <div className="relative z-10 w-8 h-8 bg-rose-600 rounded-full flex items-center justify-center">
-                               <Play className="w-4 h-4 text-white fill-current ml-0.5" />
-                            </div>
-                         </div>
-                      </button>
+              {/* Premium Cinematic Media Slider */}
+              {product.slides.length > 0 && (
+                <div className="w-full relative group/gallery !mt-3 pt-1 pb-4 select-none">
+                  <div 
+                    className={cn(
+                      "gap-4 pt-1 pb-3 px-1 snap-x custom-scrollbar-premium",
+                      product.slides.length <= 4 
+                        ? "grid grid-cols-4" 
+                        : "flex overflow-x-auto justify-start"
                     )}
-                    {/* Image Slides */}
-                    {allRealImages.map((img, i) => (
-                      <button 
-                        key={i}
-                        onClick={() => setActiveMedia(img)}
-                        className={cn(
-                          "relative aspect-video h-20 md:h-24 rounded-2xl overflow-hidden shrink-0 border-2 transition-all duration-500 snap-start",
-                          activeMedia === img 
-                            ? "border-rose-600 ring-4 ring-rose-600/20 scale-105 shadow-[0_0_20px_rgba(214,0,75,0.3)]" 
-                            : "border-white/5 opacity-40 hover:opacity-100 hover:border-white/20"
-                        )}
-                      >
-                        <Image src={img} alt={`Gallery ${i}`} fill className="object-cover" />
-                      </button>
-                    ))}
+                    style={{ scrollbarWidth: 'thin', msOverflowStyle: 'none' }}
+                  >
+                    <style jsx>{`
+                      .custom-scrollbar-premium::-webkit-scrollbar {
+                        height: 5px;
+                        display: ${product.slides.length > 4 ? 'block' : 'none'};
+                      }
+                      .custom-scrollbar-premium::-webkit-scrollbar-track {
+                        background: rgba(255, 255, 255, 0.01);
+                        border-radius: 20px;
+                      }
+                      .custom-scrollbar-premium::-webkit-scrollbar-thumb {
+                        background: rgba(214, 0, 75, 0.3);
+                        border-radius: 20px;
+                        transition: all 0.3s ease;
+                      }
+                      .group\/gallery:hover .custom-scrollbar-premium::-webkit-scrollbar-thumb {
+                        background: #D6004B;
+                        box-shadow: 0 0 15px rgba(214, 0, 75, 0.5);
+                      }
+                    `}</style>
+
+                    {product.slides.map((slide: any, i: number) => {
+                      const isYT = slide.type === 'video' && (slide.url.includes('youtube.com') || slide.url.includes('youtu.be'));
+                      const ytId = isYT ? (slide.url.split('v=')[1]?.split('&')[0] || slide.url.split('/').pop()) : null;
+                      const isActive = activeMedia?.url === slide.url;
+
+                      return (
+                        <motion.button 
+                          key={i}
+                          onClick={() => { setActiveMedia(slide); setHasInteracted(false); setIsMuted(true); }}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className={cn(
+                            "relative aspect-video rounded-3xl overflow-hidden shrink-0 transition-all duration-500 snap-center border-2",
+                            product.slides.length > 4 ? "w-[22.5%] md:w-[23.5%]" : "w-full",
+                            "h-28 md:h-34 bg-white/[0.03] backdrop-blur-xl",
+                            isActive 
+                              ? "border-rose-600 shadow-[0_0_40px_rgba(214,0,75,0.4)] z-10 scale-105" 
+                              : "border-white/5 opacity-50 hover:opacity-100 hover:border-white/20"
+                          )}
+                        >
+                           <div className="absolute inset-0 bg-zinc-950 flex items-center justify-center">
+                              {slide.type === 'video' ? (
+                                <>
+                                  {isYT ? (
+                                    <Image 
+                                      src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} 
+                                      alt="video thumb" 
+                                      fill 
+                                      className="object-cover" 
+                                    />
+                                  ) : (
+                                    <video 
+                                      src={`${slide.url}#t=0.1`} 
+                                      className="w-full h-full object-cover" 
+                                      muted 
+                                      playsInline 
+                                    />
+                                  )}
+                                  
+                                  {/* Compact Play Overlay */}
+                                  <div className="absolute inset-0 bg-black/40 group-hover/thumb:bg-black/10 transition-colors flex items-center justify-center">
+                                     <div className="relative">
+                                        <div className="w-12 h-12 bg-rose-600 rounded-full flex items-center justify-center shadow-2xl border border-white/20">
+                                          <Play className="w-5 h-5 text-white fill-current ml-0.5" />
+                                        </div>
+                                     </div>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <Image src={slide.url} alt={`Gallery ${i}`} fill className="object-cover" />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </>
+                              )}
+
+                              {/* Active Indicator */}
+                              {isActive && (
+                                <motion.div 
+                                  layoutId="activeGlow"
+                                  className="absolute inset-0 border-2 border-rose-500 rounded-3xl pointer-events-none"
+                                  initial={false}
+                                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                />
+                              )}
+                           </div>
+                        </motion.button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -446,9 +558,3 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     </div>
   );
 }
-
-const X = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-  </svg>
-);

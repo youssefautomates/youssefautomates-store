@@ -2,81 +2,192 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Mail, Camera, MessageCircle } from "lucide-react";
+import { Mail, Camera, MessageCircle, ArrowLeft, ShieldCheck, Zap, Heart } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 export function Footer() {
+  const [email, setEmail] = useState("");
+
+  const handleSubscribe = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    toast.success("تم الاشتراك بنجاح في النشرة البريدية للأتمتة! 🚀");
+    setEmail("");
+  };
+
   return (
-    <footer className="border-t border-white/5 bg-[#050505] py-12 relative overflow-hidden">
-      {/* Background Glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-px bg-gradient-to-r from-transparent via-rose-500/20 to-transparent" />
+    <footer className="border-t border-white/5 bg-[#030303] pt-20 pb-12 relative overflow-hidden select-none font-cairo text-zinc-400">
       
-      <div className="container mx-auto px-4 relative z-10">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-8">
+      {/* Top Gradient Divider Line with Glow */}
+      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#D6004B] to-transparent opacity-80" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-[10px] bg-[#D6004B]/20 blur-[8px] rounded-full pointer-events-none" />
+
+      <div className="container mx-auto px-6 relative z-10 max-w-7xl">
+        
+        {/* Main 4-Column Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 pb-16">
           
-          {/* Logo & Rights */}
-          <div className="flex flex-col items-center md:items-start gap-4">
-            <Link href="/" className="relative w-32 h-8 block">
-              <Image 
-                src="/logo.png" 
-                alt="Youssef Automates" 
-                fill 
-                className="object-contain brightness-125" 
-              />
+          {/* Column 1: Brand Info */}
+          <div className="space-y-6">
+            <Link href="/" className="flex items-center gap-2.5 group w-fit">
+              <div className="w-9 h-9 flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+                <img src="/logo.png" alt="Youssef Automates" className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(214,0,75,0.4)]" />
+              </div>
+              <span className="font-alexandria font-bold text-lg tracking-tight text-white" dir="ltr">
+                Youssef <span className="text-[#D6004B]">Automates</span>
+              </span>
             </Link>
-            <p className="text-zinc-500 font-cairo text-sm">
-              جميع الحقوق محفوظة Youssef Automates 2026
+            <p className="text-zinc-500 text-sm leading-relaxed">
+              نساعدك على أتمتة وتطوير أعمالك الرقمية باستخدام أحدث تقنيات الذكاء الاصطناعي وتدفقات عمل n8n الجاهزة للاستخدام الفوري.
             </p>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <span className="text-xs font-bold text-zinc-300">متجر موثق وآمن 100%</span>
+            </div>
           </div>
 
-          {/* Links */}
-          <div className="flex flex-wrap justify-center gap-x-8 gap-y-4">
-            {[
-              { label: "الرئيسية", href: "/" },
-              { label: "المميزات", href: "#features" },
-              { label: "التقييمات", href: "#reviews" },
-              { label: "الأسئلة الشائعة", href: "#faq" },
-              { label: "سياسة الخصوصية", href: "/privacy" },
-            ].map((link, i) => (
-              <Link 
-                key={i} 
-                href={link.href}
-                className="text-zinc-400 hover:text-white font-cairo text-sm transition-colors duration-300"
+          {/* Column 2: Quick Links */}
+          <div className="space-y-5">
+            <h4 className="font-alexandria font-bold text-white text-xs tracking-wider uppercase">روابط سريعة</h4>
+            <ul className="space-y-3 text-sm">
+              {[
+                { label: "الرئيسية للمتجر", href: "/" },
+                { label: "الحزم والمنتجات", href: "#products" },
+                { label: "آراء وتقييمات العملاء", href: "#reviews" },
+                { label: "الأسئلة الشائعة", href: "#faq" }
+              ].map((link, i) => (
+                <li key={i}>
+                  <Link 
+                    href={link.href}
+                    className="hover:text-white transition-colors flex items-center gap-2 group w-fit"
+                  >
+                    <ArrowLeft className="w-3 h-3 text-[#D6004B] opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all duration-300" />
+                    <span>{link.label}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Column 3: Legal & Support */}
+          <div className="space-y-5">
+            <h4 className="font-alexandria font-bold text-white text-xs tracking-wider uppercase">الدعم والخصوصية</h4>
+            <ul className="space-y-3 text-sm">
+              {[
+                { label: "سياسة الخصوصية والاستخدام", href: "/privacy" },
+                { label: "شروط الدفع والاسترجاع", href: "/privacy" },
+                { label: "تواصل مع الدعم الفني", href: "mailto:support@youssefautomates.com" }
+              ].map((link, i) => (
+                <li key={i}>
+                  <Link 
+                    href={link.href}
+                    className="hover:text-white transition-colors flex items-center gap-2 group w-fit"
+                  >
+                    <ArrowLeft className="w-3 h-3 text-[#D6004B] opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all duration-300" />
+                    <span>{link.label}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Column 4: Newsletter & Socials */}
+          <div className="space-y-5">
+            <h4 className="font-alexandria font-bold text-white text-xs tracking-wider uppercase">النشرة البريدية للأتمتة</h4>
+            <p className="text-zinc-500 text-xs leading-relaxed">
+              اشترك للحصول على آخر تدفقات عمل n8n الحصرية، التحديثات المجانية، ومقالات التطوير البرمجي.
+            </p>
+            <form onSubmit={handleSubscribe} className="flex gap-2 w-full">
+              <input 
+                type="email"
+                placeholder="بريدك الإلكتروني"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="bg-white/5 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-zinc-300 focus:outline-none focus:border-[#D6004B]/50 transition-all w-full"
+                required
+              />
+              <button 
+                type="submit"
+                className="bg-[#D6004B] hover:bg-[#b0003d] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 shadow-lg shadow-[#D6004B]/20"
               >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-
-          {/* Social */}
-          <div className="flex items-center gap-4">
-            <a 
-              href="https://instagram.com" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-zinc-400 hover:bg-rose-600 hover:text-white transition-all duration-500 hover:-translate-y-1"
-              title="Instagram"
-            >
-              <Camera className="w-5 h-5" />
-            </a>
-            <a 
-              href="https://facebook.com" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-zinc-400 hover:bg-[#1877F2] hover:text-white transition-all duration-500 hover:-translate-y-1"
-              title="Facebook"
-            >
-              <MessageCircle className="w-5 h-5" />
-            </a>
-            <a 
-              href="mailto:support@youssefautomates.com" 
-              className="w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-zinc-400 hover:bg-emerald-600 hover:text-white transition-all duration-500 hover:-translate-y-1"
-              title="Email Support"
-            >
-              <Mail className="w-5 h-5" />
-            </a>
+                اشترك
+              </button>
+            </form>
+            
+            {/* Social Icons Row */}
+            <div className="flex items-center gap-3 pt-2">
+              <a 
+                href="https://instagram.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-zinc-400 hover:bg-[#D6004B] hover:text-white transition-all duration-300"
+                title="Instagram"
+              >
+                <Camera className="w-4 h-4" />
+              </a>
+              <a 
+                href="https://facebook.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-zinc-400 hover:bg-[#1877F2] hover:text-white transition-all duration-300"
+                title="Facebook"
+              >
+                <MessageCircle className="w-4 h-4" />
+              </a>
+              <a 
+                href="mailto:support@youssefautomates.com" 
+                className="w-9 h-9 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-zinc-400 hover:bg-emerald-600 hover:text-white transition-all duration-300"
+                title="Email Support"
+              >
+                <Mail className="w-4 h-4" />
+              </a>
+            </div>
           </div>
 
         </div>
+
+        {/* Bottom Section: Copyright & Trusted Payment Badges */}
+        <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
+          
+          <div className="text-zinc-500 text-xs flex items-center gap-1.5 order-2 md:order-1">
+            <span>جميع الحقوق محفوظة © {new Date().getFullYear()}</span>
+            <span className="font-alexandria font-bold text-zinc-400">Youssef Automates</span>
+            <span className="hidden sm:inline">· صنع بكل</span>
+            <Heart className="w-3 h-3 text-[#D6004B] fill-[#D6004B] hidden sm:inline" />
+            <span className="hidden sm:inline">لتطوير أعمالك</span>
+          </div>
+
+          {/* Trusted Payment Badges */}
+          <div className="flex items-center gap-3 order-1 md:order-2 opacity-50 hover:opacity-80 transition-opacity">
+            <span className="text-[10px] font-bold text-zinc-500 ml-1">الدفع آمن ومحمي بواسطة:</span>
+            
+            {/* Paymob Badge */}
+            <div className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5 text-[9px] font-bold text-zinc-300" dir="ltr">
+              Paymob
+            </div>
+
+            {/* Visa */}
+            <div className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5 text-[9px] font-black text-blue-400 italic" dir="ltr">
+              VISA
+            </div>
+
+            {/* Mastercard */}
+            <div className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5 text-[9px] font-black text-amber-500 italic" dir="ltr">
+              Mastercard
+            </div>
+
+            {/* Meeza */}
+            <div className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5 text-[9px] font-black text-emerald-400" dir="ltr">
+              MEEZA
+            </div>
+
+          </div>
+
+        </div>
+
       </div>
     </footer>
   );

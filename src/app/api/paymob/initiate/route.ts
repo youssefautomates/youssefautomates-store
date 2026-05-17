@@ -220,12 +220,12 @@ export async function POST(req: Request) {
 
       // Direct Success
       if (payData.success) {
-        return NextResponse.json({ success: true, checkoutUrl: `/success?order_id=${dbOrder.id}` });
+        return NextResponse.json({ success: true, checkoutUrl: `/checkout/success?order_id=${dbOrder.id}` });
       }
 
       // Pending transaction (some cards return pending=true before 3DS)
       if (payData.pending) {
-        return NextResponse.json({ success: true, checkoutUrl: `/success?order_id=${dbOrder.id}&pending=true` });
+        return NextResponse.json({ success: true, checkoutUrl: `/checkout/success?order_id=${dbOrder.id}&pending=true` });
       }
 
       // Extract the real decline reason
@@ -240,6 +240,6 @@ export async function POST(req: Request) {
     throw new Error("Invalid Payment Method");
   } catch (error: any) {
     console.error("[PAYMOB_ERROR]", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "عذراً، حدث خطأ أثناء معالجة الطلب. يرجى المحاولة مرة أخرى أو التواصل مع الدعم." }, { status: 500 });
   }
 }

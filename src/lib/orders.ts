@@ -13,6 +13,8 @@ export interface Order {
   currency: string;
   status: OrderStatus;
   payment_id?: string;
+  transaction_id?: string;
+  completed_at?: string;
   created_at?: string;
 }
 
@@ -36,16 +38,23 @@ export async function createOrder(order: Order) {
   return data;
 }
 
-export async function updateOrderStatus(paymentId: string, status: OrderStatus, details?: any) {
+export async function updateOrderStatus(paymentId: string, status: OrderStatus, transaction?: any) {
+  const updateData: any = { status };
+  
+  if (status === "completed") {
+    updateData.completed_at = new Date().toISOString();
+    if (transaction?.id) {
+      updateData.transaction_id = String(transaction.id);
+    }
+  }
+
+  console.log(`[ORDERS_LIB] Updating order ${paymentId} to ${status}`, updateData);
+
   const { data, error } = await supabase
     .from("orders")
-    .update({ 
-      status,
-      // You might want to store more details from the webhook
-    })
+    .update(updateData)
     .eq("payment_id", paymentId)
-    .select()
-    .single();
+    .select();
 
   if (error) {
     console.error("Error updating order status:", error);

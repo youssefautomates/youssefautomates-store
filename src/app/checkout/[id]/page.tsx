@@ -293,7 +293,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
             <div>
-              <Link href={`/product/${resolvedParams.id}`} className="inline-flex items-center text-zinc-500 hover:text-white font-cairo transition-all mb-4 group">
+              <Link href={`/product/${product?.slug || resolvedParams.id}`} className="inline-flex items-center text-zinc-500 hover:text-white font-cairo transition-all mb-4 group">
                 <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
                 العودة لتفاصيل المنتج
               </Link>

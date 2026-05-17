@@ -29,15 +29,32 @@ function safeImageSrc(src: string) {
 
 // ── Helper: Pack/Unpack Tags ───────────────────────────────────────────
 function unpackProduct(p: Product) {
-  const video_url = p.tags?.find(t => t.startsWith("video:"))?.replace("video:", "") || "";
-  const gallery = p.tags?.filter(t => t.startsWith("gallery:"))?.map(t => t.replace("gallery:", "")) || [];
+  // Extract ordered media: media:0:image:url, media:1:video:url, etc.
+  const mediaTags = p.tags?.filter(t => t.startsWith("media:")) || [];
+  const slides = Array(5).fill(null).map((_, i) => {
+    const tag = mediaTags.find(t => t.startsWith(`media:${i}:`));
+    if (tag) {
+      const parts = tag.split(":");
+      return { type: parts[2] as 'image' | 'video', url: parts.slice(3).join(":") };
+    }
+    // Fallback for legacy data
+    if (i === 0) {
+      const video_url = p.tags?.find(t => t.startsWith("video:"))?.replace("video:", "");
+      if (video_url) return { type: 'video' as const, url: video_url };
+      return { type: 'image' as const, url: p.image_url || "" };
+    }
+    const legacyGallery = p.tags?.filter(t => t.startsWith("gallery:"))?.map(t => t.replace("gallery:", "")) || [];
+    if (legacyGallery[i - 1]) return { type: 'image' as const, url: legacyGallery[i - 1] };
+    
+    return { type: 'image' as const, url: "" };
+  });
+
   const file_type = p.tags?.find(t => t.startsWith("type:"))?.replace("type:", "") || "zip";
-  const normalTags = p.tags?.filter(t => !t.startsWith("video:") && !t.startsWith("gallery:") && !t.startsWith("type:")) || [];
+  const normalTags = p.tags?.filter(t => !t.startsWith("media:") && !t.startsWith("video:") && !t.startsWith("gallery:") && !t.startsWith("type:")) || [];
   
   return {
     ...p,
-    video_url,
-    gallery,
+    slides,
     file_type,
     displayTags: normalTags.join(", ")
   };
@@ -45,12 +62,18 @@ function unpackProduct(p: Product) {
 
 function packTags(form: any) {
   const tags: string[] = [];
-  if (form.video_url) tags.push(`video:${form.video_url}`);
-  if (form.gallery && form.gallery.length > 0) {
-    form.gallery.forEach((url: string) => {
-      if (url.trim()) tags.push(`gallery:${url.trim()}`);
-    });
-  }
+  
+  // Pack ordered media
+  form.slides.forEach((slide: any, i: number) => {
+    if (slide.url) {
+      tags.push(`media:${i}:${slide.type}:${slide.url}`);
+    }
+  });
+
+  // Keep legacy video:url for compatibility with existing components
+  const firstVideo = form.slides.find((s: any) => s.type === 'video' && s.url);
+  if (firstVideo) tags.push(`video:${firstVideo.url}`);
+
   if (form.file_type) tags.push(`type:${form.file_type}`);
   if (form.displayTags) {
     form.displayTags.split(",").forEach((t: string) => {
@@ -101,13 +124,17 @@ function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean;
   const [form, setForm] = useState<any>({
     title: "", slug: "", description: "", short_description: "",
     price: "", original_price: "", status: "نشط",
-    is_featured: false, image_url: "", file_url: "", category: "", 
-    video_url: "", gallery: [""], file_type: "zip", displayTags: "",
+    image_url: "", file_url: "", category: "", 
+    slides: Array(5).fill(null).map(() => ({ type: 'image', url: '' })),
+    file_type: "zip", displayTags: "",
     seo_title: "", seo_description: ""
   });
 
-  const imgRef = useRef<HTMLInputElement>(null);
-  const vidRef = useRef<HTMLInputElement>(null);
+  const uploadRefs = [
+    useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), 
+    useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null)
+  ];
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -121,8 +148,7 @@ function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean;
           status: unpacked.status, is_featured: unpacked.is_featured,
           image_url: unpacked.image_url || "", file_url: unpacked.file_url || "",
           category: unpacked.category || "", 
-          video_url: unpacked.video_url,
-          gallery: unpacked.gallery.length > 0 ? unpacked.gallery : [""],
+          slides: unpacked.slides,
           file_type: unpacked.file_type,
           displayTags: unpacked.displayTags,
           seo_title: unpacked.seo_title || "",
@@ -149,6 +175,14 @@ function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean;
     const price = parseFloat(form.price);
     const orig = form.original_price ? parseFloat(form.original_price) : null;
     
+    // Determine primary image for the database column
+    const primarySlide = form.slides[0];
+    let finalImageUrl = primarySlide.type === 'image' ? primarySlide.url : "";
+    if (!finalImageUrl) {
+      const firstImg = form.slides.find((s: any) => s.type === 'image' && s.url);
+      finalImageUrl = firstImg ? firstImg.url : "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=800";
+    }
+
     const payload = {
       title: form.title.trim(),
       slug: form.slug || generateSlug(form.title),
@@ -159,7 +193,7 @@ function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean;
       discount_pct: calcDiscount(price, orig),
       status: form.status,
       is_featured: form.is_featured,
-      image_url: form.image_url || "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=800",
+      image_url: finalImageUrl,
       file_url: form.file_url || null,
       category: form.category || null,
       tags: packTags(form),
@@ -186,28 +220,33 @@ function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean;
     }
   }
 
-  const addGalleryItem = () => setForm({ ...form, gallery: [...form.gallery, ""] });
-  const updateGalleryItem = (index: number, val: string) => {
-    const newGallery = [...form.gallery];
-    newGallery[index] = val;
-    setForm({ ...form, gallery: newGallery });
-  };
-  const removeGalleryItem = (index: number) => {
-    const newGallery = form.gallery.filter((_: any, i: number) => i !== index);
-    setForm({ ...form, gallery: newGallery.length > 0 ? newGallery : [""] });
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: "image" | "video" | "file") => {
+  const handleSlideUpload = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
     const url = await upload(file);
     if (url) {
-      if (target === "image") setForm({ ...form, image_url: url });
-      if (target === "video") setForm({ ...form, video_url: url });
-      if (target === "file") setForm({ ...form, file_url: url });
+      const newSlides = [...form.slides];
+      newSlides[index].url = url;
+      setForm({ ...form, slides: newSlides });
+      toast.success("تم الرفع بنجاح");
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = await upload(file);
+    if (url) {
+      setForm({ ...form, file_url: url });
       toast.success("تم رفع الملف بنجاح");
     }
+  };
+
+  const updateSlide = (index: number, updates: any) => {
+    const newSlides = [...form.slides];
+    newSlides[index] = { ...newSlides[index], ...updates };
+    setForm({ ...form, slides: newSlides });
   };
 
   return (
@@ -314,76 +353,104 @@ function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean;
                   )}
 
                   {activeTab === "media" && (
-                    <div className="grid gap-6">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between mb-2">
-                           <div className="flex items-center gap-2">
-                             <ImageIcon2 className="w-4 h-4 text-rose-500" />
-                             <Label className="text-sm font-bold" style={{ color: "#d4d4d8" }}>الصورة الأساسية (Thumbnail)</Label>
-                           </div>
-                           <button 
-                            onClick={() => imgRef.current?.click()} 
-                            disabled={uploading}
-                            className="text-[10px] font-bold text-rose-500 flex items-center gap-1 hover:underline"
-                           >
-                              <UploadCloud className="w-3.5 h-3.5" />
-                              رفع من الكمبيوتر
-                           </button>
-                           <input type="file" ref={imgRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "image")} />
+                    <div className="space-y-8">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <h3 className="font-alexandria font-bold text-white text-lg">إدارة وسائط المنتج</h3>
+                          <p className="text-zinc-500 text-xs font-cairo">رتب السلايدس الخاصة بك. السلايد الأول هو الغلاف الأساسي للمنتج.</p>
                         </div>
-                        <Input value={form.image_url} onChange={e => setForm({...form, image_url: e.target.value})} dir="ltr" className="h-12 rounded-xl text-white" style={{ background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.1)" }} placeholder="رابط الصورة المباشر..." />
                       </div>
 
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <Video className="w-4 h-4 text-rose-500" />
-                            <Label className="text-sm font-bold" style={{ color: "#d4d4d8" }}>رابط الفيديو التعريفي</Label>
-                          </div>
-                           <button 
-                            onClick={() => vidRef.current?.click()} 
-                            disabled={uploading}
-                            className="text-[10px] font-bold text-rose-500 flex items-center gap-1 hover:underline"
-                           >
-                              <UploadCloud className="w-3.5 h-3.5" />
-                              رفع فيديو
-                           </button>
-                           <input type="file" ref={vidRef} className="hidden" accept="video/*" onChange={(e) => handleFileUpload(e, "video")} />
-                        </div>
-                        <Input value={form.video_url} onChange={e => setForm({...form, video_url: e.target.value})} dir="ltr" className="h-12 rounded-xl text-white" style={{ background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.1)" }} placeholder="رابط فيديو MP4 أو YouTube..." />
-                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {form.slides.map((slide: any, idx: number) => (
+                          <div 
+                            key={idx} 
+                            className={cn(
+                              "relative group flex flex-col gap-3 p-4 rounded-[2rem] border transition-all duration-500",
+                              idx === 0 ? "md:col-span-2 border-rose-600/30 bg-rose-600/5 shadow-2xl shadow-rose-600/10" : "border-white/5 bg-white/[0.02] hover:bg-white/[0.05]"
+                            )}
+                          >
+                            <div className="flex items-center justify-between">
+                              <Badge className={cn(
+                                "font-alexandria text-[8px] font-black uppercase tracking-widest",
+                                idx === 0 ? "bg-rose-600 text-white" : "bg-zinc-800 text-zinc-400"
+                              )}>
+                                {idx === 0 ? "Primary Slide" : `Slide ${idx + 1}`}
+                              </Badge>
+                              <div className="flex bg-black/40 p-1 rounded-full border border-white/5">
+                                <button 
+                                  onClick={() => updateSlide(idx, { type: 'image' })}
+                                  className={cn("p-1.5 rounded-full transition-all", slide.type === 'image' ? "bg-rose-600 text-white" : "text-zinc-500 hover:text-white")}
+                                >
+                                  <ImageIcon2 className="w-3 h-3" />
+                                </button>
+                                <button 
+                                  onClick={() => updateSlide(idx, { type: 'video' })}
+                                  className={cn("p-1.5 rounded-full transition-all", slide.type === 'video' ? "bg-rose-600 text-white" : "text-zinc-500 hover:text-white")}
+                                >
+                                  <Video className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
 
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-2">
-                            <Layout className="w-4 h-4 text-rose-500" />
-                            <Label className="text-sm font-bold" style={{ color: "#d4d4d8" }}>معرض الصور (Gallery)</Label>
-                          </div>
-                          <button onClick={addGalleryItem} className="text-xs font-bold text-rose-500 flex items-center gap-1 hover:underline">
-                            <Plus className="w-3 h-3" /> إضافة صورة للمرض
-                          </button>
-                        </div>
-                        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-                          {form.gallery.map((url: string, idx: number) => (
-                            <div key={idx} className="flex gap-2">
-                              <Input 
-                                value={url} 
-                                onChange={e => updateGalleryItem(idx, e.target.value)} 
-                                dir="ltr" 
-                                className="h-11 rounded-xl text-white flex-1" 
-                                style={{ background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.1)" }} 
-                                placeholder="رابط صورة إضافية..." 
+                            <div 
+                              onClick={() => uploadRefs[idx].current?.click()}
+                              className={cn(
+                                "relative aspect-video rounded-2xl overflow-hidden cursor-pointer border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 group-hover:border-rose-600/50 transition-all",
+                                slide.url ? "border-solid border-transparent" : "bg-black/20"
+                              )}
+                            >
+                              {slide.url ? (
+                                <>
+                                  {slide.type === 'image' ? (
+                                    <Image src={slide.url} alt="preview" fill className="object-cover" />
+                                  ) : (
+                                    <video src={slide.url} className="w-full h-full object-cover" muted playsInline />
+                                  )}
+                                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                                     <UploadCloud className="w-6 h-6 text-white" />
+                                     <span className="text-[10px] font-bold text-white uppercase">تغيير الملف</span>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-rose-600/20 transition-colors">
+                                    <UploadCloud className="w-5 h-5 text-zinc-500 group-hover:text-rose-500" />
+                                  </div>
+                                  <span className="text-[10px] font-bold text-zinc-500 uppercase">اضغط للرفع</span>
+                                </>
+                              )}
+                              <input 
+                                type="file" 
+                                ref={uploadRefs[idx]} 
+                                className="hidden" 
+                                accept={slide.type === 'image' ? "image/*" : "video/*"} 
+                                onChange={(e) => handleSlideUpload(e, idx)} 
                               />
+                            </div>
+
+                            <div className="space-y-1.5 mt-2">
+                              <Label className="text-[10px] font-bold text-zinc-500">رابط {slide.type === 'image' ? 'الصورة' : 'الفيديو'} مباشر</Label>
+                              <Input 
+                                value={slide.url} 
+                                onChange={e => updateSlide(idx, { url: e.target.value })} 
+                                dir="ltr" 
+                                className="h-9 rounded-xl text-[11px] text-white" 
+                                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }} 
+                                placeholder="https://..." 
+                              />
+                            </div>
+                            
+                            {slide.url && (
                               <button 
-                                onClick={() => removeGalleryItem(idx)}
-                                className="w-11 h-11 rounded-xl flex items-center justify-center text-zinc-500 hover:text-red-500 transition-colors"
-                                style={{ background: "rgba(255,255,255,0.03)" }}
+                                onClick={() => updateSlide(idx, { url: '' })}
+                                className="absolute -top-2 -left-2 w-7 h-7 bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
                               >
                                 <X className="w-4 h-4" />
                               </button>
-                            </div>
-                          ))}
-                        </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -610,18 +677,50 @@ export default function AdminProductsPage() {
                     <TableCell className="py-5 pr-8">
                       <div className="flex items-center gap-5">
                         <div className="w-14 h-14 rounded-2xl bg-zinc-800 relative overflow-hidden shrink-0 flex items-center justify-center border border-white/5">
-                          {p.image_url ? (
-                            <Image 
-                              src={safeImageSrc(p.image_url)} 
-                              alt={p.title} 
-                              fill 
-                              className="object-cover" 
-                              sizes="56px" 
-                              unoptimized={p.image_url.startsWith("file://")}
-                            />
-                          ) : (
-                            <ImageIcon className="w-6 h-6 text-zinc-600" />
-                          )}
+                          {(() => {
+                            const videoUrl = p.tags?.find(t => t.startsWith("video:"))?.replace("video:", "");
+                            const isYouTube = videoUrl?.includes("youtube.com") || videoUrl?.includes("youtu.be");
+                            const ytId = isYouTube ? (videoUrl?.split('v=')[1]?.split('&')[0] || videoUrl?.split('/').pop()) : null;
+
+                            if (isYouTube && ytId) {
+                              return (
+                                <Image 
+                                  src={`https://img.youtube.com/vi/${ytId}/default.jpg`}
+                                  alt={p.title}
+                                  fill
+                                  className="object-cover"
+                                />
+                              );
+                            } else if (videoUrl) {
+                              return (
+                                <div className="relative w-full h-full">
+                                  <video 
+                                    src={`${videoUrl}#t=0.1`}
+                                    className="w-full h-full object-cover"
+                                    muted
+                                    playsInline
+                                    preload="metadata"
+                                  />
+                                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                    <span className="text-[7px] font-bold bg-rose-600 text-white px-1.5 py-0.5 rounded-full uppercase tracking-tighter shadow-lg">Video</span>
+                                  </div>
+                                </div>
+                              );
+                            } else if (p.image_url) {
+                              return (
+                                <Image 
+                                  src={safeImageSrc(p.image_url)} 
+                                  alt={p.title} 
+                                  fill 
+                                  className="object-cover" 
+                                  sizes="56px" 
+                                  unoptimized={p.image_url.startsWith("file://")}
+                                />
+                              );
+                            } else {
+                              return <ImageIcon className="w-6 h-6 text-zinc-600" />;
+                            }
+                          })()}
                         </div>
                         <div className="font-cairo">
                           <div className="font-bold text-white text-base group-hover:text-rose-500 transition-colors">{p.title}</div>

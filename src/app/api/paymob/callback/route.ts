@@ -29,8 +29,8 @@ export async function GET(request: Request) {
   const orderId = searchParams.get("order");
 
   if (success) {
-    return NextResponse.redirect(new URL(`/success?order_id=${orderId}`, request.url));
+    return NextResponse.redirect(new URL(`/checkout/success?order_id=${orderId}`, request.url));
   } else {
-    return NextResponse.redirect(new URL(`/checkout/error?order_id=${orderId}&reason=${searchParams.get("txn_response_code")}`, request.url));
+    return NextResponse.redirect(new URL(`/checkout/failed?order_id=${orderId}&reason=${searchParams.get("txn_response_code")}`, request.url));
   }
 }
