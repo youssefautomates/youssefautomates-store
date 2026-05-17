@@ -126,43 +126,15 @@ export function Footer() {
 
         </div>
 
-        {/* Bottom Section: Copyright & Trusted Payment Badges */}
-        <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
-          
-          <div className="text-zinc-500 text-xs flex items-center gap-1.5 order-2 md:order-1">
+        {/* Bottom Section: Centered Copyright */}
+        <div className="pt-8 border-t border-white/5 flex items-center justify-center text-center">
+          <div className="text-zinc-500 text-xs flex items-center justify-center gap-1.5 flex-wrap">
             <span>جميع الحقوق محفوظة © {new Date().getFullYear()}</span>
             <span className="font-alexandria font-bold text-zinc-400">Youssef Automates</span>
-            <span className="hidden sm:inline">· صنع بكل</span>
-            <Heart className="w-3 h-3 text-[#D6004B] fill-[#D6004B] hidden sm:inline" />
-            <span className="hidden sm:inline">لتطوير أعمالك</span>
+            <span>· صنع بكل</span>
+            <Heart className="w-3 h-3 text-[#D6004B] fill-[#D6004B]" />
+            <span>لتطوير أعمالك</span>
           </div>
-
-          {/* Trusted Payment Badges */}
-          <div className="flex items-center gap-3 order-1 md:order-2 opacity-50 hover:opacity-80 transition-opacity">
-            <span className="text-[10px] font-bold text-zinc-500 ml-1">الدفع آمن ومحمي بواسطة:</span>
-            
-            {/* Paymob Badge */}
-            <div className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5 text-[9px] font-bold text-zinc-300" dir="ltr">
-              Paymob
-            </div>
-
-            {/* Visa */}
-            <div className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5 text-[9px] font-black text-blue-400 italic" dir="ltr">
-              VISA
-            </div>
-
-            {/* Mastercard */}
-            <div className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5 text-[9px] font-black text-amber-500 italic" dir="ltr">
-              Mastercard
-            </div>
-
-            {/* Meeza */}
-            <div className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5 text-[9px] font-black text-emerald-400" dir="ltr">
-              MEEZA
-            </div>
-
-          </div>
-
         </div>
 
       </div>
