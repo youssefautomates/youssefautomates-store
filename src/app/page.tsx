@@ -175,8 +175,8 @@ export default function Home() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: "-50px" }}
                   transition={{ duration: 0.6, delay: i * 0.1, ease: "easeOut" }}
-                  whileHover={{ y: -8, scale: 1.02 }}
-                  className="group relative flex flex-col items-center text-center p-8 rounded-3xl bg-white/[0.01] backdrop-blur-xl border border-white/5 hover:border-[#D6004B]/20 hover:bg-white/[0.02] shadow-[0_10px_40px_rgba(0,0,0,0.4)] hover:shadow-[0_20px_50px_rgba(214,0,75,0.08)] transition-all duration-500 select-none cursor-default overflow-hidden"
+                  whileHover={{ y: -8, scale: 1.02, transition: { duration: 0.2, ease: "easeOut" } }}
+                  className="group relative flex flex-col items-center text-center p-8 rounded-3xl bg-white/[0.01] backdrop-blur-xl border border-white/5 hover:border-[#D6004B]/20 hover:bg-white/[0.02] shadow-[0_10px_40px_rgba(0,0,0,0.4)] hover:shadow-[0_20px_50px_rgba(214,0,75,0.08)] transition-colors duration-300 select-none cursor-default overflow-hidden"
                 >
                   {/* Glowing background card element */}
                   <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-[#D6004B]/10 to-transparent rounded-full blur-[30px] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
