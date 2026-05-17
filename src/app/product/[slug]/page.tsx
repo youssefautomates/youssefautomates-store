@@ -406,31 +406,45 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
               )}
 
               {/* Description Section (Now directly below images) */}
-              <div className="bg-[#0c0c12] rounded-[3rem] p-10 md:p-14 border border-white/5 shadow-xl space-y-10">
-                <div className="flex items-center gap-4 mb-2">
-                  <div className="w-12 h-12 bg-rose-600/10 rounded-2xl flex items-center justify-center">
-                    <Target className="w-6 h-6 text-rose-500" />
+              <div className="bg-[#0b0b10]/60 backdrop-blur-xl rounded-[2.5rem] p-8 md:p-12 border border-white/5 shadow-2xl space-y-8">
+                
+                {/* Header */}
+                <div className="flex items-center gap-4 border-b border-white/5 pb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-rose-500/10 flex items-center justify-center border border-rose-500/20 text-rose-500 shrink-0 shadow-[0_0_15px_rgba(244,63,94,0.15)]">
+                    <Target className="w-5.5 h-5.5" />
                   </div>
-                  <h2 className="text-3xl font-alexandria font-black text-white tracking-tighter">وصف المنتج الكامل</h2>
+                  <div className="flex flex-col">
+                    <h2 className="text-2xl md:text-3xl font-alexandria font-black text-white leading-tight">وصف المنتج الكامل</h2>
+                    <span className="font-cairo text-xs text-zinc-500 font-medium">كل ما تحتاجه للبدء والنجاح الفوري</span>
+                  </div>
                 </div>
                 
+                {/* Description Body */}
                 <div className="prose prose-invert prose-rose max-w-none">
                   {product.description ? (
-                    <div className="text-zinc-400 font-cairo text-lg leading-[1.8] space-y-6" dangerouslySetInnerHTML={{ __html: product.description.replace(/\n/g, '<br/>') }} />
+                    <div className="text-zinc-300 font-cairo text-[15px] md:text-base leading-[1.8] space-y-5" dangerouslySetInnerHTML={{ __html: product.description.replace(/\n/g, '<br/>') }} />
                   ) : (
-                    <p className="text-zinc-500 font-cairo text-lg">هذا المنتج الرقمي مصمم لمساعدتك في أتمتة أعمالك وتوفير مئات الساعات من الجهد اليدوي.</p>
+                    <p className="text-zinc-400 font-cairo text-[15px] md:text-base leading-[1.8]">هذا المنتج الرقمي مصمم لمساعدتك في أتمتة أعمالك وتوفير مئات الساعات من الجهد اليدوي.</p>
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
+                {/* Benefits / Trust Badges */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                    {[
-                     { title: "جاهز للاستخدام", desc: "بمجرد الشراء ستحصل على روابط التحميل فوراً.", icon: Zap },
-                     { title: "دعم فني متميز", desc: "نحن معك خطوة بخطوة في حال واجهت أي استفسار.", icon: ShieldCheck }
+                     { title: "جاهز للاستخدام الفوري", desc: "بمجرد الشراء ستحصل على روابط التحميل مباشرة بدون انتظار.", icon: Zap },
+                     { title: "دعم فني متميز ومستمر", desc: "نحن بجانبك خطوة بخطوة للإجابة عن أي استفسار أو مساعدة.", icon: ShieldCheck }
                    ].map((feature, idx) => (
-                     <div key={idx} className="bg-white/5 p-6 rounded-3xl border border-white/5 group hover:bg-white/10 transition-colors">
-                        <feature.icon className="w-8 h-8 text-rose-500 mb-4" />
-                        <h4 className="text-xl font-alexandria font-bold text-white mb-2">{feature.title}</h4>
-                        <p className="text-zinc-500 font-cairo text-sm leading-relaxed">{feature.desc}</p>
+                     <div 
+                       key={idx} 
+                       className="flex items-start gap-4 p-5 rounded-2xl bg-white/[0.01] border border-white/5 hover:border-rose-500/20 hover:bg-white/[0.03] transition-all duration-300 group"
+                     >
+                       <div className="w-11 h-11 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center shrink-0 border border-rose-500/10 transition-colors group-hover:bg-[#D6004B]/20 group-hover:text-[#D6004B] group-hover:border-[#D6004B]/20">
+                          <feature.icon className="w-5 h-5 transition-transform group-hover:scale-110" />
+                       </div>
+                       <div className="flex flex-col gap-1">
+                          <h4 className="text-[15px] font-alexandria font-bold text-white transition-colors group-hover:text-rose-400">{feature.title}</h4>
+                          <p className="text-zinc-400 font-cairo text-xs leading-relaxed">{feature.desc}</p>
+                       </div>
                      </div>
                    ))}
                 </div>
