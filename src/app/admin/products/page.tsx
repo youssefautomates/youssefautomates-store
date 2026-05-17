@@ -471,7 +471,7 @@ function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean;
                               <FileUp className="w-3.5 h-3.5" />
                               رفع ملف
                            </button>
-                           <input type="file" ref={fileRef} className="hidden" onChange={(e) => handleFileUpload(e, "file")} />
+                           <input type="file" ref={fileRef} className="hidden" onChange={(e) => handleFileUpload(e)} />
                         </div>
                         <Input value={form.file_url} onChange={e => setForm({...form, file_url: e.target.value})} dir="ltr" className="h-12 rounded-xl text-white" style={{ background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.1)" }} placeholder="رابط التحميل المباشر..." />
                       </div>
