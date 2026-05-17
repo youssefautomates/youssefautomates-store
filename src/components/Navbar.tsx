@@ -42,8 +42,11 @@ export function Navbar() {
         )}>
           <div className="flex items-center justify-between h-full">
             
+            {/* Mobile Spacer to preserve justify-between layout when logo is hidden */}
+            <div className="md:hidden" />
+
             {/* Right Side: Logo (Restored original colors) */}
-            <Link href="/" className="flex items-center gap-2.5 group">
+            <Link href="/" className="hidden md:flex items-center gap-2.5 group">
               <div className="relative">
                 <div className="w-10 h-10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                   <img src="/logo.png" alt="Youssef Automates" className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(214,0,75,0.5)]" />
