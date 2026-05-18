@@ -136,18 +136,18 @@ export default function Home() {
                 </Link>
                 
                 <div className="flex items-center gap-4 bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-3 md:p-4 pr-6 w-full md:w-auto">
-                  <div className="flex flex-col items-start">
-                    <div className="flex text-yellow-400 mb-1">
-                      {[1,2,3,4,5].map(i => <Star key={i} className={`w-3 h-3 md:w-4 md:h-4 ${i <= Math.round(stats.averageRating) ? 'fill-current' : 'opacity-30'}`} />)}
-                    </div>
-                    <span className="font-cairo text-[10px] md:text-xs text-zinc-400 font-bold">تقييم {stats.averageRating} من <span className="text-white">{stats.count}+ عميل</span></span>
-                  </div>
-                  <div className="flex -space-x-2 md:-space-x-3 rtl:space-x-reverse border-r border-white/10 pr-4">
-                    {[1,2,3].map(i => (
-                      <div key={i} className="w-8 h-8 md:w-10 md:h-10 rounded-full border-2 border-[#050505] bg-zinc-800 overflow-hidden relative">
-                        <Image src={`https://i.pravatar.cc/100?img=${i+10}`} alt="customer" fill className="object-cover" />
+                  <div className="flex -space-x-2 md:-space-x-3 rtl:space-x-reverse">
+                    {["felix","sara","mia","alex"].map(seed => (
+                      <div key={seed} className="w-8 h-8 md:w-10 md:h-10 rounded-full border-2 border-[#050505] bg-zinc-800 overflow-hidden">
+                        <img src={`https://api.dicebear.com/9.x/adventurer/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc`} alt="customer" className="w-full h-full object-cover" />
                       </div>
                     ))}
+                  </div>
+                  <div className="flex flex-col items-start border-r border-white/10 pr-4">
+                    <div className="flex text-yellow-400 mb-1">
+                      {[1,2,3,4,5].map(i => <Star key={i} className="w-3 h-3 md:w-4 md:h-4 fill-current" />)}
+                    </div>
+                    <span className="font-cairo text-[10px] md:text-xs text-zinc-400 font-bold">تقييم {stats.averageRating} من <span className="text-white">{stats.count}+ عميل</span></span>
                   </div>
                 </div>
               </motion.div>
