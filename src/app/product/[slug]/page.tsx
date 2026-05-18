@@ -521,7 +521,10 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                { icon: Rocket, title: "جاهزة للعمل فوراً", desc: "بنقرة واحدة، يمكنك استيراد القوالب (JSON) والبدء في استخدامها مباشرة." },
                { icon: Download, title: "تحميل فوري", desc: "احصل على جميع الملفات بصيغة JSON مباشرة بعد إتمام الدفع بشكل آمن." },
                { icon: Target, title: "تحديثات مجانية", desc: "تحصل على أي قوالب جديدة نضيفها مستقبلاً إلى الحزمة بدون أي تكلفة إضافية." },
-               { icon: ShieldCheck, title: "ملكية كاملة لك", desc: "استخدم القوالب لعملك الخاص أو طبقها لعملائك بحرية تامة وبدون قيود." }
+               { icon: ShieldCheck, title: "ملكية كاملة لك", desc: "استخدم القوالب لعملك الخاص أو طبقها لعملائك بحرية تامة وبدون قيود." },
+               { icon: HeartHandshake, title: "دعم فني متميز", desc: "نحن بجانبك خطوة بخطوة للإجابة عن أي استفسار أو مساعدة في تركيب القوالب." },
+               { icon: Zap, title: "أداء فائق وسرعة", desc: "انطلق بسرعة الصاروخ مع قوالب محسنة ومختبرة لتعمل بأعلى كفاءة ممكنة." },
+               { icon: FileText, title: "توثيق وشروحات", desc: "فيديوهات وملفات شرح تفصيلية تجعل من استخدام الحزمة أمراً في غاية السهولة للمبتدئين." }
              ].map((feature, i) => (
                <div key={i} className="bg-white/[0.02] border border-white/5 hover:border-rose-500/30 p-8 rounded-[2.5rem] transition-all duration-500 group hover:bg-white/[0.04] shadow-xl hover:shadow-[0_20px_50px_rgba(214,0,75,0.05)]">
                   <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center mb-8 group-hover:bg-rose-500/10 transition-colors duration-500 border border-white/5 group-hover:border-rose-500/20 shadow-lg">
