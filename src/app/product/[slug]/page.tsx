@@ -520,7 +520,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
               </div>
 
               {/* Social Proof */}
-              <div className="bg-white/5 rounded-[2.5rem] p-8 border border-white/5 flex items-center justify-between">
+              <div className="bg-white/5 rounded-[2.5rem] p-6 md:p-8 border border-white/5 flex items-center justify-between gap-4">
                  <div className="flex -space-x-3 rtl:space-x-reverse">
                    {["felix","sara","mia","alex"].map((seed) => (
                      <div key={seed} className="w-10 h-10 rounded-full border-2 border-[#050505] bg-zinc-800 overflow-hidden relative">
@@ -529,11 +529,10 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                    ))}
                  </div>
                  <div className="text-right">
-                    <p className="text-white font-alexandria font-black text-sm">+100 تقييم</p>
-                    <div className="flex text-yellow-400 gap-0.5 justify-end">
-                       {[1,2,3,4,5].map(i => <Star key={i} className="w-3 h-3 fill-current" />)}
+                    <div className="flex text-yellow-400 gap-0.5 justify-end mb-1">
+                       {[1,2,3,4,5].map(i => <Star key={i} className="w-3.5 h-3.5 fill-current" />)}
                     </div>
-                    <p className="text-zinc-500 font-cairo text-[10px] mt-0.5">من 5 عميل</p>
+                    <p className="text-white font-alexandria font-bold text-sm">تقييم 5 من 100+ عميل</p>
                  </div>
               </div>
             </div>

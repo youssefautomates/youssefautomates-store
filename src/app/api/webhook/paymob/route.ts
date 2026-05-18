@@ -6,16 +6,28 @@ import { updateOrderStatus } from "@/lib/orders";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+/**
+ * Unified Paymob Webhook Handler
+ * 
+ * Supports multiple systems on the same Paymob account:
+ * - source = "store"     → Youssef Automates Store flow
+ * - source = "joeschool" → JoeSchool flow (passthrough)
+ * 
+ * Detection priority:
+ * 1. transaction.extra_description or order.extras.source
+ * 2. order.merchant_order_id prefix ("store-...")
+ * 3. Match against Supabase orders table (fallback)
+ */
 export async function POST(request: Request) {
   const requestId = Math.random().toString(36).substring(7);
-  console.log(`[WEBHOOK][${requestId}] Received new webhook from Paymob`);
+  console.log(`[WEBHOOK][${requestId}] ===== Received new Paymob webhook =====`);
 
   try {
     const body = await request.json();
     const { searchParams } = new URL(request.url);
     const hmac = searchParams.get("hmac");
 
-    // 1. Verify HMAC for security
+    // ── 1. HMAC Verification ──────────────────────────────────────
     if (body.obj) {
       const isValid = verifyPaymobHmac(
         body.obj,
@@ -40,34 +52,39 @@ export async function POST(request: Request) {
     const isSuccess = transaction.success === true;
     const txnId = transaction.id;
 
-    console.log(`[WEBHOOK][${requestId}] Order: ${paymobOrderId} | Success: ${isSuccess} | Txn: ${txnId}`);
+    // ── 2. Detect Payment Source ──────────────────────────────────
+    const source = detectSource(transaction);
+    console.log(`[WEBHOOK][${requestId}] Source: ${source} | Order: ${paymobOrderId} | Success: ${isSuccess} | Txn: ${txnId}`);
 
-    // 2. Update Order Status in Supabase
+    // ── 3. Route Based on Source ──────────────────────────────────
+    if (source === "joeschool") {
+      console.log(`[WEBHOOK][${requestId}] 🎓 JoeSchool payment — passing through without Store processing`);
+      return NextResponse.json({ success: true, source: "joeschool", message: "Handled by JoeSchool" });
+    }
+
+    // ── 4. Youssef Automates Store Flow ──────────────────────────
     if (isSuccess) {
       console.log(`[WEBHOOK][${requestId}] 🔄 Updating order status to completed...`);
       const updatedOrders = await updateOrderStatus(paymobOrderId, "completed", transaction);
       
       if (!updatedOrders || updatedOrders.length === 0) {
         console.warn(`[WEBHOOK][${requestId}] ⚠️ No orders found with payment_id: ${paymobOrderId}`);
-        // This might happen if the order is already handled or if payment_id is different
       } else {
         console.log(`[WEBHOOK][${requestId}] ✅ Order(s) updated successfully`);
       }
 
-      // 3. Deliver Product via Email (only if needed, verify-and-deliver might do it too)
+      // ── 5. Product Delivery via Email ────────────────────────────
       const customerEmail = transaction.payment_key_claims?.billing_data?.email;
       const customerName = transaction.payment_key_claims?.billing_data?.first_name || "عميلنا العزيز";
       const amountPaid = (transaction.amount_cents / 100).toFixed(2);
       const currency = transaction.currency || "EGP";
       
-      // Fetch orders to check if email was already sent (optional, but good for race conditions)
       const { data: ordersData } = await supabase
         .from("orders")
         .select("id, product_id, product_title, status")
         .eq("payment_id", paymobOrderId);
 
       if (ordersData && ordersData.length > 0) {
-        // Build product blocks for email
         const productBlocks: string[] = [];
         const productTitles: string[] = [];
 
@@ -126,7 +143,6 @@ export async function POST(request: Request) {
         const isMultiple = productTitles.length > 1;
         const subjectTitle = isMultiple ? `${productTitles.length} منتجات جاهزة للتحميل` : productTitles[0];
 
-        // Build Email HTML
         const emailHtml = `
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
@@ -180,9 +196,52 @@ export async function POST(request: Request) {
       await updateOrderStatus(paymobOrderId, "failed", transaction);
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, source: "store" });
   } catch (error: any) {
     console.error(`[WEBHOOK][${requestId}] 💥 ERROR:`, error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+}
+
+/**
+ * Detect the payment source from Paymob transaction metadata.
+ * 
+ * Checks multiple locations where "source" could be stored:
+ * 1. transaction.order.extras.source (Intention API)
+ * 2. transaction.order.merchant_order_id prefix (Classic API)
+ * 3. transaction.extra_description (some Paymob flows)
+ * 4. Fallback: check if payment_id exists in our Supabase orders table
+ */
+function detectSource(transaction: any): string {
+  // Check extras object (works with both Intention and Classic API)
+  const extras = transaction.order?.extras;
+  if (extras) {
+    if (typeof extras === "string") {
+      try {
+        const parsed = JSON.parse(extras);
+        if (parsed.source) return parsed.source;
+      } catch {}
+    } else if (typeof extras === "object" && extras.source) {
+      return extras.source;
+    }
+  }
+
+  // Check merchant_order_id prefix
+  const merchantOrderId = transaction.order?.merchant_order_id;
+  if (typeof merchantOrderId === "string") {
+    if (merchantOrderId.startsWith("store-")) return "store";
+    if (merchantOrderId.startsWith("joeschool-")) return "joeschool";
+  }
+
+  // Check extra_description field (some Paymob flows put metadata here)
+  const extraDesc = transaction.extra_description;
+  if (typeof extraDesc === "string") {
+    if (extraDesc.includes("store")) return "store";
+    if (extraDesc.includes("joeschool")) return "joeschool";
+  }
+
+  // Default: assume store (since this webhook URL belongs to the store)
+  // JoeSchool should tag its own payments — untagged ones belong here
+  console.log(`[WEBHOOK] ⚠️ No source tag found, defaulting to "store"`);
+  return "store";
 }

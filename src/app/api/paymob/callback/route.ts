@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import { verifyPaymobHmac } from "@/lib/paymob";
 
+/**
+ * GET /api/paymob/callback
+ * 
+ * This is the redirect URL Paymob sends the customer to after 3DS/OTP verification.
+ * We verify the HMAC, then redirect to our own success or failed page.
+ * 
+ * This ensures Store customers NEVER get redirected to JoeSchool or any external page.
+ */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const hmac = searchParams.get("hmac");
@@ -20,17 +28,23 @@ export async function GET(request: Request) {
   );
 
   if (!isValid) {
-    console.error("Invalid HMAC signature from Paymob callback");
-    return NextResponse.redirect(new URL("/checkout/error?reason=verification_failed", request.url));
+    console.error("[CALLBACK] ❌ Invalid HMAC signature from Paymob callback");
+    return NextResponse.redirect(new URL("/checkout/failed?reason=verification_failed", request.url));
   }
 
   // 2. Check Transaction Success
   const success = searchParams.get("success") === "true";
   const orderId = searchParams.get("order");
+  const merchantOrderId = searchParams.get("merchant_order_id") || "";
 
+  console.log(`[CALLBACK] Success: ${success} | Order: ${orderId} | MerchantOrder: ${merchantOrderId}`);
+
+  // 3. Always redirect to Youssef Automates Store pages
+  // This guarantees store customers never see JoeSchool pages
   if (success) {
     return NextResponse.redirect(new URL(`/checkout/success?order_id=${orderId}`, request.url));
   } else {
-    return NextResponse.redirect(new URL(`/checkout/failed?order_id=${orderId}&reason=${searchParams.get("txn_response_code")}`, request.url));
+    const reason = searchParams.get("txn_response_code") || "declined";
+    return NextResponse.redirect(new URL(`/checkout/failed?order_id=${orderId}&reason=${reason}`, request.url));
   }
 }

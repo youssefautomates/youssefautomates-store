@@ -94,7 +94,7 @@ export async function POST(req: Request) {
           payment_methods: [envWalletIntegrationId],
           items: [{ name: product.title, amount: amountCents, description: "Digital Purchase", quantity: 1 }],
           billing_data: billingData,
-          extras: { supabase_order_id: dbOrder.id }
+          extras: { supabase_order_id: dbOrder.id, source: "store" }
         }),
       });
 
@@ -137,6 +137,8 @@ export async function POST(req: Request) {
           amount_cents: amountCents.toString(),
           currency: "EGP",
           items: [],
+          merchant_order_id: `store-${dbOrder.id}`,
+          extras: { source: "store", supabase_order_id: dbOrder.id }
         }),
       });
       if (!orderResponse.ok) throw new Error(`Order failed`);
