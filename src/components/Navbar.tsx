@@ -80,8 +80,8 @@ export function Navbar() {
 
   const navLinks = [
     { href: isHomePage ? "#products" : "/#products", label: "المنتجات", section: "products" },
-    { href: isHomePage ? "#faq" : "/#faq", label: "الأسئلة الشائعة", section: "faq" },
     { href: isHomePage ? "#reviews" : "/#reviews", label: "آراء العملاء", section: "reviews" },
+    { href: isHomePage ? "#faq" : "/#faq", label: "الأسئلة الشائعة", section: "faq" },
   ];
 
   return (
