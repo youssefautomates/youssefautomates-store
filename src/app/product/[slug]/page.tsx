@@ -8,8 +8,7 @@ import {
   ShieldCheck, Download, Users, Infinity as InfinityIcon, Target, Sparkles, 
   MonitorPlay, ArrowLeft, Rocket, HeartHandshake,
   Clock, ShoppingCart, Play, FileJson, Link as LinkIcon, Archive,
-  Volume2, VolumeX, Pause, Maximize, RotateCcw, LayoutTemplate, Layers, Check, X,
-  RefreshCw, LifeBuoy
+  Volume2, VolumeX, Pause, Maximize, RotateCcw
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -37,7 +36,7 @@ function unpackProduct(p: Product) {
     return null;
   }).filter(Boolean) as { type: 'image' | 'video', url: string }[];
 
-  // Fallback for legacy data
+  // Fallback for legacy data if no media tags exist
   if (slides.length === 0) {
     const video_url = p.tags?.find(t => t.startsWith("video:"))?.replace("video:", "");
     if (video_url) slides.push({ type: 'video', url: video_url });
@@ -79,16 +78,20 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
     try {
       console.log("[PRODUCT_PAGE] Fetching product for slug:", decodedSlug);
       
+      // 1. Try to fetch by slug
       let { data, error } = await supabase
         .from("products")
         .select("*")
         .eq("slug", decodedSlug)
         .single();
 
+      // 2. If not found, try to fetch by ID (legacy support)
       if (error || !data) {
+        // Only try to fetch by ID if the slug looks like a UUID to avoid Postgres cast errors
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decodedSlug);
         
         if (isUUID) {
+          console.log("[PRODUCT_PAGE] Slug is UUID, trying ID lookup...");
           const { data: idData, error: idError } = await supabase
             .from("products")
             .select("*")
@@ -96,12 +99,15 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
             .single();
           
           if (!idError && idData) {
+            console.log("[PRODUCT_PAGE] Found by ID, redirecting to slug:", idData.slug);
             router.replace(`/product/${idData.slug}`);
             return;
           }
         }
         
+        // If it's a "No rows found" error, just stop loading and show "Product not found"
         if (error && (error.code === 'PGRST116' || error.message?.includes('no rows'))) {
+          console.log("[PRODUCT_PAGE] Product not found in database.");
           setProduct(null);
           return;
         }
@@ -112,17 +118,21 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
       const unpacked = unpackProduct(data as Product);
       setProduct(unpacked);
       
+      // LOGIC: First slide is primary
       if (unpacked.slides.length > 0) {
         setActiveMedia(unpacked.slides[0]);
       } else {
         setActiveMedia(unpacked.image_url ? { type: 'image', url: unpacked.image_url } : null);
       }
       
+      // Update views non-blocking
       if (data) {
         supabase.rpc('increment_product_views', { product_id: data.id }).then(() => {});
+        
+        // Pixel Tracking
         if (typeof window !== "undefined") {
-          if ((window as any).fbq) {
-            (window as any).fbq('track', 'ViewContent', {
+          if (window.fbq) {
+            window.fbq('track', 'ViewContent', {
               content_name: unpacked.title,
               content_ids: [unpacked.id],
               content_type: 'product',
@@ -130,8 +140,8 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
               currency: 'EGP'
             });
           }
-          if ((window as any).ttq) {
-            (window as any).ttq.track('ViewContent', {
+          if (window.ttq) {
+            window.ttq.track('ViewContent', {
               contents: [{ content_id: unpacked.id, content_name: unpacked.title, price: unpacked.price, quantity: 1 }],
               content_type: 'product',
               value: unpacked.price,
@@ -141,7 +151,11 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
         }
       }
     } catch (err: any) {
-      console.error("[PRODUCT_PAGE] Fetch Error Details:", err);
+      console.error("[PRODUCT_PAGE] Fetch Error Details:", {
+        message: err.message,
+        code: err.code,
+        details: err.details
+      });
     } finally {
       setIsLoading(false);
     }
@@ -176,25 +190,33 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
 
   const savings = product.original_price ? product.original_price - product.price : 0;
   const discountPct = calcDiscount(product.price, product.original_price);
+  
+  // File type icon helper
+  const getFileIcon = (type: string) => {
+    switch (type) {
+      case 'pdf': return FileText;
+      case 'json': return FileJson;
+      case 'video': return Play;
+      case 'link': return LinkIcon;
+      default: return Archive;
+    }
+  };
+  const FileIcon = getFileIcon(product.file_type);
+
+  const isYouTube = product.video_url?.includes('youtube.com') || product.video_url?.includes('youtu.be');
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-cairo selection:bg-rose-500/30" style={{ isolation: 'isolate' }}>
       <Navbar />
       
-      <main className="pt-24 md:pt-32 pb-24 relative z-0">
-        
-
-
+      <main className="pt-20 md:pt-32 pb-32 md:pb-24 relative z-0">
         <section className="container mx-auto px-4 md:px-6">
-          {/* PREMIUM PRODUCT PAGE SECTION: HERO */}
-          <div className="flex flex-col lg:flex-row-reverse gap-8 lg:gap-16 items-start">
+          <div className="flex flex-col lg:flex-row gap-6 md:gap-8 lg:gap-12 items-start">
             
-            {/* Left Column (Visual Left via flex-row-reverse): Media */}
-            <div className="w-full lg:w-[55%] space-y-6">
+            {/* Left Column: Visuals & Description */}
+            <div className="w-full lg:w-[62%] space-y-8">
               {/* Main Viewer */}
-              <div className="relative aspect-video bg-[#08080c] rounded-3xl md:rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(214,0,75,0.1)] border border-white/10 flex items-center justify-center group">
-                <div className="absolute inset-0 bg-gradient-to-t from-[#050505] to-transparent opacity-20 pointer-events-none z-10" />
-                
+              <div className="relative aspect-video bg-[#08080c] rounded-2xl md:rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/5 flex items-center justify-center">
                 <AnimatePresence mode="wait">
                   {activeMedia?.type === 'video' ? (
                     <motion.div 
@@ -236,11 +258,11 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                                <motion.div 
                                 animate={{ scale: [1, 1.1, 1] }}
                                 transition={{ duration: 2, repeat: Infinity }}
-                                className="w-20 h-20 bg-rose-600/20 backdrop-blur-2xl border border-rose-500/30 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(214,0,75,0.3)]"
+                                className="w-20 h-20 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-full flex items-center justify-center mb-6 shadow-2xl"
                                >
                                   <VolumeX className="w-8 h-8 text-white" />
                                </motion.div>
-                               <span className="font-alexandria font-black text-xl text-white tracking-widest bg-[#D6004B] px-8 py-3 rounded-full shadow-[0_15px_40px_rgba(214,0,75,0.4)]">
+                               <span className="font-alexandria font-black text-xl text-white tracking-widest bg-rose-600 px-8 py-3 rounded-2xl shadow-[0_15px_40px_rgba(214,0,75,0.4)]">
                                   اضغط لفتح الصوت
                                </span>
                             </div>
@@ -260,7 +282,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                         src={activeMedia.url} 
                         alt={product.title} 
                         fill
-                        className="object-cover transition-transform duration-700 group-hover:scale-105"
+                        className="object-cover"
                         priority
                       />
                     </motion.div>
@@ -273,16 +295,16 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
 
                 {/* Badges */}
                 <div className="absolute top-4 left-4 md:top-6 md:left-6 flex flex-col gap-3 z-20 pointer-events-none">
-                  <div className="bg-black/40 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-full flex items-center gap-2 shadow-2xl">
+                  <div className="bg-white/5 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-xl flex items-center gap-2 shadow-2xl">
                     <Sparkles className="w-4 h-4 text-rose-500" />
-                    <span className="font-alexandria text-[10px] font-black text-white uppercase tracking-widest">Premium Product</span>
+                    <span className="font-alexandria text-[9px] font-black text-white uppercase tracking-widest">Premium Content</span>
                   </div>
                 </div>
               </div>
 
               {/* Premium Cinematic Media Slider */}
               {product.slides.length > 0 && (
-                <div className="w-full relative group/gallery select-none">
+                <div className="w-full relative group/gallery !mt-3 pt-1 pb-4 select-none">
                   <div 
                     className={cn(
                       "gap-4 pt-1 pb-3 px-1 snap-x custom-scrollbar-premium",
@@ -293,10 +315,23 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                     style={{ scrollbarWidth: 'thin', msOverflowStyle: 'none' }}
                   >
                     <style jsx>{`
-                      .custom-scrollbar-premium::-webkit-scrollbar { height: 5px; display: ${product.slides.length > 4 ? 'block' : 'none'}; }
-                      .custom-scrollbar-premium::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.01); border-radius: 20px; }
-                      .custom-scrollbar-premium::-webkit-scrollbar-thumb { background: rgba(214, 0, 75, 0.3); border-radius: 20px; transition: all 0.3s ease; }
-                      .group\\/gallery:hover .custom-scrollbar-premium::-webkit-scrollbar-thumb { background: #D6004B; box-shadow: 0 0 15px rgba(214, 0, 75, 0.5); }
+                      .custom-scrollbar-premium::-webkit-scrollbar {
+                        height: 5px;
+                        display: ${product.slides.length > 4 ? 'block' : 'none'};
+                      }
+                      .custom-scrollbar-premium::-webkit-scrollbar-track {
+                        background: rgba(255, 255, 255, 0.01);
+                        border-radius: 20px;
+                      }
+                      .custom-scrollbar-premium::-webkit-scrollbar-thumb {
+                        background: rgba(214, 0, 75, 0.3);
+                        border-radius: 20px;
+                        transition: all 0.3s ease;
+                      }
+                      .group\/gallery:hover .custom-scrollbar-premium::-webkit-scrollbar-thumb {
+                        background: #D6004B;
+                        box-shadow: 0 0 15px rgba(214, 0, 75, 0.5);
+                      }
                     `}</style>
 
                     {product.slides.map((slide: any, i: number) => {
@@ -311,30 +346,57 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                           className={cn(
-                            "relative aspect-video rounded-2xl overflow-hidden shrink-0 transition-all duration-300 snap-center border",
+                            "relative aspect-video rounded-3xl overflow-hidden shrink-0 transition-all duration-500 snap-center border-2",
                             product.slides.length > 4 ? "w-[22.5%] md:w-[23.5%]" : "w-full",
-                            "h-24 md:h-32 bg-white/[0.03] backdrop-blur-xl",
+                            "h-28 md:h-34 bg-white/[0.03] backdrop-blur-xl",
                             isActive 
-                              ? "border-rose-500 shadow-[0_0_20px_rgba(214,0,75,0.3)] z-10" 
-                              : "border-white/5 opacity-60 hover:opacity-100 hover:border-white/20"
+                              ? "border-rose-600 shadow-[0_0_40px_rgba(214,0,75,0.4)] z-10 scale-105" 
+                              : "border-white/5 opacity-50 hover:opacity-100 hover:border-white/20"
                           )}
                         >
-                           <div className="absolute inset-0 bg-[#050505] flex items-center justify-center">
+                           <div className="absolute inset-0 bg-zinc-950 flex items-center justify-center">
                               {slide.type === 'video' ? (
                                 <>
                                   {isYT ? (
-                                    <Image src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt="video thumb" fill className="object-cover" />
+                                    <Image 
+                                      src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} 
+                                      alt="video thumb" 
+                                      fill 
+                                      className="object-cover" 
+                                    />
                                   ) : (
-                                    <video src={`${slide.url}#t=0.1`} className="w-full h-full object-cover" muted playsInline />
+                                    <video 
+                                      src={`${slide.url}#t=0.1`} 
+                                      className="w-full h-full object-cover" 
+                                      muted 
+                                      playsInline 
+                                    />
                                   )}
+                                  
+                                  {/* Compact Play Overlay */}
                                   <div className="absolute inset-0 bg-black/40 group-hover/thumb:bg-black/10 transition-colors flex items-center justify-center">
-                                     <div className="w-10 h-10 bg-rose-600/90 rounded-full flex items-center justify-center shadow-lg backdrop-blur-sm">
-                                       <Play className="w-4 h-4 text-white fill-current ml-0.5" />
+                                     <div className="relative">
+                                        <div className="w-12 h-12 bg-rose-600 rounded-full flex items-center justify-center shadow-2xl border border-white/20">
+                                          <Play className="w-5 h-5 text-white fill-current ml-0.5" />
+                                        </div>
                                      </div>
                                   </div>
                                 </>
                               ) : (
-                                <Image src={slide.url} alt={`Gallery ${i}`} fill className="object-cover" />
+                                <>
+                                  <Image src={slide.url} alt={`Gallery ${i}`} fill className="object-cover" />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </>
+                              )}
+
+                              {/* Active Indicator */}
+                              {isActive && (
+                                <motion.div 
+                                  layoutId="activeGlow"
+                                  className="absolute inset-0 border-2 border-rose-500 rounded-3xl pointer-events-none"
+                                  initial={false}
+                                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                />
                               )}
                            </div>
                         </motion.button>
@@ -344,265 +406,162 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                 </div>
               )}
 
-              {/* Stat Cards Under Media */}
-              <div className="grid grid-cols-3 gap-4 pt-4">
-                 {[
-                   { val: "2000+", label: "قالب جاهز" },
-                   { val: "4.9/5", label: "تقييم العملاء" },
-                   { val: "100%", label: "توفير للوقت" }
-                 ].map((stat, i) => (
-                   <div key={i} className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-center shadow-lg hover:border-rose-500/20 transition-colors">
-                     <span className="block text-xl md:text-2xl font-alexandria font-black text-rose-500 mb-1">{stat.val}</span>
-                     <span className="text-xs md:text-sm font-cairo text-zinc-400 font-medium">{stat.label}</span>
-                   </div>
-                 ))}
+              {/* Description Section (Now directly below images) */}
+              <div className="bg-[#0b0b10]/60 backdrop-blur-xl rounded-3xl md:rounded-[2.5rem] p-6 md:p-12 border border-white/5 shadow-2xl space-y-6 md:space-y-8">
+                
+                {/* Header */}
+                <div className="flex items-center gap-3 md:gap-4 border-b border-white/5 pb-4 md:pb-6">
+                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-rose-500/10 flex items-center justify-center border border-rose-500/20 text-rose-500 shrink-0 shadow-[0_0_15px_rgba(244,63,94,0.15)]">
+                    <Target className="w-4 h-4 md:w-5.5 md:h-5.5" />
+                  </div>
+                  <div className="flex flex-col">
+                    <h2 className="text-xl md:text-3xl font-alexandria font-black text-white leading-tight">وصف المنتج الكامل</h2>
+                    <span className="font-cairo text-[10px] md:text-xs text-zinc-500 font-medium">كل ما تحتاجه للبدء والنجاح الفوري</span>
+                  </div>
+                </div>
+                
+                {/* Description Body */}
+                <div className="prose prose-invert prose-rose max-w-none">
+                  {product.description ? (
+                    <div className="text-zinc-300 font-cairo text-[15px] md:text-base leading-[1.8] space-y-5" dangerouslySetInnerHTML={{ __html: product.description.replace(/\n/g, '<br/>') }} />
+                  ) : (
+                    <p className="text-zinc-400 font-cairo text-[15px] md:text-base leading-[1.8]">هذا المنتج الرقمي مصمم لمساعدتك في أتمتة أعمالك وتوفير مئات الساعات من الجهد اليدوي.</p>
+                  )}
+                </div>
+
+                {/* Benefits / Trust Badges */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 pt-2 md:pt-4">
+                   {[
+                     { title: "جاهز للاستخدام الفوري", desc: "ستحصل على روابط التحميل مباشرة.", icon: Zap },
+                     { title: "دعم فني متميز ومستمر", desc: "نحن بجانبك للإجابة عن أي استفسار.", icon: ShieldCheck }
+                   ].map((feature, idx) => (
+                     <div 
+                       key={idx} 
+                       className="flex items-center md:items-start gap-3 md:gap-4 p-4 md:p-5 rounded-[1.25rem] md:rounded-2xl bg-white/[0.01] border border-white/5 hover:border-rose-500/20 hover:bg-white/[0.03] transition-all duration-300 group"
+                     >
+                       <div className="w-10 h-10 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center shrink-0 border border-rose-500/10 transition-colors group-hover:bg-[#D6004B]/20 group-hover:text-[#D6004B] group-hover:border-[#D6004B]/20">
+                          <feature.icon className="w-4 h-4 md:w-5 md:h-5 transition-transform group-hover:scale-110" />
+                       </div>
+                       <div className="flex flex-col gap-0.5 md:gap-1">
+                          <h4 className="text-sm md:text-[15px] font-alexandria font-bold text-white transition-colors group-hover:text-rose-400">{feature.title}</h4>
+                          <p className="text-zinc-400 font-cairo text-[10px] md:text-xs leading-relaxed">{feature.desc}</p>
+                       </div>
+                     </div>
+                   ))}
+                </div>
               </div>
             </div>
 
-            {/* Right Column (Visual Right via flex-row-reverse): Content & Pricing */}
-            <div className="w-full lg:w-[45%] space-y-8">
-              <div className="space-y-4">
-                {discountPct && (
-                  <Badge className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-alexandria px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest inline-flex shadow-[0_0_15px_rgba(16,185,129,0.15)]">
-                    🔥 خصم خاص متاح الآن
-                  </Badge>
-                )}
-                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-alexandria font-black text-white leading-[1.1] tracking-tighter">
-                  {product.title}
-                </h1>
+            {/* Right Column: Pricing & Conversion */}
+            <div className="w-full lg:w-[38%] lg:sticky lg:top-32 space-y-6 md:space-y-8">
+              <div className="bg-[#0c0c12] p-5 sm:p-8 md:p-10 lg:p-12 rounded-3xl md:rounded-[2.5rem] lg:rounded-[3rem] border border-white/10 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-rose-600/5 to-transparent opacity-50" />
                 
-                <div className="prose prose-invert prose-rose max-w-none pt-4">
-                  {product.description ? (
-                    <div className="text-zinc-400 font-cairo text-[16px] md:text-lg leading-[1.8]" dangerouslySetInnerHTML={{ __html: product.description.replace(/\\n/g, '<br/>') }} />
-                  ) : (
-                    <p className="text-zinc-400 font-cairo text-[16px] md:text-lg leading-[1.8]">هذا المنتج الرقمي مصمم لمساعدتك في أتمتة أعمالك وتوفير مئات الساعات من الجهد اليدوي بأقصى سرعة وكفاءة.</p>
-                  )}
-                </div>
-              </div>
+                <div className="relative z-10 space-y-5 md:space-y-8">
+                  <div className="space-y-2 md:space-y-4">
+                    {discountPct && (
+                      <Badge className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-alexandria px-2.5 py-1 md:px-4 md:py-2 rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest">
+                        🔥 عرض خاص لفترة محدودة
+                      </Badge>
+                    )}
+                    <h1 className="text-[22px] leading-[1.3] sm:text-3xl md:text-4xl lg:text-5xl font-alexandria font-black text-white md:leading-tight tracking-tighter">
+                      {product.title}
+                    </h1>
+                  </div>
 
-              {/* Pricing Card */}
-              <div className="bg-[#0b0b10]/80 backdrop-blur-3xl p-8 rounded-[2rem] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-rose-600/10 rounded-full blur-[80px] pointer-events-none" />
-                
-                <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center justify-between py-3 md:py-6 border-y border-white/5">
                     <div className="flex flex-col">
                       {product.original_price && (
-                        <span className="text-zinc-500 font-alexandria text-lg line-through decoration-rose-500/40 mb-1">
-                          {product.original_price} ج.م
+                        <span className="text-zinc-600 font-alexandria text-xs sm:text-base md:text-xl line-through decoration-rose-500/30 mb-0">
+                          {product.original_price} <span className="text-[9px] md:text-xs">ج.م</span>
                         </span>
                       )}
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-5xl md:text-6xl font-alexandria font-black text-white tracking-tighter">{product.price}</span>
-                        <span className="text-xl md:text-2xl font-alexandria font-black text-rose-500 uppercase">ج.م</span>
+                      <div className="flex items-baseline gap-1.5 md:gap-3">
+                        <span className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-alexandria font-black text-white tracking-tighter">{product.price}</span>
+                        <span className="text-sm sm:text-lg md:text-xl font-alexandria font-black text-rose-500 uppercase">ج.م</span>
                       </div>
                     </div>
                     {discountPct && (
-                      <div className="bg-rose-600 text-white font-alexandria font-black px-4 py-2 rounded-xl text-sm shadow-[0_0_15px_rgba(214,0,75,0.4)]">
-                        وفر {discountPct}%
+                      <div className="bg-rose-600 text-white font-alexandria font-black px-2.5 py-1 md:px-4 md:py-2 rounded-lg md:rounded-xl text-xs md:text-sm shadow-lg shadow-rose-600/20">
+                        -{discountPct}%
                       </div>
                     )}
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-2.5 md:space-y-4 pt-1 md:pt-4">
                     <Link
                       href={`/checkout/${product.id}`}
-                      className="w-full h-16 md:h-20 inline-flex items-center justify-center gap-4 bg-gradient-to-r from-[#D6004B] to-rose-600 hover:from-[#ff0059] hover:to-rose-500 text-white font-alexandria font-black text-lg md:text-2xl rounded-[1.5rem] transition-all duration-300 shadow-[0_15px_40px_rgba(214,0,75,0.4)] hover:shadow-[0_20px_50px_rgba(214,0,75,0.6)] hover:-translate-y-1 group"
+                      className="w-full h-12 sm:h-16 md:h-20 inline-flex items-center justify-center gap-2 md:gap-4 bg-[#D6004B] hover:bg-[#ff0059] text-white font-alexandria font-black text-sm sm:text-lg md:text-2xl rounded-xl md:rounded-[2rem] transition-all shadow-[0_15px_40px_rgba(214,0,75,0.35)] hover:shadow-[0_20px_50px_rgba(214,0,75,0.5)] active:scale-95 group"
                     >
-                      شراء الآن واستلام فوري
-                      <ArrowLeft className="w-6 h-6 md:w-8 md:h-8 rtl:rotate-180 group-hover:-translate-x-2 transition-transform" />
+                      شراء الآن (تحميل فوري)
+                      <ArrowLeft className="w-4 h-4 md:w-7 md:h-7 rtl:rotate-180 group-hover:-translate-x-2 transition-transform" />
                     </Link>
 
                     <button
                       onClick={() => addToCart(product)}
-                      className="w-full h-14 md:h-16 inline-flex items-center justify-center gap-3 bg-white/[0.02] hover:bg-white/[0.05] text-zinc-300 hover:text-white font-alexandria font-bold text-base rounded-[1.2rem] border border-white/10 transition-colors"
+                      className="w-full h-10 sm:h-14 md:h-16 inline-flex items-center justify-center gap-2 md:gap-3 bg-white/5 hover:bg-white/10 text-white font-alexandria font-black text-xs sm:text-base md:text-lg rounded-xl md:rounded-[1.5rem] border border-white/10 transition-all active:scale-95"
                     >
-                      <ShoppingCart className="w-5 h-5" />
+                      <ShoppingCart className="w-3.5 h-3.5 md:w-5 md:h-5" />
                       إضافة إلى السلة
                     </button>
                   </div>
+
+                  <div className="flex items-center justify-center gap-4 md:gap-6 pt-2 md:pt-6 text-zinc-500">
+                    <div className="flex items-center gap-1.5 md:gap-2">
+                       <ShieldCheck className="w-3 h-3 md:w-4 md:h-4 text-emerald-500" />
+                       <span className="text-[8px] md:text-[9px] font-alexandria font-black uppercase tracking-widest">آمن 100%</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 md:gap-2">
+                       <Lock className="w-3 h-3 md:w-4 md:h-4" />
+                       <span className="text-[8px] md:text-[9px] font-alexandria font-black uppercase tracking-widest">تشفير SSL</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Trust Strip */}
-              <div className="flex flex-wrap items-center justify-center gap-4 md:gap-8 pt-4">
-                 {[
-                   { icon: Download, text: "تحميل فوري" },
-                   { icon: ShieldCheck, text: "دفع آمن 100%" },
-                   { icon: RefreshCw, text: "تحديثات مجانية" },
-                   { icon: LifeBuoy, text: "دعم فني" }
-                 ].map((trust, i) => (
-                   <div key={i} className="flex items-center gap-2 text-zinc-400">
-                     <trust.icon className="w-4 h-4 text-emerald-500" />
-                     <span className="font-cairo font-bold text-[13px]">{trust.text}</span>
-                   </div>
-                 ))}
+              {/* Social Proof */}
+              <div className="bg-white/5 rounded-3xl md:rounded-[2.5rem] p-5 md:p-8 border border-white/5 flex items-center justify-between gap-3 md:gap-4">
+                 <div className="flex -space-x-2 md:-space-x-3 rtl:space-x-reverse">
+                   {["felix","sara","mia","alex"].map((seed) => (
+                     <div key={seed} className="w-8 h-8 md:w-10 md:h-10 rounded-full border-2 border-[#050505] bg-zinc-800 overflow-hidden relative">
+                        <img src={`https://api.dicebear.com/9.x/adventurer/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc`} alt="avatar" className="w-full h-full object-cover" />
+                     </div>
+                   ))}
+                 </div>
+                 <div className="text-right">
+                    <div className="flex text-yellow-400 gap-0.5 justify-end mb-0.5 md:mb-1">
+                       {[1,2,3,4,5].map(i => <Star key={i} className="w-3 h-3 md:w-3.5 md:h-3.5 fill-current" />)}
+                    </div>
+                    <p className="text-white font-alexandria font-bold text-xs md:text-sm">تقييم 5 من 100+ عميل</p>
+                 </div>
               </div>
             </div>
-          </div>
-        </section>
-
-        {/* PREMIUM PRODUCT PAGE SECTION: BEFORE / AFTER */}
-        <section className="mt-32 relative px-4 md:px-6">
-          <div className="text-center mb-16">
-             <h2 className="text-3xl md:text-5xl font-alexandria font-black text-white tracking-tighter">لماذا تحتاج هذه <span className="text-rose-500">الحزمة؟</span></h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-             {/* Before Card */}
-             <div className="bg-[#0c0c12] border border-white/5 rounded-[2.5rem] p-8 md:p-12 relative overflow-hidden transition-colors hover:border-red-500/20 group">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/5 rounded-full blur-[80px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mb-8 border border-red-500/20">
-                   <X className="w-8 h-8 text-red-500" />
-                </div>
-                <h3 className="text-2xl font-alexandria font-bold text-white mb-8">بدون الأتمتة</h3>
-                <ul className="space-y-6">
-                   {["عمل يدوي مكرر وممل يومياً", "إضاعة مئات الساعات كل شهر", "أخطاء بشرية لا يمكن تجنبها", "تأخير مستمر في الرد على العملاء", "تكلفة مالية عالية للموظفين"].map((text, i) => (
-                     <li key={i} className="flex items-center gap-4 text-zinc-400 font-cairo text-lg">
-                        <X className="w-5 h-5 text-red-500/70 shrink-0" />
-                        <span>{text}</span>
-                     </li>
-                   ))}
-                </ul>
-             </div>
-
-             {/* After Card */}
-             <div className="bg-[#0c0c12] border border-white/5 rounded-[2.5rem] p-8 md:p-12 relative overflow-hidden transition-colors hover:border-emerald-500/20 group">
-                <div className="absolute top-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-8 border border-emerald-500/20 relative z-10">
-                   <Check className="w-8 h-8 text-emerald-500" />
-                </div>
-                <h3 className="text-2xl font-alexandria font-bold text-white mb-8 relative z-10">مع الحزمة</h3>
-                <ul className="space-y-6 relative z-10">
-                   {["عمل آلي 24/7 بدون أي تدخل", "توفير وقتك للأشياء الأكثر أهمية", "دقة 100% بدون أي أخطاء", "رد فوري واحترافي لجميع عملائك", "توفير آلاف الدولارات سنوياً"].map((text, i) => (
-                     <li key={i} className="flex items-center gap-4 text-white font-cairo font-bold text-lg">
-                        <Check className="w-5 h-5 text-emerald-500 shrink-0 drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                        <span>{text}</span>
-                     </li>
-                   ))}
-                </ul>
-             </div>
-          </div>
-        </section>
-
-        {/* PREMIUM PRODUCT PAGE SECTION: FEATURES */}
-        <section className="mt-32 container mx-auto px-4 md:px-6" id="products">
-          <div className="text-center mb-16">
-             <h2 className="text-3xl md:text-5xl font-alexandria font-black text-white tracking-tighter">ماذا تتضمن <span className="text-rose-500">الحزمة؟</span></h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-             {[
-               { icon: Layers, title: "مجموعة ضخمة", desc: "أكثر من 2000 قالب احترافي مصمم خصيصاً لتوفير وقتك ومجهودك في أي مجال." },
-               { icon: LinkIcon, title: "ربط كل شيء", desc: "أتمتة وسائل التواصل، البريد، قواعد البيانات، أدوات الذكاء الاصطناعي والمزيد بسهولة." },
-               { icon: Rocket, title: "جاهزة للعمل فوراً", desc: "بنقرة واحدة، يمكنك استيراد القوالب (JSON) والبدء في استخدامها مباشرة." },
-               { icon: Download, title: "تحميل فوري", desc: "احصل على جميع الملفات بصيغة JSON مباشرة بعد إتمام الدفع بشكل آمن." },
-               { icon: Target, title: "تحديثات مجانية", desc: "تحصل على أي قوالب جديدة نضيفها مستقبلاً إلى الحزمة بدون أي تكلفة إضافية." },
-               { icon: ShieldCheck, title: "ملكية كاملة لك", desc: "استخدم القوالب لعملك الخاص أو طبقها لعملائك بحرية تامة وبدون قيود." },
-               { icon: HeartHandshake, title: "دعم فني متميز", desc: "نحن بجانبك خطوة بخطوة للإجابة عن أي استفسار أو مساعدة في تركيب القوالب." },
-               { icon: Zap, title: "أداء فائق وسرعة", desc: "انطلق بسرعة الصاروخ مع قوالب محسنة ومختبرة لتعمل بأعلى كفاءة ممكنة." },
-               { icon: FileText, title: "توثيق وشروحات", desc: "فيديوهات وملفات شرح تفصيلية تجعل من استخدام الحزمة أمراً في غاية السهولة للمبتدئين." }
-             ].map((feature, i) => (
-               <div key={i} className="bg-white/[0.02] border border-white/5 hover:border-rose-500/30 p-8 rounded-[2.5rem] transition-all duration-500 group hover:bg-white/[0.04] shadow-xl hover:shadow-[0_20px_50px_rgba(214,0,75,0.05)]">
-                  <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center mb-8 group-hover:bg-rose-500/10 transition-colors duration-500 border border-white/5 group-hover:border-rose-500/20 shadow-lg">
-                    <feature.icon className="w-6 h-6 text-zinc-400 group-hover:text-rose-500 transition-colors duration-500" />
-                  </div>
-                  <h3 className="text-xl font-alexandria font-bold text-white mb-4">{feature.title}</h3>
-                  <p className="text-zinc-400 font-cairo leading-relaxed text-base">{feature.desc}</p>
-               </div>
-             ))}
           </div>
         </section>
 
         {/* Reviews Section */}
         <ProductReviews productId={product.id} />
 
-        {/* PREMIUM PRODUCT PAGE SECTION: FAQ */}
-        <section className="mt-32 max-w-3xl mx-auto px-4 md:px-6" id="faq">
-          <div className="text-center mb-16">
-             <h2 className="text-3xl md:text-5xl font-alexandria font-black text-white tracking-tighter">الأسئلة <span className="text-rose-500">الشائعة</span></h2>
-          </div>
-          <div className="space-y-4">
-             {[
-               { q: "هل أحتاج لخبرة برمجية لاستخدام هذه القوالب؟", a: "لا، جميع القوالب مصممة لتكون جاهزة للاستخدام (Plug & Play). كل ما عليك فعله هو استيراد الملف وتغيير بعض الإعدادات البسيطة مثل إضافة حساباتك." },
-               { q: "كيف سأستلم الحزمة بعد الدفع؟", a: "بمجرد إتمام الدفع بنجاح، سيتم توجيهك فوراً لصفحة التحميل داخل متجرنا. كما سنرسل لك بريداً إلكترونياً يحتوي على روابط التحميل لضمان عدم ضياعها." },
-               { q: "هل تعمل القوالب على الاستضافة الذاتية (Self-hosted) لـ n8n؟", a: "نعم! جميع القوالب بصيغة JSON متوافقة وتعمل بكفاءة 100% سواء كنت تستخدم النسخة السحابية أو الاستضافة الذاتية." },
-               { q: "هل الدفع آمن؟", a: "بالتأكيد. نحن نستخدم بوابات دفع عالمية وموثوقة (باي موب) لتشفير وحماية جميع بياناتك المالية ولا نحتفظ بأي بيانات للبطاقات." },
-             ].map((faq, i) => (
-               <details key={i} className="group bg-white/[0.02] border border-white/5 rounded-2xl [&_summary::-webkit-details-marker]:hidden hover:bg-white/[0.04] transition-colors">
-                  <summary className="flex items-center justify-between p-6 md:p-8 cursor-pointer font-alexandria font-bold text-lg text-white select-none">
-                     {faq.q}
-                     <div className="w-10 h-10 bg-white/5 rounded-full flex items-center justify-center shrink-0 group-open:bg-rose-500/10 transition-colors">
-                        <ChevronRight className="w-5 h-5 text-rose-500 transition-transform duration-300 group-open:-rotate-90" />
-                     </div>
-                  </summary>
-                  <div className="px-6 md:px-8 pb-6 md:pb-8 pt-0 text-zinc-400 font-cairo leading-relaxed text-lg border-t border-white/5 mt-2 pt-6 opacity-0 group-open:animate-[fadeIn_0.3s_ease_forwards]">
-                     {faq.a}
-                  </div>
-               </details>
-             ))}
-          </div>
-          <style jsx>{`
-            @keyframes fadeIn {
-              from { opacity: 0; transform: translateY(-10px); }
-              to { opacity: 1; transform: translateY(0); }
-            }
-          `}</style>
-        </section>
-
-        {/* PREMIUM PRODUCT PAGE SECTION: FINAL CTA */}
-        <section className="mt-32 mb-16 container mx-auto px-4 md:px-6">
-          <div className="bg-gradient-to-b from-[#1a050e] to-[#0a0205] border border-rose-500/20 rounded-[3rem] md:rounded-[4rem] p-12 md:p-24 text-center relative overflow-hidden shadow-[0_0_100px_rgba(214,0,75,0.15)]">
-             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] md:w-[800px] md:h-[800px] bg-rose-600/20 rounded-full blur-[120px] pointer-events-none" />
-             
-             <div className="relative z-10 max-w-4xl mx-auto">
-                <h2 className="text-4xl md:text-6xl lg:text-7xl font-alexandria font-black text-white tracking-tighter mb-8 leading-tight">
-                  لا تضيع المزيد من <span className="text-rose-500">الوقت</span>
-                </h2>
-                <p className="text-xl md:text-2xl text-zinc-300 font-cairo mb-12 leading-relaxed">
-                  احصل على الحزمة الآن وابدأ في أتمتة أعمالك وتوفير مئات الساعات شهرياً بضغطة زر.
-                </p>
-                
-                <Link
-                  href={`/checkout/${product.id}`}
-                  className="inline-flex items-center justify-center gap-4 bg-[#D6004B] hover:bg-[#ff0059] text-white font-alexandria font-black text-xl md:text-3xl px-12 py-6 md:px-16 md:py-8 rounded-full transition-all duration-300 shadow-[0_15px_40px_rgba(214,0,75,0.4)] hover:shadow-[0_25px_60px_rgba(214,0,75,0.6)] hover:-translate-y-2 active:scale-95 group"
-                >
-                  شراء الحزمة الآن
-                  <ArrowLeft className="w-8 h-8 md:w-10 md:h-10 rtl:rotate-180 group-hover:-translate-x-3 transition-transform" />
-                </Link>
-                
-                <div className="flex flex-wrap items-center justify-center gap-6 md:gap-12 mt-12 text-zinc-400">
-                   <div className="flex items-center gap-3 bg-black/20 px-6 py-3 rounded-full border border-white/5 backdrop-blur-md">
-                      <ShieldCheck className="w-6 h-6 text-emerald-500" />
-                      <span className="font-alexandria font-bold text-sm md:text-base">دفع آمن وموثوق</span>
-                   </div>
-                   <div className="flex items-center gap-3 bg-black/20 px-6 py-3 rounded-full border border-white/5 backdrop-blur-md">
-                      <Download className="w-6 h-6 text-rose-500" />
-                      <span className="font-alexandria font-bold text-sm md:text-base">استلام فوري للملفات</span>
-                   </div>
-                </div>
-             </div>
-          </div>
-        </section>
-
-        {/* Mobile Sticky Bar - Professional & Compact */}
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#050505]/95 backdrop-blur-3xl border-t border-white/10 p-5 z-50 flex items-center justify-between gap-4 pb-safe shadow-[0_-20px_50px_rgba(0,0,0,0.9)]">
+        {/* Mobile Sticky Bar - Premium & Ultra-Compact */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-2xl border-t border-white/10 p-3 z-50 flex items-center justify-between gap-3 pb-safe shadow-[0_-20px_50px_rgba(0,0,0,0.8)] supports-[backdrop-filter]:bg-black/60">
           <div className="flex flex-col pl-2">
-            <span className="text-2xl font-alexandria font-black text-white leading-none tracking-tighter">
-              {product.price} <span className="text-[10px] text-zinc-500 font-black">ج.م</span>
+            <span className="text-lg font-alexandria font-black text-white leading-none tracking-tighter">
+              {product.price} <span className="text-[10px] text-rose-500 font-black">ج.م</span>
             </span>
-            {product.original_price && <span className="text-[10px] text-zinc-600 line-through">توفير {savings}ج.م</span>}
+            {product.original_price && <span className="text-[9px] text-zinc-400 line-through mt-0.5">بدلاً من {product.original_price}</span>}
           </div>
           <div className="flex gap-2 flex-1">
             <button
               onClick={() => addToCart(product)}
-              className="h-12 w-12 bg-white/5 border border-white/10 text-white rounded-xl flex items-center justify-center active:scale-90 shrink-0"
+              className="h-11 w-11 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl flex items-center justify-center active:scale-90 shrink-0 transition-colors"
             >
-              <ShoppingCart className="w-5 h-5" />
+              <ShoppingCart className="w-4 h-4" />
             </button>
             <Link
               href={`/checkout/${product.id}`}
-              className="flex-1 h-12 bg-[#D6004B] text-white font-alexandria font-black text-sm rounded-xl flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-rose-600/20"
+              className="flex-1 h-11 bg-[#D6004B] text-white font-alexandria font-black text-sm rounded-xl flex items-center justify-center gap-1.5 active:scale-95 shadow-[0_10px_30px_rgba(214,0,75,0.3)]"
             >
-              شراء الآن
+              شراء فوري
               <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
             </Link>
           </div>
