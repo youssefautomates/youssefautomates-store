@@ -83,21 +83,37 @@ export function Navbar() {
 
   return (
     <>
-      <nav
-        className={cn(
-          "fixed top-0 w-full z-[100] transition-all duration-500 ease-in-out px-4 py-4 md:px-8",
-          scrolled ? "py-3" : "py-5"
-        )}
-        style={{ pointerEvents: "auto" }}
-      >
-        <div
-          className={cn(
-            "container mx-auto max-w-7xl transition-all duration-500 border",
-            scrolled
-              ? "bg-[#0b0b10]/80 backdrop-blur-2xl border-white/10 rounded-[2rem] px-6 h-16 shadow-[0_20px_40px_rgba(0,0,0,0.6)]"
-              : "bg-transparent border-transparent h-16"
-          )}
-        >
+      <header className="fixed top-0 left-0 w-full z-[100] h-16 md:h-20 bg-gradient-to-r from-rose-700 via-rose-500 to-rose-700 shadow-[0_10px_30px_rgba(214,0,75,0.2)] border-b border-white/10 flex items-center justify-center">
+        {/* Marquee Background */}
+        <div className="absolute inset-0 overflow-hidden flex items-center z-0 pointer-events-none">
+          <style jsx>{`
+            @keyframes marquee {
+              0% { transform: translateX(0); }
+              100% { transform: translateX(100%); }
+            }
+            .animate-marquee {
+              animation: marquee 40s linear infinite;
+            }
+          `}</style>
+          <div className="flex whitespace-nowrap animate-marquee">
+            {Array(15).fill("").map((_, i) => (
+              <div key={i} className="flex items-center gap-6 mx-6 text-white font-alexandria font-bold text-[13px] tracking-wide">
+                <span className="drop-shadow-md">🔥 أكثر من 1000 عميل سعيد</span>
+                <span className="w-1.5 h-1.5 bg-white/50 rounded-full" />
+                <span className="drop-shadow-md">تقييم 4.9 من 5</span>
+                <span className="w-1.5 h-1.5 bg-white/50 rounded-full" />
+                <span className="drop-shadow-md">الآف القوالب الجاهزة</span>
+                <span className="w-1.5 h-1.5 bg-white/50 rounded-full" />
+                <span className="drop-shadow-md">تحديثات مجانية مدى الحياة</span>
+                <span className="w-1.5 h-1.5 bg-white/50 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Floating Dark Pill */}
+        <nav className="relative z-10 w-full h-full md:px-8" style={{ pointerEvents: "auto" }}>
+          <div className="w-full h-full max-w-7xl mx-auto bg-[#0b0b10]/95 backdrop-blur-3xl border-x border-white/10 md:rounded-b-[2rem] px-4 md:px-6 shadow-[0_20px_40px_rgba(0,0,0,0.6)]">
           <div className="flex items-center justify-between h-full">
 
             {/* Right Side: Logo & Brand */}
@@ -191,6 +207,7 @@ export function Navbar() {
           </div>
         </div>
       </nav>
+      </header>
 
       {/* Mobile Menu Overlay */}
       <AnimatePresence>

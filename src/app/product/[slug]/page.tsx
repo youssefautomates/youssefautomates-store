@@ -183,32 +183,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
       
       <main className="pt-24 md:pt-32 pb-24 relative z-0">
         
-        {/* PREMIUM PRODUCT PAGE SECTION: ANNOUNCEMENT MARQUEE */}
-        <div className="w-full bg-gradient-to-r from-rose-700 via-rose-500 to-rose-700 overflow-hidden py-3 relative z-10 flex items-center shadow-[0_10px_30px_rgba(214,0,75,0.2)] mb-12 border-y border-white/10">
-          <style jsx>{`
-            @keyframes marquee {
-              0% { transform: translateX(0); }
-              100% { transform: translateX(100%); }
-            }
-            .animate-marquee {
-              animation: marquee 40s linear infinite;
-            }
-          `}</style>
-          <div className="flex whitespace-nowrap animate-marquee">
-            {Array(15).fill("").map((_, i) => (
-              <div key={i} className="flex items-center gap-6 mx-6 text-white font-alexandria font-bold text-[13px] tracking-wide">
-                <span className="drop-shadow-md">🔥 أكثر من 1000 عميل سعيد</span>
-                <span className="w-1.5 h-1.5 bg-white/50 rounded-full" />
-                <span className="drop-shadow-md">تقييم 4.9 من 5</span>
-                <span className="w-1.5 h-1.5 bg-white/50 rounded-full" />
-                <span className="drop-shadow-md">الآف القوالب الجاهزة</span>
-                <span className="w-1.5 h-1.5 bg-white/50 rounded-full" />
-                <span className="drop-shadow-md">تحديثات مجانية مدى الحياة</span>
-                <span className="w-1.5 h-1.5 bg-white/50 rounded-full" />
-              </div>
-            ))}
-          </div>
-        </div>
+
 
         <section className="container mx-auto px-4 md:px-6">
           {/* PREMIUM PRODUCT PAGE SECTION: HERO */}
