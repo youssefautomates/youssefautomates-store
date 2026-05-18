@@ -15,6 +15,7 @@ import {
 import { uploadFile } from "@/lib/upload";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabaseClient } from "@/lib/supabaseClient";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import {
   DndContext,
@@ -184,7 +185,26 @@ export default function AdminCoursesPage() {
     certificate_date_x: 50, certificate_date_y: 70
   });
 
-  useEffect(() => { loadCourses(); }, []);
+  const [categories, setCategories] = useState<string[]>([]);
+
+  useEffect(() => { 
+    loadCourses(); 
+    loadCategories();
+  }, []);
+
+  const loadCategories = async () => {
+    try {
+      const { data } = await supabaseClient
+        .from("course_categories")
+        .select("name")
+        .order("order_index", { ascending: true });
+      if (data && data.length > 0) {
+        setCategories(data.map((c: any) => c.name));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const loadCourses = async () => {
     setLoading(true);
@@ -462,10 +482,9 @@ export default function AdminCoursesPage() {
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-bold text-zinc-400">تصنيف الكورس</label>
                 <select value={courseForm.category} onChange={e => setCourseForm({ ...courseForm, category: e.target.value })} className="bg-[#0f0f15] border border-white/5 rounded-xl py-3 px-4 text-sm">
-                  <option value="الأتمتة">الأتمتة</option>
-                  <option value="الذكاء الاصطناعي">الذكاء الاصطناعي</option>
-                  <option value="صناعة المحتوى">صناعة المحتوى</option>
-                  <option value="التسويق">التسويق</option>
+                  {(categories.length > 0 ? categories : ["دورات الأتمتة", "دورات صناعة المحتوى", "الدورات المجانية"]).map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
                 </select>
               </div>
 
