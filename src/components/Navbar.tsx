@@ -104,21 +104,18 @@ export function Navbar() {
         >
           <div className="flex items-center justify-between h-full">
 
-            {/* Mobile Spacer to preserve justify-between layout when logo is hidden */}
-            <div className="md:hidden" />
-
-            {/* Right Side: Logo (hidden on mobile) */}
-            <Link href="/" onClick={handleHomeClick} className="hidden md:flex items-center gap-2.5 group">
+            {/* Right Side: Logo & Brand (Logo only on mobile, full branding on desktop) */}
+            <Link href="/" onClick={handleHomeClick} className="flex items-center gap-2.5 group">
               <div className="relative">
                 <div className="w-10 h-10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                   <img src="/logo.png" alt="Youssef Automates" className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(214,0,75,0.5)]" />
                 </div>
               </div>
-              <div className="flex flex-col">
+              <div className="hidden md:flex flex-col">
                 <span className="font-alexandria font-bold text-lg md:text-xl tracking-tight text-white leading-tight" dir="ltr">
                   Youssef <span className="text-rose-500">Automates</span>
                 </span>
-                <span className="font-cairo text-[10px] text-zinc-400 font-medium tracking-wider uppercase hidden md:block">Premium Workflows</span>
+                <span className="font-cairo text-[10px] text-zinc-400 font-medium tracking-wider uppercase">Premium Workflows</span>
               </div>
             </Link>
 
