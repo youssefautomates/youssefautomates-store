@@ -124,7 +124,7 @@ function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean;
   const [form, setForm] = useState<any>({
     title: "", slug: "", description: "", short_description: "",
     price: "", original_price: "", status: "نشط",
-    image_url: "", file_url: "", category: "", 
+    image_url: "", file_url: "", category: "الأتمتة", 
     slides: Array(5).fill(null).map(() => ({ type: 'image', url: '' })),
     file_type: "zip", displayTags: "",
     seo_title: "", seo_description: ""
@@ -158,7 +158,7 @@ function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean;
         setForm({
           title: "", slug: "", description: "", short_description: "",
           price: "", original_price: "", status: "نشط",
-          is_featured: false, image_url: "", file_url: "", category: "", 
+          is_featured: false, image_url: "", file_url: "", category: "الأتمتة", 
           video_url: "", gallery: [""], file_type: "zip", displayTags: "",
           seo_title: "", seo_description: ""
         });
@@ -331,7 +331,11 @@ function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean;
                         </div>
                         <div className="space-y-1.5">
                           <Label className="text-sm font-bold" style={{ color: "#d4d4d8" }}>التصنيف</Label>
-                          <Input value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="h-12 rounded-xl text-white" style={{ background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.1)" }} placeholder="مثال: n8n, Workflows" />
+                          <select value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="w-full h-12 rounded-xl px-4 text-white appearance-none outline-none" style={{ background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.1)" }}>
+                            <option value="الأتمتة" style={{ background: "#080810" }}>الأتمتة</option>
+                            <option value="الذكاء الاصطناعي" style={{ background: "#080810" }}>الذكاء الاصطناعي</option>
+                            <option value="صناعة المحتوى" style={{ background: "#080810" }}>صناعة المحتوى</option>
+                          </select>
                         </div>
                       </div>
                       <div className="space-y-1.5">

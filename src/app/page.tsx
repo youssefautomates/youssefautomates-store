@@ -115,49 +115,35 @@ export default function Home() {
   // Digital product categories filter list
   const productCategories = [
     "الكل",
-    "n8n",
+    "الأتمتة",
     "الذكاء الاصطناعي",
-    "التجارة الإلكترونية",
-    "السوشيال ميديا",
-    "الإنتاجية",
-    "التسويق",
-    "مجاني"
+    "صناعة المحتوى"
   ];
 
   // Smart product categorizer
   const getProductCategory = (product: Product) => {
+    const categoryField = product.category || "";
+    
+    if (categoryField === "الأتمتة" || categoryField === "الذكاء الاصطناعي" || categoryField === "صناعة المحتوى") {
+      return categoryField;
+    }
+    
+    // Fallback/Legacy mapping based on category value or tags
     const title = (product.title || "").toLowerCase();
     const desc = (product.description || "").toLowerCase();
-    const shortDesc = (product.short_description || "").toLowerCase();
-    const categoryField = (product.category || "").toLowerCase();
     const tags = (product.tags || []).map(t => t.toLowerCase());
-
-    if (product.price === 0) return "مجاني";
     
-    if (tags.includes("n8n") || title.includes("n8n") || desc.includes("n8n")) {
-      return "n8n";
+    if (categoryField.includes("n8n") || tags.includes("n8n") || title.includes("n8n") || desc.includes("n8n") || categoryField.includes("أتمتة") || categoryField.includes("productivity") || categoryField.includes("إنتاجية")) {
+      return "الأتمتة";
     }
-    if (tags.includes("ai") || tags.includes("ذكاء") || title.includes("ai") || title.includes("ذكاء") || desc.includes("ai") || desc.includes("ذكاء")) {
+    if (categoryField.includes("ai") || categoryField.includes("ذكاء") || tags.includes("ai") || tags.includes("ذكاء") || title.includes("ai") || title.includes("ذكاء") || desc.includes("ai") || desc.includes("ذكاء")) {
       return "الذكاء الاصطناعي";
     }
-    if (tags.includes("commerce") || tags.includes("تجارة") || tags.includes("متجر") || title.includes("commerce") || title.includes("تجارة") || title.includes("متجر") || desc.includes("commerce") || desc.includes("تجارة") || desc.includes("متجر")) {
-      return "التجارة الإلكترونية";
-    }
-    if (tags.includes("social") || tags.includes("سوشيال") || tags.includes("ميديا") || title.includes("social") || title.includes("سوشيال") || title.includes("ميديا") || desc.includes("social") || desc.includes("سوشيال") || desc.includes("ميديا")) {
-      return "السوشيال ميديا";
-    }
-    if (tags.includes("productivity") || tags.includes("إنتاجية") || title.includes("productivity") || title.includes("إنتاجية") || desc.includes("productivity") || desc.includes("إنتاجية")) {
-      return "الإنتاجية";
-    }
-    if (tags.includes("marketing") || tags.includes("تسويق") || title.includes("marketing") || title.includes("تسويق") || desc.includes("marketing") || desc.includes("تسويق")) {
-      return "التسويق";
+    if (categoryField.includes("content") || categoryField.includes("صناعة") || categoryField.includes("ميديا") || categoryField.includes("سوشيال") || tags.includes("social") || tags.includes("ميديا") || title.includes("content") || desc.includes("content")) {
+      return "صناعة المحتوى";
     }
     
-    if (categoryField.includes("n8n")) return "n8n";
-    if (categoryField.includes("ai") || categoryField.includes("ذكاء")) return "الذكاء الاصطناعي";
-    if (categoryField.includes("marketing") || categoryField.includes("تسويق")) return "التسويق";
-
-    return "الإنتاجية";
+    return "الأتمتة"; // Default fallback
   };
 
   // Filter computations
@@ -179,7 +165,6 @@ export default function Home() {
 
   const filteredProducts = products.filter((product) => {
     if (activeProductCategory === "الكل") return true;
-    if (activeProductCategory === "مجاني") return product.price === 0;
     const cat = getProductCategory(product);
     return cat === activeProductCategory;
   });
@@ -462,7 +447,7 @@ export default function Home() {
                 <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-rose-500" />
                 متجر المنتجات الرقمية والحزم الحصرية
               </motion.div>
-              <h2 className="text-2xl md:text-5xl font-alexandria font-black text-white mb-4 md:mb-6 tracking-tight">تدفقات العمل وحزم الأتمتة</h2>
+              <h2 className="text-2xl md:text-5xl font-alexandria font-black text-white mb-4 md:mb-6 tracking-tight">مكتبة المنتجات الرقمية</h2>
               <p className="text-zinc-400 font-cairo text-sm md:text-lg max-w-2xl mx-auto leading-relaxed">
                 استثمر في حزم وتدفقات جاهزة تضمن توفير مئات ساعات العمل الفنية والشفرات البرمجية. اختر ما يناسب مشروعك الآن.
               </p>
@@ -477,8 +462,8 @@ export default function Home() {
                   className={cn(
                     "px-5 py-2.5 rounded-full font-cairo text-xs md:text-sm font-bold transition-all duration-300 shrink-0 select-none cursor-pointer border snap-align-start",
                     activeProductCategory === cat
-                      ? "bg-[#D6004B] text-white border-[#D6004B] shadow-[0_4px_15px_rgba(214,0,75,0.3)] scale-105"
-                      : "bg-white/5 text-zinc-400 border-white/5 hover:border-white/10 hover:text-white"
+                      ? "bg-[#D6004B] text-white border-[#D6004B] shadow-[0_0_20px_rgba(214,0,75,0.45)] scale-105"
+                      : "bg-[#0c0c14] text-zinc-400 border-white/5 hover:border-[#D6004B]/30 hover:text-white hover:shadow-[0_0_15px_rgba(214,0,75,0.15)]"
                   )}
                 >
                   {cat}
@@ -494,7 +479,19 @@ export default function Home() {
               >
                 {isLoading ? (
                   Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="h-[400px] md:h-[500px] rounded-[2rem] bg-white/5 animate-pulse" />
+                    <div key={i} className="relative h-[450px] rounded-[2rem] bg-[#0a0a0f] border border-white/5 overflow-hidden p-6 flex flex-col justify-between animate-pulse">
+                      <div className="h-48 bg-white/5 rounded-2xl mb-4 w-full" />
+                      <div className="space-y-3">
+                        <div className="h-4 bg-white/5 rounded-md w-1/3" />
+                        <div className="h-6 bg-white/5 rounded-md w-3/4" />
+                        <div className="h-4 bg-white/5 rounded-md w-full" />
+                        <div className="h-4 bg-white/5 rounded-md w-5/6" />
+                      </div>
+                      <div className="flex items-center justify-between mt-6">
+                        <div className="h-8 bg-white/5 rounded-md w-1/4" />
+                        <div className="h-10 bg-white/5 rounded-xl w-1/3" />
+                      </div>
+                    </div>
                   ))
                 ) : filteredProducts.length === 0 ? (
                   <div className="col-span-full text-center py-16 md:py-20">
@@ -522,7 +519,7 @@ export default function Home() {
                           onClick={() => router.push(`/product/${product.slug}`)}
                           onMouseEnter={() => setHoveredId(product.id)}
                           onMouseLeave={() => setHoveredId(null)}
-                          className="block relative h-full flex flex-col bg-[#0a0a0f] border border-white/5 hover:border-rose-500/30 rounded-[2rem] overflow-hidden group-hover:-translate-y-1.5 transition-all duration-500 shadow-2xl hover:shadow-[0_20px_40px_rgba(239,0,85,0.1)] cursor-pointer"
+                          className="block relative h-full flex flex-col bg-[#0a0a0f] border border-white/5 hover:border-[#D6004B]/50 rounded-[2rem] overflow-hidden group-hover:-translate-y-2 group-hover:scale-[1.01] transition-all duration-500 shadow-2xl hover:shadow-[0_25px_50px_-12px_rgba(214,0,75,0.25)] cursor-pointer"
                         >
                           {/* Media Area */}
                           <div className="relative h-48 md:h-64 border-b border-white/5">
@@ -532,7 +529,7 @@ export default function Home() {
                               title={product.title}
                               isHovered={hoveredId === product.id}
                               className="h-full"
-                              staticOnly={true}
+                              staticOnly={false}
                             />
                             
                             {/* Badges */}
@@ -540,8 +537,15 @@ export default function Home() {
                               {isFree ? (
                                 <Badge className="bg-emerald-600 text-white border-none font-cairo text-[9px] md:text-[10px] py-0.5 px-2.5 shadow-lg rounded-md">هدية مجانية</Badge>
                               ) : product.is_featured ? (
-                                <Badge className="bg-rose-600 text-white border-none font-cairo text-[9px] md:text-[10px] py-0.5 px-2.5 shadow-lg rounded-md">الأكثر مبيعاً</Badge>
+                                <Badge className="bg-[#D6004B] text-white border-none font-cairo text-[9px] md:text-[10px] py-0.5 px-2.5 shadow-lg rounded-md">الأكثر مبيعاً</Badge>
                               ) : null}
+                            </div>
+
+                            {/* Category Badge */}
+                            <div className="absolute top-4 right-4 md:top-6 md:right-6 z-20">
+                              <span className="bg-[#D6004B]/15 text-[#D6004B] border border-[#D6004B]/30 font-cairo text-[9px] md:text-[10px] font-black py-1 px-3 rounded-full backdrop-blur-md shadow-[0_0_15px_rgba(214,0,75,0.2)] tracking-wide">
+                                {getProductCategory(product)}
+                              </span>
                             </div>
                           </div>
 
@@ -554,7 +558,7 @@ export default function Home() {
                               </div>
                             </div>
 
-                            <h3 className="text-base sm:text-lg font-alexandria font-bold text-white mb-2 leading-snug group-hover:text-rose-400 transition-colors line-clamp-2">
+                            <h3 className="text-base sm:text-lg font-alexandria font-bold text-white mb-2 leading-snug group-hover:text-[#D6004B] transition-colors line-clamp-2">
                               {product.title}
                             </h3>
                             
@@ -588,12 +592,14 @@ export default function Home() {
                                     addToCart(product);
                                     toast.success("تمت الإضافة للسلة");
                                   }}
-                                  className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-rose-600 transition-colors"
+                                  className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-rose-600 hover:border-rose-600 hover:shadow-[0_0_15px_rgba(214,0,75,0.4)] transition-all duration-300"
+                                  title="إضافة إلى السلة"
                                 >
                                   <ShoppingCart className="w-4 h-4" />
                                 </button>
-                                <div className="w-9 h-9 rounded-xl bg-rose-600 flex items-center justify-center text-white shadow-lg shadow-rose-600/30 group-hover:scale-110 transition-transform">
-                                  <ArrowLeft className="w-4 h-4" />
+                                <div className="h-10 px-4 rounded-xl bg-[#D6004B] flex items-center justify-center text-white font-bold text-xs gap-1.5 shadow-lg shadow-rose-600/30 group-hover:bg-rose-600 group-hover:shadow-[0_0_20px_rgba(214,0,75,0.5)] transition-all duration-300">
+                                  <span>شراء الآن</span>
+                                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform rtl:rotate-180" />
                                 </div>
                               </div>
                             </div>
