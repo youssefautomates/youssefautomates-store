@@ -1,23 +1,23 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Star, CheckCircle2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 interface Review {
   name: string;
   title: string;
   text: string;
   stars: number;
-  seed: string;
+  avatarUrl: string;
   gender: "male" | "female";
 }
 
-// Dicebear adventurer seeds that are confirmed to produce correct gendered avatars
 const MALE_SEEDS = ["Felix", "Oliver", "Charlie", "Jack", "Liam", "Noah", "James", "Ethan"];
 const FEMALE_SEEDS = ["Mia", "Lily", "Emma", "Sara", "Luna", "Aria", "Zoe", "Chloe"];
 
 function getAvatarUrl(seed: string, gender: "male" | "female"): string {
   const seeds = gender === "female" ? FEMALE_SEEDS : MALE_SEEDS;
-  // Use seed string to consistently pick the same avatar for same name
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
     hash = seed.charCodeAt(i) + ((hash << 5) - hash);
@@ -26,68 +26,66 @@ function getAvatarUrl(seed: string, gender: "male" | "female"): string {
   return `https://api.dicebear.com/9.x/adventurer/svg?seed=${chosen}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc`;
 }
 
-const reviews: Review[] = [
-  {
-    name: "عادل الحربي",
-    title: "مشتري موثق · حزمة n8n للشركات",
-    text: "قمت بشراء حزمة أتمتة n8n لربط متجري تلقائيًا وإرسال الفواتير للعملاء عبر الواتساب. استثمار جبار ووفر عليّ راتب موظف كامل!",
-    stars: 5,
-    seed: "adil",
-    gender: "male"
-  },
-  {
-    name: "شروق عبد العزيز",
-    title: "مشتري موثق · بوت أتمتة التلغرام",
-    text: "خدمة استثنائية! حصلت على حزم جاهزة لـ n8n والربط كان فوري، وتفاجأت أن الملفات المرسلة عبر البريد الإلكتروني مشفرة ومحمية بـ Tokens مخصصة.",
-    stars: 5,
-    seed: "shrouk",
-    gender: "female"
-  },
-  {
-    name: "أبو تميم",
-    title: "مشتري موثق · بوابة دفع Paymob",
-    text: "الدعم ما بعد البيع فوق الخيال. واجهت مشكلة بسيطة في الربط مع بوابة Paymob وساعدني فريق العمل بشكل فوري ومجاني حتى أتممت أول عملية دفع.",
-    stars: 5,
-    seed: "abutamim",
-    gender: "male"
-  },
-  {
-    name: "خالد الدوسري",
-    title: "مشتري موثق · حزم أتمتة السحابة",
-    text: "تطبيق فكرة Premium SaaS حقيقي. الواجهات وتدفقات الأتمتة خالية من الأخطاء، وكل التقييمات والأحداث تتزامن بشكل فوري. عمل متقن للغاية.",
-    stars: 5,
-    seed: "khaled",
-    gender: "male"
-  },
-  {
-    name: "سارة العتيبي",
-    title: "مشتري موثق · أتمتة الذكاء الاصطناعي",
-    text: "من أفضل المتاجر الرقمية التي تعاملت معها. سهولة التحميل ووضوح الشرح لحزمة الذكاء الاصطناعي والأتمتة لا يعلى عليها.",
-    stars: 5,
-    seed: "sara",
-    gender: "female"
-  },
-  {
-    name: "د. فيصل القحطاني",
-    title: "مشتري موثق · أتمتة تدفق الأعمال",
-    text: "حزم الأتمتة والمنتجات الرقمية هنا ليست مجرد ملفات، بل هي حلول برمجية متكاملة تزيد من كفاءة العمل وتقلل المصاريف بشكل فوري.",
-    stars: 5,
-    seed: "faisal",
-    gender: "male"
-  },
-  {
-    name: "عبد الرحمن السديري",
-    title: "مشتري موثق · حزمة بيكسل متكاملة",
-    text: "كود نظيف، ترتيب رائع، وتكامل فريد مع بيكسل فيسبوك وتيك توك لتتبع المبيعات الحقيقية. أنصح كل صاحب متجر رقمي بالشراء دون تردد.",
-    stars: 5,
-    seed: "abdulrahman",
-    gender: "male"
-  }
-];
-
 export function ReviewsMarquee() {
-  // Triple the list to enable seamless endless scrolling
-  const duplicatedReviews = [...reviews, ...reviews, ...reviews];
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadReviews() {
+      try {
+        const [reviewsRes, { data: productsData }] = await Promise.all([
+          fetch("/api/admin/reviews").then(res => res.json()),
+          supabase.from("products").select("id, title")
+        ]);
+
+        if (Array.isArray(reviewsRes)) {
+          const active = reviewsRes.filter((r: any) => !r.isHidden);
+          const mapped = active.map((r: any) => {
+            const product = productsData?.find((p: any) => p.id === r.productId);
+            
+            // Check if avatarUrl is fully specified, else fallback to generated one
+            let finalAvatar = r.avatarUrl;
+            if (!finalAvatar || finalAvatar.trim() === "") {
+              finalAvatar = getAvatarUrl(r.firstName, r.gender || "male");
+            }
+
+            return {
+              name: `${r.firstName} ${r.lastName ? r.lastName.trim().charAt(0) + "." : ""}`,
+              title: `مشتري موثق · ${product ? product.title : "تم تأكيد الشراء"}`,
+              text: r.text,
+              stars: r.rating || 5,
+              avatarUrl: finalAvatar,
+              gender: r.gender || "male"
+            };
+          });
+          setReviews(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to load marquee reviews:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadReviews();
+  }, []);
+
+  if (loading) {
+    return (
+      <section id="reviews" className="py-24 bg-[#050505] border-y border-white/5 relative flex items-center justify-center min-h-[300px]">
+        <div className="w-10 h-10 border-4 border-rose-600/30 border-t-rose-600 rounded-full animate-spin" />
+      </section>
+    );
+  }
+
+  if (reviews.length === 0) {
+    return null; // Render nothing if there are no manually added reviews yet
+  }
+
+  // Duplicate to ensure seamless infinite looping marquee
+  const duplicatedReviews: Review[] = [];
+  while (duplicatedReviews.length < 12) {
+    duplicatedReviews.push(...reviews);
+  }
 
   return (
     <section id="reviews" className="py-24 md:py-32 bg-[#050505] border-y border-white/5 overflow-hidden relative select-none">
@@ -142,7 +140,7 @@ export function ReviewsMarquee() {
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-2xl bg-zinc-800 overflow-hidden shadow-lg border border-white/10 shrink-0 relative">
                     <img 
-                      src={getAvatarUrl(review.seed, review.gender)} 
+                      src={review.avatarUrl} 
                       alt={review.name} 
                       className="w-full h-full object-cover" 
                     />
