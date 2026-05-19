@@ -77,14 +77,55 @@ export function ReviewsMarquee() {
     );
   }
 
-  if (reviews.length === 0) {
-    return null; // Render nothing if there are no manually added reviews yet
-  }
+  const defaultReviews: Review[] = [
+    {
+      name: "أحمد محمود",
+      title: "مشتري موثق · حزمة n8n المتكاملة",
+      text: "الحزم وفرت علي شهور من العمل والبحث. جودة الوورك فلو وسرعة التشغيل خرافية وأنصح بها كل شخص يريد توفير وقته.",
+      stars: 5,
+      avatarUrl: "https://api.dicebear.com/9.x/adventurer/svg?seed=Jack&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc",
+      gender: "male"
+    },
+    {
+      name: "سارة عبد الرحمن",
+      title: "مشتري موثق · كورس أتمتة العمليات بالذكاء الاصطناعي",
+      text: "شرح مبسط وعملي للغاية. تمكنت من ربط خدمات شركتي بالكامل وتلقي الإشعارات بشكل مؤتمت وتوفير تكاليف الموظفين.",
+      stars: 5,
+      avatarUrl: "https://api.dicebear.com/9.x/adventurer/svg?seed=Sara&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc",
+      gender: "female"
+    },
+    {
+      name: "خالد توفيق",
+      title: "مشتري موثق · حزمة بوتات الواتساب الذكية",
+      text: "الدعم الفني متميز جداً ومساعد لأبعد الحدود. البوت يعمل بسلاسة تامة ومعدل التحويل في متجرنا زاد بنسبة كبيرة.",
+      stars: 5,
+      avatarUrl: "https://api.dicebear.com/9.x/adventurer/svg?seed=Liam&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc",
+      gender: "male"
+    },
+    {
+      name: "يوسف أحمد",
+      title: "مشتري موثق · كورس احترف Make.com",
+      text: "أفضل استثمار استثمرته في عملي البرمجي هذا العام. المحتوى غني بالتطبيقات الحقيقية والمشاريع الجاهزة للتطبيق الفوري.",
+      stars: 5,
+      avatarUrl: "https://api.dicebear.com/9.x/adventurer/svg?seed=Felix&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc",
+      gender: "male"
+    },
+    {
+      name: "منى الباز",
+      title: "مشتري موثق · حزمة السكربتات الاحترافية",
+      text: "سهولة تامة في التثبيت والتشغيل، والنتائج تظهر فوراً. وفرت مجهوداً جباراً كنت أستهلكه يومياً في إدخال البيانات المكررة.",
+      stars: 5,
+      avatarUrl: "https://api.dicebear.com/9.x/adventurer/svg?seed=Mia&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc",
+      gender: "female"
+    }
+  ];
+
+  const displayReviews = reviews.length > 0 ? reviews : defaultReviews;
 
   // Duplicate to ensure seamless infinite looping marquee
   const duplicatedReviews: Review[] = [];
   while (duplicatedReviews.length < 12) {
-    duplicatedReviews.push(...reviews);
+    duplicatedReviews.push(...displayReviews);
   }
 
   return (

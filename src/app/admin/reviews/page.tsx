@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/lib/supabase";
-import { Product } from "@/lib/products";
 
 interface Review {
   id: string;
@@ -37,10 +36,15 @@ const getAvatarUrl = (firstName: string, gender?: string) => {
   return `https://api.dicebear.com/9.x/adventurer/svg?seed=${chosen}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc`;
 };
 
+interface DisplayProduct {
+  id: string;
+  title: string;
+}
+
 export default function ReviewsPage() {
   const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<DisplayProduct[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   
@@ -64,16 +68,28 @@ export default function ReviewsPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [reviewsRes, { data: productsData }] = await Promise.all([
+      const [reviewsRes, { data: productsData }, { data: coursesData }, { data: bundlesData }] = await Promise.all([
         fetch("/api/admin/reviews"),
-        supabase.from("products").select("id, title, image_url").neq("status", "مخفي")
+        supabase.from("products").select("id, title").neq("status", "مخفي"),
+        supabase.from("courses").select("id, title").neq("status", "hidden"),
+        supabase.from("bundles").select("id, title").neq("status", "hidden")
       ]);
       
       const reviewsData = await reviewsRes.json();
       if (!reviewsRes.ok) throw new Error(reviewsData.error);
       
       setReviews(reviewsData);
-      if (productsData) setProducts(productsData as Product[]);
+      
+      const combined: DisplayProduct[] = [
+        ...(productsData || []).map(p => ({ id: p.id, title: `🛍️ [منتج رقمي] - ${p.title}` })),
+        ...(coursesData || []).map(c => ({ id: c.id, title: `🎓 [كورس] - ${c.title}` })),
+        ...(bundlesData || []).map(b => ({ id: b.id, title: `📦 [حزمة عروض] - ${b.title}` }))
+      ];
+      setProducts(combined);
+      
+      if (combined.length > 0) {
+        setNewReview(prev => ({ ...prev, productId: combined[0].id }));
+      }
       
     } catch (err) {
       toast.error("حدث خطأ أثناء جلب البيانات");

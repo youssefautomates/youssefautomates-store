@@ -119,11 +119,13 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
       const unpacked = unpackProduct(data as Product);
       setProduct(unpacked);
       
-      // LOGIC: First slide is primary
+      // LOGIC: First slide (rightmost in RTL) is primary cover
       if (unpacked.slides.length > 0) {
         setActiveMedia(unpacked.slides[0]);
+      } else if (unpacked.image_url) {
+        setActiveMedia({ type: 'image', url: unpacked.image_url });
       } else {
-        setActiveMedia(unpacked.image_url ? { type: 'image', url: unpacked.image_url } : null);
+        setActiveMedia(null);
       }
       
       // Update views non-blocking
@@ -294,13 +296,6 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                   )}
                 </AnimatePresence>
 
-                {/* Badges */}
-                <div className="absolute top-4 left-4 md:top-6 md:left-6 flex flex-col gap-3 z-20 pointer-events-none">
-                  <div className="bg-white/5 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-xl flex items-center gap-2 shadow-2xl">
-                    <Sparkles className="w-4 h-4 text-rose-500" />
-                    <span className="font-alexandria text-[9px] font-black text-white uppercase tracking-widest">Premium Content</span>
-                  </div>
-                </div>
               </div>
 
               {/* Premium Cinematic Media Slider */}
@@ -341,18 +336,16 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                       const isActive = activeMedia?.url === slide.url;
 
                       return (
-                        <motion.button 
+                        <button 
                           key={i}
                           onClick={() => { setActiveMedia(slide); setHasInteracted(false); setIsMuted(true); }}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
                           className={cn(
-                            "relative aspect-video rounded-3xl overflow-hidden shrink-0 transition-all duration-500 snap-center border-2",
+                            "relative aspect-video rounded-3xl overflow-hidden shrink-0 transition-all duration-300 snap-center border-2",
                             product.slides.length > 4 ? "w-[22.5%] md:w-[23.5%]" : "w-full",
-                            "h-28 md:h-34 bg-white/[0.03] backdrop-blur-xl",
+                            "bg-white/[0.03] backdrop-blur-xl",
                             isActive 
-                              ? "border-rose-600 shadow-[0_0_40px_rgba(214,0,75,0.4)] z-10 scale-105" 
-                              : "border-white/5 opacity-50 hover:opacity-100 hover:border-white/20"
+                              ? "border-[#D6004B] shadow-[0_0_20px_rgba(214,0,75,0.3)] z-10 scale-102" 
+                              : "border-white/5 opacity-60 hover:opacity-100 hover:border-white/20"
                           )}
                         >
                            <div className="absolute inset-0 bg-zinc-950 flex items-center justify-center">
@@ -400,7 +393,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                                 />
                               )}
                            </div>
-                        </motion.button>
+                        </button>
                       );
                     })}
                   </div>

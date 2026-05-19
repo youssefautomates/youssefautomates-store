@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { 
   Users, Search, BookOpen, Clock, Award, CheckCircle2, 
   ShieldAlert, Edit, Trash2, X, ShieldCheck, Loader2, RefreshCw, 
-  Laptop, Globe, Key, AlertCircle, Ban, ArrowLeftRight
+  Laptop, Globe, Key, AlertCircle, Ban, ArrowLeftRight, Plus
 } from "lucide-react";
 import { 
   getEnrollmentsForAdmin, 
@@ -38,6 +38,17 @@ export default function AdminStudentsPage() {
   const [search, setSearch] = useState("");
   const [selectedCourseId, setSelectedCourseId] = useState("all");
 
+  // Add Student Modal States
+  const [isAddingStudent, setIsAddingStudent] = useState(false);
+  const [newStudent, setNewStudent] = useState({
+    email: "",
+    password: "",
+    firstName: "",
+    lastName: "",
+    courseId: ""
+  });
+  const [addingLoading, setAddingLoading] = useState(false);
+
   // CRM Action Modal States
   const [selectedStudent, setSelectedStudent] = useState<StudentRow | null>(null);
   const [modalTab, setModalTab] = useState<"profile" | "devices" | "security">("profile");
@@ -65,6 +76,9 @@ export default function AdminStudentsPage() {
     let enrolls = await getEnrollmentsForAdmin();
     const lmsCourses = await getCoursesList();
     setCourses(lmsCourses);
+    if (lmsCourses.length > 0) {
+      setNewStudent(prev => ({ ...prev, courseId: prev.courseId || lmsCourses[0].id }));
+    }
 
     if (enrolls.length === 0 && lmsCourses.length > 0) {
       // Seed beautiful demonstration students for first load
@@ -221,6 +235,46 @@ export default function AdminStudentsPage() {
     }
   };
 
+  const handleCreateStudentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStudent.email || !newStudent.password || !newStudent.firstName || !newStudent.lastName || !newStudent.courseId) {
+      toast.error("يرجى ملء جميع الحقول المطلوبة");
+      return;
+    }
+
+    setAddingLoading(true);
+    try {
+      const res = await fetch("/api/admin/students", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newStudent)
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "فشل إنشاء حساب الطالب");
+
+      toast.success("تم إنشاء حساب الطالب وتسجيله في الكورس بنجاح! 🎉");
+      setIsAddingStudent(false);
+      
+      // Reset form
+      setNewStudent({
+        email: "",
+        password: "",
+        firstName: "",
+        lastName: "",
+        courseId: courses[0]?.id || ""
+      });
+
+      // Reload list
+      await loadData();
+
+    } catch (err: any) {
+      toast.error(err.message || "حدث خطأ غير متوقع");
+    } finally {
+      setAddingLoading(false);
+    }
+  };
+
   const filteredRows = rows.filter(r => {
     const matchSearch = 
       (r.user_name?.toLowerCase().includes(search.toLowerCase())) || 
@@ -237,8 +291,17 @@ export default function AdminStudentsPage() {
           <h1 className="text-3xl font-alexandria font-black text-white">إدارة قائمة الطلاب والمشتركين</h1>
           <p className="text-zinc-400 text-sm mt-1">تابع إنجازات الطلاب، نسب تقدمهم، والتحكم الكامل في الحسابات والأجهزة النشطة لمنع مشاركة الحسابات.</p>
         </div>
-        <div className="w-12 h-12 rounded-xl bg-rose-600/10 border border-rose-500/20 flex items-center justify-center text-rose-500">
-          <Users className="w-6 h-6" />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsAddingStudent(true)}
+            className="h-11 px-5 rounded-xl bg-[#D6004B] hover:bg-rose-600 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-rose-600/20 active:scale-95 transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>تسجيل طالب جديد</span>
+          </button>
+          <div className="w-12 h-12 rounded-xl bg-rose-600/10 border border-rose-500/20 flex items-center justify-center text-rose-500">
+            <Users className="w-6 h-6" />
+          </div>
         </div>
       </div>
 
@@ -662,6 +725,124 @@ export default function AdminStudentsPage() {
               </form>
             )}
 
+          </div>
+        </div>
+      )}
+
+      {/* ── REGISTER NEW STUDENT MODAL ────────────────────────────────────────── */}
+      {isAddingStudent && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0a0a0f] border border-white/10 rounded-2xl max-w-lg w-full p-6 space-y-6 shadow-2xl relative text-right">
+            
+            {/* Close */}
+            <button 
+              onClick={() => setIsAddingStudent(false)}
+              className="absolute top-4 left-4 p-2 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Title */}
+            <div>
+              <h3 className="font-alexandria font-bold text-white text-base">تسجيل حساب طالب جديد ودراسة كورس</h3>
+              <p className="text-zinc-500 text-xs mt-1">أدخل البريد الإلكتروني، كلمة المرور، والاسم لتسجيل حساب طالب فوراً وتضمينه في الكورس المحدد مجاناً.</p>
+            </div>
+
+            <form onSubmit={handleCreateStudentSubmit} className="space-y-4 font-cairo">
+              
+              {/* Names row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-zinc-400 font-bold">الاسم الأول</label>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="مثال: أحمد"
+                    value={newStudent.firstName}
+                    onChange={e => setNewStudent(prev => ({ ...prev, firstName: e.target.value }))}
+                    className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-cairo text-zinc-300 w-full text-right"
+                  />
+                </div>
+                
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-zinc-400 font-bold">اسم العائلة</label>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="مثال: علي"
+                    value={newStudent.lastName}
+                    onChange={e => setNewStudent(prev => ({ ...prev, lastName: e.target.value }))}
+                    className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-cairo text-zinc-300 w-full text-right"
+                  />
+                </div>
+              </div>
+
+              {/* Email */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-zinc-400 font-bold">البريد الإلكتروني</label>
+                <input 
+                  type="email"
+                  required
+                  placeholder="student@example.com"
+                  value={newStudent.email}
+                  onChange={e => setNewStudent(prev => ({ ...prev, email: e.target.value }))}
+                  className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-cairo text-zinc-300 w-full text-left font-mono"
+                  dir="ltr"
+                />
+              </div>
+
+              {/* Password */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-zinc-400 font-bold">كلمة المرور (السرية)</label>
+                <input 
+                  type="password"
+                  required
+                  minLength={6}
+                  placeholder="••••••••"
+                  value={newStudent.password}
+                  onChange={e => setNewStudent(prev => ({ ...prev, password: e.target.value }))}
+                  className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-cairo text-zinc-300 w-full text-left font-mono"
+                  dir="ltr"
+                />
+              </div>
+
+              {/* Course selection */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-zinc-400 font-bold">تخصيص الكورس الدراسي</label>
+                <select
+                  required
+                  value={newStudent.courseId}
+                  onChange={e => setNewStudent(prev => ({ ...prev, courseId: e.target.value }))}
+                  className="bg-[#0f0f15] border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-cairo text-zinc-300 w-full text-right"
+                >
+                  <option value="" disabled>اختر الكورس...</option>
+                  {courses.map(c => (
+                    <option key={c.id} value={c.id}>{c.title}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex items-center justify-end gap-3 border-t border-white/5 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsAddingStudent(false)}
+                  className="h-11 px-5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-zinc-400 hover:text-white text-xs font-bold transition-all cursor-pointer"
+                >
+                  إلغاء
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={addingLoading}
+                  className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shadow-lg shadow-rose-600/30"
+                >
+                  {addingLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>إنشاء الحساب وتفعيل الاشتراك</span>
+                </button>
+              </div>
+
+            </form>
           </div>
         </div>
       )}

@@ -132,9 +132,13 @@ export async function uploadPrivateFile(
       cacheControl: "31536000",
       upsert: true,
       onUploadProgress: (progress: any) => {
-        if (onProgress && progress.total) {
-          const pct = Math.round((progress.loaded / progress.total) * 100);
-          onProgress(pct);
+        if (onProgress) {
+          const total = progress.total || file.size;
+          const loaded = progress.loaded || 0;
+          if (total > 0) {
+            const pct = Math.min(100, Math.round((loaded / total) * 100));
+            onProgress(pct);
+          }
         }
       }
     } as any);
@@ -193,13 +197,14 @@ export async function uploadFileChunked(
   folder: string = "",
   onProgress?: (percent: number) => void
 ): Promise<string> {
-  const chunkSize = 5 * 1024 * 1024; // 5MB chunks
-  const totalChunks = Math.ceil(file.size / chunkSize);
-  
-  if (file.size <= chunkSize) {
-    // If small file, upload normally for high speed
+  const singleUploadLimit = 5 * 1024 * 1024 * 1024; // 5GB (Direct client-to-Supabase upload bypasses serverless memory and timeout limits)
+  if (file.size <= singleUploadLimit) {
+    // Upload as a single file to get smooth, continuous progress updates
     return uploadPrivateFile(file, bucket as any, folder, onProgress);
   }
+
+  const chunkSize = 5 * 1024 * 1024; // 5MB chunks for better reliability and frequent progress updates
+  const totalChunks = Math.ceil(file.size / chunkSize);
 
   const extension = file.name.split(".").pop();
   const baseName = file.name.substring(0, file.name.lastIndexOf(".")).replace(/[^a-zA-Z0-9]/g, "_");

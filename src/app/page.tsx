@@ -366,36 +366,25 @@ export default function Home() {
             </div>
 
             {/* Courses Cards Grid */}
-            <AnimatePresence mode="popLayout">
-              <motion.div 
-                layout 
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8"
-              >
-                {filteredCourses.map((course) => (
-                  <motion.div
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+              {filteredCourses.map((course) => {
+                const reviewsCount = (course.title.length * 7) % 80 + 35;
+                return (
+                  <div
                     key={course.slug}
-                    layout
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.3 }}
-                    className="group bg-[#0a0a0f] border border-white/5 hover:border-rose-500/30 rounded-[2rem] overflow-hidden shadow-2xl flex flex-col justify-between hover:-translate-y-1.5 transition-all duration-300 h-full relative cursor-pointer"
+                    className="group bg-[#09090e] border border-[#1b1b24]/60 hover:border-[#D6004B]/40 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between hover:-translate-y-1 transition-all duration-300 h-full relative cursor-pointer"
                     onClick={() => router.push(`/courses/${course.slug}`)}
                   >
                     {/* Visual header */}
-                    <div className="relative h-44 bg-zinc-900 overflow-hidden flex items-center justify-center border-b border-white/5">
+                    <div className="relative h-48 bg-zinc-950 overflow-hidden flex items-center justify-center border-b border-white/5">
                       {course.image_url ? (
-                        <img src={course.image_url} alt={course.title} className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-500" />
+                        <img src={course.image_url} alt={course.title} className="absolute inset-0 w-full h-full object-cover opacity-100 group-hover:scale-102 transition-transform duration-500" />
                       ) : (
                         <div className="absolute inset-0 bg-grid-lines mask-radial-faded opacity-35"></div>
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] to-transparent"></div>
-                      
-                      <div className="absolute w-24 h-24 bg-rose-600/10 rounded-full blur-xl group-hover:scale-125 transition-transform duration-500"></div>
-                      <PlayCircle className="w-12 h-12 text-rose-500 relative z-10 opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300" />
                       
                       <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
-                        <Badge className="bg-rose-600 text-white border-none font-cairo text-[9px] py-0.5 px-2.5 rounded shadow">
+                        <Badge className="bg-[#D6004B] text-white border-none font-cairo text-[9px] py-0.5 px-2.5 rounded shadow font-bold">
                           {course.category}
                         </Badge>
                       </div>
@@ -406,63 +395,66 @@ export default function Home() {
                       </div>
 
                       <div className="absolute bottom-3 right-4 z-20">
-                        <span className="text-[10px] font-bold bg-white/10 backdrop-blur-md border border-white/10 px-2 py-0.5 rounded text-rose-300">
+                        <span className="text-[9px] font-black tracking-wide bg-black/60 backdrop-blur-md border border-white/10 px-2 py-0.5 rounded text-rose-400">
                           {course.level}
                         </span>
                       </div>
                     </div>
 
                     {/* Content area */}
-                    <div className="p-6 flex-1 flex flex-col justify-between">
+                    <div className="p-5 flex-1 flex flex-col justify-between">
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between text-[11px] text-zinc-500 font-bold">
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-rose-400" />
-                            <span>{course.duration_hours} ساعة</span>
+                        <div className="flex items-center justify-between text-[11px] text-zinc-400 font-bold border-b border-white/5 pb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-[#FF7A00]" />
+                              <span>{course.duration_hours} ساعة</span>
+                            </div>
+                            <div className="flex items-center gap-1 border-r border-white/10 pr-3">
+                              <BookOpen className="w-3.5 h-3.5 text-[#D6004B]" />
+                              <span>{course.lessons_count} محاضرة</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <BookOpen className="w-3.5 h-3.5 text-rose-400" />
-                            <span>{course.lessons_count} محاضرة</span>
-                          </div>
-                          <div className="flex items-center gap-0.5 text-yellow-400">
+                          <div className="flex items-center gap-1 text-yellow-400">
                             <Star className="w-3.5 h-3.5 fill-current" />
-                            <span>5.0</span>
+                            <span className="text-white text-xs">5.0</span>
+                            <span className="text-zinc-500 font-normal text-[9px]">({reviewsCount})</span>
                           </div>
                         </div>
 
-                        <h3 className="text-base sm:text-lg font-alexandria font-bold text-white leading-snug group-hover:text-rose-400 transition-colors line-clamp-2">
+                        <h3 className="text-base sm:text-lg font-alexandria font-bold text-white leading-snug group-hover:text-[#D6004B] transition-colors line-clamp-2">
                           {course.title}
                         </h3>
 
-                        <p className="text-zinc-400 text-xs leading-relaxed line-clamp-3">
-                          {course.description}
+                        <p className="text-zinc-400 text-xs leading-relaxed line-clamp-2">
+                          {course.short_description || course.description}
                         </p>
                       </div>
 
-                      <div className="mt-6 pt-5 border-t border-white/5 flex items-center justify-between">
+                      <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between">
                         <div className="flex flex-col">
                           {course.original_price > 0 && (
-                            <span className="text-[9px] text-zinc-500 line-through mb-0.5">
+                            <span className="text-[10px] text-zinc-500 line-through mb-0.5">
                               {course.original_price} ج.م
                             </span>
                           )}
                           <div className="flex items-baseline gap-0.5">
-                            <span className="text-2xl font-alexandria font-black text-white">
+                            <span className="text-xl font-alexandria font-black text-[#D6004B]">
                               {course.price === 0 ? "مجاني" : `${course.price} ج.م`}
                             </span>
                           </div>
                         </div>
 
-                        <div className="h-10 px-4 bg-white/5 hover:bg-rose-600 border border-white/5 hover:border-rose-600 text-white rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition-all shrink-0">
-                          <span>تصفح الكورس</span>
+                        <div className="h-10 px-4 bg-[#D6004B] hover:bg-[#b0003d] text-white rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition-all shadow-[0_4px_12px_rgba(214,0,75,0.15)] group-hover:scale-[1.02] active:scale-98 shrink-0">
+                          <span>احصل على الكورس</span>
                           <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform rtl:rotate-180" />
                         </div>
                       </div>
                     </div>
-                  </motion.div>
-                ))}
-              </motion.div>
-            </AnimatePresence>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </section>
 
@@ -634,150 +626,141 @@ export default function Home() {
             </div>
 
             {/* Products Grid */}
-            <AnimatePresence mode="popLayout">
-              <motion.div 
-                layout 
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8"
-              >
-                {isLoading ? (
-                  Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="relative h-[450px] rounded-[2rem] bg-[#0a0a0f] border border-white/5 overflow-hidden p-6 flex flex-col justify-between animate-pulse">
-                      <div className="h-48 bg-white/5 rounded-2xl mb-4 w-full" />
-                      <div className="space-y-3">
-                        <div className="h-4 bg-white/5 rounded-md w-1/3" />
-                        <div className="h-6 bg-white/5 rounded-md w-3/4" />
-                        <div className="h-4 bg-white/5 rounded-md w-full" />
-                        <div className="h-4 bg-white/5 rounded-md w-5/6" />
-                      </div>
-                      <div className="flex items-center justify-between mt-6">
-                        <div className="h-8 bg-white/5 rounded-md w-1/4" />
-                        <div className="h-10 bg-white/5 rounded-xl w-1/3" />
-                      </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+              {isLoading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="relative h-[450px] rounded-[2rem] bg-[#0a0a0f] border border-white/5 overflow-hidden p-6 flex flex-col justify-between animate-pulse">
+                    <div className="h-48 bg-white/5 rounded-2xl mb-4 w-full" />
+                    <div className="space-y-3">
+                      <div className="h-4 bg-white/5 rounded-md w-1/3" />
+                      <div className="h-6 bg-white/5 rounded-md w-3/4" />
+                      <div className="h-4 bg-white/5 rounded-md w-full" />
+                      <div className="h-4 bg-white/5 rounded-md w-5/6" />
                     </div>
-                  ))
-                ) : filteredProducts.length === 0 ? (
-                  <div className="col-span-full text-center py-16 md:py-20">
-                    <Package className="w-12 h-12 md:w-16 md:h-16 text-zinc-700 mx-auto mb-4" />
-                    <p className="text-zinc-500 font-cairo text-lg md:text-xl">لا توجد منتجات متطابقة في هذا التصنيف حالياً.</p>
+                    <div className="flex items-center justify-between mt-6">
+                      <div className="h-8 bg-white/5 rounded-md w-1/4" />
+                      <div className="h-10 bg-white/5 rounded-xl w-1/3" />
+                    </div>
                   </div>
-                ) : (
-                  filteredProducts.map((product: any, idx: number) => {
-                    const unpacked = unpackProduct(product);
-                    const primaryVideo = unpacked.slides.find((s: any) => s.type === 'video')?.url;
-                    const primaryImage = unpacked.slides.find((s: any) => s.type === 'image')?.url || product.image_url;
-                    const isFree = product.price === 0;
+                ))
+              ) : filteredProducts.length === 0 ? (
+                <div className="col-span-full text-center py-16 md:py-20">
+                  <Package className="w-12 h-12 md:w-16 md:h-16 text-zinc-700 mx-auto mb-4" />
+                  <p className="text-zinc-500 font-cairo text-lg md:text-xl">لا توجد منتجات متطابقة في هذا التصنيف حالياً.</p>
+                </div>
+              ) : (
+                filteredProducts.map((product: any, idx: number) => {
+                  const unpacked = unpackProduct(product);
+                  const primaryVideo = unpacked.slides.find((s: any) => s.type === 'video')?.url;
+                  const primaryImage = unpacked.slides.find((s: any) => s.type === 'image')?.url || product.image_url;
+                  const isFree = product.price === 0;
 
-                    return (
-                      <motion.div 
-                        key={product.id}
-                        layout
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ duration: 0.3 }}
-                        className="group h-full"
+                  return (
+                    <div 
+                      key={product.id}
+                      className="group h-full"
+                    >
+                      <div 
+                        onClick={() => router.push(`/product/${product.slug}`)}
+                        onMouseEnter={() => setHoveredId(product.id)}
+                        onMouseLeave={() => setHoveredId(null)}
+                        className="block relative h-full flex flex-col bg-[#09090e] border border-[#1b1b24]/60 hover:border-[#D6004B]/40 rounded-[2rem] overflow-hidden group-hover:-translate-y-1 transition-all duration-300 shadow-2xl hover:shadow-[0_20px_40px_-12px_rgba(214,0,75,0.15)] cursor-pointer"
                       >
-                        <div 
-                          onClick={() => router.push(`/product/${product.slug}`)}
-                          onMouseEnter={() => setHoveredId(product.id)}
-                          onMouseLeave={() => setHoveredId(null)}
-                          className="block relative h-full flex flex-col bg-[#0a0a0f] border border-white/5 hover:border-[#D6004B]/50 rounded-[2rem] overflow-hidden group-hover:-translate-y-2 group-hover:scale-[1.01] transition-all duration-500 shadow-2xl hover:shadow-[0_25px_50px_-12px_rgba(214,0,75,0.25)] cursor-pointer"
-                        >
-                          {/* Media Area */}
-                          <div className="relative h-48 md:h-64 border-b border-white/5">
-                            <ProductMedia 
-                              image_url={primaryImage}
-                              video_url={primaryVideo}
-                              title={product.title}
-                              isHovered={hoveredId === product.id}
-                              className="h-full"
-                              staticOnly={false}
-                            />
-                            
-                            {/* Badges */}
-                            <div className="absolute top-4 left-4 md:top-6 md:left-6 flex flex-col gap-2 z-20">
-                              {isFree ? (
-                                <Badge className="bg-emerald-600 text-white border-none font-cairo text-[9px] md:text-[10px] py-0.5 px-2.5 shadow-lg rounded-md">هدية مجانية</Badge>
-                              ) : product.is_featured ? (
-                                <Badge className="bg-[#D6004B] text-white border-none font-cairo text-[9px] md:text-[10px] py-0.5 px-2.5 shadow-lg rounded-md">الأكثر مبيعاً</Badge>
-                              ) : null}
-                            </div>
+                        {/* Media Area */}
+                        <div className="relative w-full aspect-video overflow-hidden border-b border-white/5">
+                          <ProductMedia 
+                            image_url={primaryImage}
+                            video_url={primaryVideo}
+                            title={product.title}
+                            isHovered={hoveredId === product.id}
+                            className="w-full h-full"
+                            staticOnly={true}
+                            priority={idx < 3}
+                          />
+                          
+                          {/* Badges */}
+                          <div className="absolute top-4 left-4 md:top-6 md:left-6 flex flex-col gap-2 z-20">
+                            {isFree ? (
+                              <Badge className="bg-emerald-600 text-white border-none font-cairo text-[9px] md:text-[10px] py-0.5 px-2.5 shadow-lg rounded-md font-bold">هدية مجانية</Badge>
+                            ) : product.is_featured ? (
+                              <Badge className="bg-[#D6004B] text-white border-none font-cairo text-[9px] md:text-[10px] py-0.5 px-2.5 shadow-lg rounded-md font-bold">الأكثر مبيعاً</Badge>
+                            ) : null}
+                          </div>
 
-                            {/* Category Badge */}
-                            <div className="absolute top-4 right-4 md:top-6 md:right-6 z-20">
-                              <span className="bg-[#D6004B]/15 text-[#D6004B] border border-[#D6004B]/30 font-cairo text-[9px] md:text-[10px] font-black py-1 px-3 rounded-full backdrop-blur-md shadow-[0_0_15px_rgba(214,0,75,0.2)] tracking-wide">
-                                {getProductCategory(product)}
-                              </span>
-                            </div>
+                          {/* Category Badge */}
+                          <div className="absolute top-4 right-4 md:top-6 md:right-6 z-20">
+                            <span className="bg-[#D6004B]/15 text-[#D6004B] border border-[#D6004B]/30 font-cairo text-[9px] md:text-[10px] font-black py-1 px-3 rounded-full backdrop-blur-md shadow-[0_0_15px_rgba(214,0,75,0.2)] tracking-wide">
+                              {getProductCategory(product)}
+                            </span>
+                          </div>
 
-                            {/* Wishlist Heart Button */}
-                            <div className="absolute bottom-4 left-4 z-20">
-                              <WishlistButton itemId={product.id} itemType="digital_product" size={16} />
+                          {/* Wishlist Heart Button */}
+                          <div className="absolute bottom-4 left-4 z-20">
+                            <WishlistButton itemId={product.id} itemType="digital_product" size={16} />
+                          </div>
+                        </div>
+
+                        {/* Content Area */}
+                        <div className="p-6 flex-1 flex flex-col relative z-10">
+                          <div className="flex items-center gap-2 mb-3 md:mb-4">
+                            <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-2.5 py-1 rounded-md border border-white/10">
+                              <Zap className="w-2.5 h-2.5 text-rose-400" />
+                              <span className="text-[9px] font-bold text-white uppercase tracking-widest">تنزيل فوري</span>
                             </div>
                           </div>
 
-                          {/* Content Area */}
-                          <div className="p-6 flex-1 flex flex-col relative z-10 -mt-6 md:-mt-8">
-                            <div className="flex items-center gap-2 mb-3 md:mb-4">
-                              <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-2.5 py-1 rounded-md border border-white/10">
-                                <Zap className="w-2.5 h-2.5 text-rose-400" />
-                                <span className="text-[9px] font-bold text-white uppercase tracking-widest">تنزيل فوري</span>
+                          <h3 className="text-base sm:text-lg font-alexandria font-bold text-white mb-2 leading-snug group-hover:text-[#D6004B] transition-colors line-clamp-2">
+                            {product.title}
+                          </h3>
+                          
+                          <p className="text-zinc-400 font-cairo text-xs mb-6 leading-relaxed line-clamp-2">
+                            {product.short_description || product.description || "أداة احترافية مصممة لزيادة إنتاجيتك بشكل فوري."}
+                          </p>
+
+                          <div className="mt-auto flex items-end justify-between">
+                            <div className="flex flex-col">
+                              {product.original_price && (
+                                <span className="text-[9px] font-cairo line-through text-zinc-500 mb-0.5">
+                                  {product.original_price} ج.م
+                                </span>
+                              )}
+                              <div className="flex items-baseline gap-0.5">
+                                {isFree ? (
+                                  <span className="text-2xl font-alexandria font-black text-emerald-400">مجاني</span>
+                                ) : (
+                                  <>
+                                    <span className="text-2xl font-alexandria font-black text-white">{product.price}</span>
+                                    <span className="text-[10px] font-cairo text-zinc-400">ج.م</span>
+                                  </>
+                                )}
                               </div>
                             </div>
-
-                            <h3 className="text-base sm:text-lg font-alexandria font-bold text-white mb-2 leading-snug group-hover:text-[#D6004B] transition-colors line-clamp-2">
-                              {product.title}
-                            </h3>
                             
-                            <p className="text-zinc-400 font-cairo text-xs mb-6 leading-relaxed line-clamp-2">
-                              {product.short_description || product.description || "أداة احترافية مصممة لزيادة إنتاجيتك بشكل فوري."}
-                            </p>
-
-                            <div className="mt-auto flex items-end justify-between">
-                              <div className="flex flex-col">
-                                {product.original_price && (
-                                  <span className="text-[9px] font-cairo line-through text-zinc-500 mb-0.5">
-                                    {product.original_price} ج.م
-                                  </span>
-                                )}
-                                <div className="flex items-baseline gap-0.5">
-                                  {isFree ? (
-                                    <span className="text-2xl font-alexandria font-black text-emerald-400">مجاني</span>
-                                  ) : (
-                                    <>
-                                      <span className="text-2xl font-alexandria font-black text-white">{product.price}</span>
-                                      <span className="text-[10px] font-cairo text-zinc-400">ج.م</span>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                              
-                              <div className="flex gap-2">
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    addToCart(product);
-                                    toast.success("تمت الإضافة للسلة");
-                                  }}
-                                  className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-rose-600 hover:border-rose-600 hover:shadow-[0_0_15px_rgba(214,0,75,0.4)] transition-all duration-300"
-                                  title="إضافة إلى السلة"
-                                >
-                                  <ShoppingCart className="w-4 h-4" />
-                                </button>
-                                <div className="h-10 px-4 rounded-xl bg-[#D6004B] flex items-center justify-center text-white font-bold text-xs gap-1.5 shadow-lg shadow-rose-600/30 group-hover:bg-rose-600 group-hover:shadow-[0_0_20px_rgba(214,0,75,0.5)] transition-all duration-300">
-                                  <span>شراء الآن</span>
-                                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform rtl:rotate-180" />
-                                </div>
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  addToCart(product);
+                                  toast.success("تمت الإضافة للسلة");
+                                }}
+                                className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-[#D6004B] hover:border-[#D6004B] hover:shadow-[0_0_15px_rgba(214,0,75,0.4)] transition-all duration-300"
+                                title="إضافة إلى السلة"
+                              >
+                                <ShoppingCart className="w-4 h-4" />
+                              </button>
+                              <div className="h-10 px-4 rounded-xl bg-[#D6004B] flex items-center justify-center text-white font-bold text-xs gap-1.5 shadow-lg shadow-rose-600/30 group-hover:bg-rose-600 group-hover:shadow-[0_0_20px_rgba(214,0,75,0.5)] transition-all duration-300">
+                                <span>شراء الآن</span>
+                                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform rtl:rotate-180" />
                               </div>
                             </div>
                           </div>
                         </div>
-                      </motion.div>
-                    );
-                  })
-                )}
-              </motion.div>
-            </AnimatePresence>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </section>
 

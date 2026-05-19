@@ -34,6 +34,7 @@ import {
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // --- Sortable Section Component ---
 function SortableSection({ section, index, onEdit, onDelete, onAddLesson, lessons, onEditLesson, onDeleteLesson, onLessonDragEnd, expanded, toggleExpand }: any) {
@@ -129,7 +130,14 @@ function SortableLesson({ lesson, onEdit, onDelete }: any) {
       <div className="flex items-center gap-2">
         {lesson.duration_seconds > 0 && (
           <span className="text-[10px] text-zinc-500 font-bold bg-white/5 px-2 py-0.5 rounded ml-2">
-            {Math.floor(lesson.duration_seconds / 60)} دقيقة
+            {(() => {
+              const h = Math.floor(lesson.duration_seconds / 3600);
+              const m = Math.floor((lesson.duration_seconds % 3600) / 60);
+              if (h > 0) {
+                return `${h} س ${m} د`;
+              }
+              return `${m} دقيقة`;
+            })()}
           </span>
         )}
         <button onClick={onEdit} className="p-1.5 rounded hover:bg-white/5 text-zinc-400 hover:text-white transition-colors cursor-pointer">
@@ -158,6 +166,8 @@ export default function AdminCoursesPage() {
   // Curriculum State
   const [curriculumSections, setCurriculumSections] = useState<(LmsSection & { lessons: LmsLesson[] })[]>([]);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [savingSection, setSavingSection] = useState(false);
+  const [savingLesson, setSavingLesson] = useState(false);
   
   // Modal states
   const [showLessonModal, setShowLessonModal] = useState(false);
@@ -175,21 +185,79 @@ export default function AdminCoursesPage() {
   const [videoFileName, setVideoFileName] = useState<string | null>(null);
   const [autoThumbnailUrl, setAutoThumbnailUrl] = useState<string | null>(null);
 
+  // Bunny Stream specific upload states
+  const [bunnyUploadStatus, setBunnyUploadStatus] = useState<"Uploading" | "Encoding" | "Ready" | "Failed" | null>(null);
+  const [bunnyEncodeProgress, setBunnyEncodeProgress] = useState<number | null>(null);
+
   // Attachment upload states
   const [attachmentUploading, setAttachmentUploading] = useState(false);
   const [attachmentProgress, setAttachmentProgress] = useState<number | null>(null);
 
-  // Clear upload states upon opening lesson modal
+  // Clear upload states upon opening/closing lesson modal
   useEffect(() => {
     if (showLessonModal) {
       setVideoUploadProgress(null);
       setVideoFileSize(null);
       setVideoFileName(null);
-      setAutoThumbnailUrl(editingLesson?.attachment_url || null);
+      setAutoThumbnailUrl(editingLesson?.thumbnail_url || editingLesson?.attachment_url || null);
       setAttachmentUploading(false);
       setAttachmentProgress(null);
+      setBunnyUploadStatus(editingLesson?.video_id ? "Ready" : null);
+      setBunnyEncodeProgress(editingLesson?.video_id ? 100 : null);
+    } else {
+      if ((window as any).bunnyPollingInterval) {
+        clearInterval((window as any).bunnyPollingInterval);
+        (window as any).bunnyPollingInterval = null;
+      }
     }
-  }, [showLessonModal]);
+  }, [showLessonModal, editingLesson]);
+
+  const startStatusPolling = (videoId: string, libraryId: string) => {
+    if ((window as any).bunnyPollingInterval) {
+      clearInterval((window as any).bunnyPollingInterval);
+    }
+    
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/admin/bunny/video?videoId=${videoId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        if (data.status === 3) {
+          clearInterval(interval);
+          (window as any).bunnyPollingInterval = null;
+          setBunnyUploadStatus("Ready");
+          setBunnyEncodeProgress(100);
+          
+          const playUrl = `https://iframe.mediadelivery.net/play/${libraryId}/${videoId}/playlist.m3u8`;
+          const thumbUrl = data.thumbnailUrl || `https://iframe.mediadelivery.net/play/${libraryId}/${videoId}/thumbnail.jpg`;
+          
+          setEditingLesson(prev => ({
+            ...prev,
+            video_url: playUrl,
+            video_id: videoId,
+            playback_url: playUrl,
+            thumbnail_url: thumbUrl,
+            duration_seconds: data.length || prev?.duration_seconds || 0
+          }));
+          
+          toast.success("اكتمل معالجة وتجهيز الفيديو بنجاح! 🚀");
+        } else if (data.status === 2) {
+          clearInterval(interval);
+          (window as any).bunnyPollingInterval = null;
+          setBunnyUploadStatus("Failed");
+          toast.error("فشل تشفير الفيديو على Bunny Stream.");
+        } else {
+          setBunnyUploadStatus("Encoding");
+          setBunnyEncodeProgress(data.encodeProgress || 0);
+        }
+      } catch (err) {
+        console.error("Error polling video status:", err);
+      }
+    }, 4000);
+    
+    (window as any).bunnyPollingInterval = interval;
+  };
 
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -199,6 +267,7 @@ export default function AdminCoursesPage() {
     const sizeInMB = (file.size / (1024 * 1024)).toFixed(1);
     setVideoFileSize(`${sizeInMB} MB`);
     setVideoUploadProgress(0);
+    setBunnyUploadStatus("Uploading");
 
     try {
       // 1. Auto read video duration in client-side JS
@@ -214,110 +283,106 @@ export default function AdminCoursesPage() {
         URL.revokeObjectURL(tempVideo.src);
       };
 
-      // 2. Auto extract video frame as thumbnail
-      const generateAutoThumbnail = (videoFile: File): Promise<Blob | null> => {
-        return new Promise((resolve) => {
-          const video = document.createElement("video");
-          video.preload = "metadata";
-          video.src = URL.createObjectURL(videoFile);
-          video.muted = true;
-          video.playsInline = true;
-          video.onloadedmetadata = () => {
-            video.currentTime = 1.0;
-          };
-          video.onseeked = () => {
-            try {
-              const canvas = document.createElement("canvas");
-              canvas.width = 640;
-              canvas.height = 360;
-              const ctx = canvas.getContext("2d");
-              if (ctx) {
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                canvas.toBlob((blob) => {
-                  URL.revokeObjectURL(video.src);
-                  resolve(blob);
-                }, "image/jpeg", 0.85);
-              } else {
-                URL.revokeObjectURL(video.src);
-                resolve(null);
-              }
-            } catch (e) {
-              URL.revokeObjectURL(video.src);
-              resolve(null);
-            }
-          };
-          video.onerror = () => {
-            URL.revokeObjectURL(video.src);
-            resolve(null);
-          };
-        });
-      };
-
-      const thumbBlob = await generateAutoThumbnail(file);
-      if (thumbBlob) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setAutoThumbnailUrl(reader.result as string);
-        };
-        reader.readAsDataURL(thumbBlob);
-
-        const thumbFile = new File([thumbBlob], `thumb_${Date.now()}.jpg`, { type: "image/jpeg" });
-        try {
-          const uploadedThumbUrl = await uploadPrivateFile(thumbFile, "lesson-thumbnails", "auto");
-          setEditingLesson(prev => ({
-            ...prev,
-            attachment_url: uploadedThumbUrl
-          }));
-        } catch (err) {}
+      // 2. Fetch configurations
+      const configRes = await fetch("/api/admin/bunny/config");
+      if (!configRes.ok) {
+        throw new Error("فشل تحميل إعدادات Bunny Stream. تأكد من إعداد متغيرات البيئة.");
       }
+      const { libraryId, apiKey } = await configRes.json();
 
-      // 3. Upload video file to private course-videos bucket
-      const folderPath = selectedCourse ? selectedCourse.slug : "general";
-      const uploadedVideoUrl = await uploadFileChunked(
-        file,
-        "course-videos",
-        folderPath,
-        (pct) => {
-          setVideoUploadProgress(pct);
+      // 3. Create a video placeholder via API
+      const createRes = await fetch("/api/admin/bunny/video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: file.name })
+      });
+      if (!createRes.ok) {
+        throw new Error("فشل إنشاء حاوية الفيديو في Bunny Stream.");
+      }
+      const { videoId } = await createRes.json();
+
+      // 4. Perform direct browser-to-Bunny upload using XHR for real-time progress
+      const xhr = new XMLHttpRequest();
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          const percentage = Math.round((event.loaded / event.total) * 100);
+          setVideoUploadProgress(percentage);
         }
-      );
+      });
 
+      const uploadPromise = new Promise<void>((resolve, reject) => {
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`فشل رفع الفيديو إلى Bunny Stream. رمز الاستجابة: ${xhr.status}`));
+          }
+        };
+        xhr.onerror = () => reject(new Error("حدث خطأ في الاتصال أثناء الرفع."));
+      });
+
+      xhr.open("PUT", `https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}`);
+      xhr.setRequestHeader("AccessKey", apiKey);
+      xhr.send(file);
+
+      await uploadPromise;
+
+      // 5. Start polling status
+      setBunnyUploadStatus("Encoding");
+      setBunnyEncodeProgress(0);
+      
       setEditingLesson(prev => ({
         ...prev,
-        video_url: uploadedVideoUrl
+        video_id: videoId
       }));
 
-      toast.success("تم رفع الفيديو وتوليد لقطة الغلاف تلقائياً بنجاح! 🚀");
+      startStatusPolling(videoId, libraryId);
     } catch (err: any) {
       toast.error(err.message || "خطأ أثناء رفع الفيديو.");
       setVideoUploadProgress(null);
       setVideoFileName(null);
       setVideoFileSize(null);
+      setBunnyUploadStatus(null);
     }
   };
 
   const handleVideoDelete = async () => {
-    if (!editingLesson?.video_url) return;
-    if (!confirm("هل أنت متأكد من حذف هذا الفيديو نهائياً من مساحة التخزين؟")) return;
+    const videoId = editingLesson?.video_id;
+    const videoUrl = editingLesson?.video_url;
+    if (!videoId && !videoUrl) return;
+    if (!confirm("هل أنت متأكد من حذف هذا الفيديو نهائياً؟")) return;
 
     try {
-      await deletePrivateFileFromUrl(editingLesson.video_url, "course-videos");
-      if (editingLesson.attachment_url && editingLesson.attachment_url.includes("lesson-thumbnails")) {
-        await deletePrivateFileFromUrl(editingLesson.attachment_url, "lesson-thumbnails");
+      if (videoId) {
+        const res = await fetch(`/api/admin/bunny/video?videoId=${videoId}`, {
+          method: "DELETE"
+        });
+        if (!res.ok) {
+          throw new Error("فشل حذف الفيديو من Bunny Stream.");
+        }
+      } else if (videoUrl) {
+        await deletePrivateFileFromUrl(videoUrl, "course-videos");
+        if (editingLesson.attachment_url && editingLesson.attachment_url.includes("lesson-thumbnails")) {
+          await deletePrivateFileFromUrl(editingLesson.attachment_url, "lesson-thumbnails");
+        }
       }
       
       setEditingLesson(prev => ({
         ...prev,
         video_url: "",
+        video_id: "",
+        playback_url: "",
+        thumbnail_url: "",
         attachment_url: ""
       }));
       setVideoUploadProgress(null);
       setVideoFileName(null);
       setVideoFileSize(null);
       setAutoThumbnailUrl(null);
-      toast.success("تم حذف ملف الفيديو وصورة المعاينة بنجاح! 🗑️");
+      setBunnyUploadStatus(null);
+      toast.success("تم حذف ملف الفيديو بنجاح! 🗑️");
     } catch (err: any) {
-      toast.error("فشل حذف الفيديو.");
+      toast.error(err.message || "فشل حذف الفيديو.");
     }
   };
 
@@ -410,12 +475,13 @@ export default function AdminCoursesPage() {
   const [courseForm, setCourseForm] = useState<Partial<LmsCourse>>({
     title: "", slug: "", short_description: "", description: "",
     image_url: "", banner_url: "", price: 0, original_price: 0,
+    price_egp: 0, original_price_egp: 0, price_usd: 0, original_price_usd: 0,
     is_free: false, is_featured: false, status: "draft", level: "مبتدئ", category: "الأتمتة",
     tags: [], requirements: [], what_will_learn: [], who_is_for: [],
     certificate_bg_url: "", certificate_text_color: "#000000",
-    certificate_name_x: 50, certificate_name_y: 40,
+    certificate_name_x: 50, certificate_name_y: 40, certificate_name_size: 24,
     certificate_course_x: 50, certificate_course_y: 55,
-    certificate_date_x: 50, certificate_date_y: 70
+    certificate_date_x: 50, certificate_date_y: 70, certificate_date_size: 14
   });
 
   const [categories, setCategories] = useState<string[]>([]);
@@ -453,10 +519,12 @@ export default function AdminCoursesPage() {
       title: "", slug: "", short_description: "", description: "",
       image_url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800",
       banner_url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1600",
-      price: 0, original_price: 0, is_free: false, is_featured: false, status: "draft", level: "مبتدئ", category: "الأتمتة",
+      price: 0, original_price: 0,
+      price_egp: 0, original_price_egp: 0, price_usd: 0, original_price_usd: 0,
+      is_free: false, is_featured: false, status: "draft", level: "مبتدئ", category: "الأتمتة",
       tags: [], requirements: [], what_will_learn: [], who_is_for: [],
       certificate_bg_url: "", certificate_text_color: "#000000",
-      certificate_name_x: 50, certificate_name_y: 40, certificate_course_x: 50, certificate_course_y: 55, certificate_date_x: 50, certificate_date_y: 70
+      certificate_name_x: 50, certificate_name_y: 40, certificate_name_size: 24, certificate_course_x: 50, certificate_course_y: 55, certificate_date_x: 50, certificate_date_y: 70, certificate_date_size: 14
     });
     setView("form");
   };
@@ -465,16 +533,22 @@ export default function AdminCoursesPage() {
     setSelectedCourse(course);
     setCourseForm({
       ...course,
+      price_egp: course.price_egp !== undefined && course.price_egp !== null ? Number(course.price_egp) : Number(course.price) || 0,
+      original_price_egp: course.original_price_egp !== undefined && course.original_price_egp !== null ? Number(course.original_price_egp) : Number(course.original_price) || 0,
+      price_usd: course.price_usd !== undefined && course.price_usd !== null ? Number(course.price_usd) : 0,
+      original_price_usd: course.original_price_usd !== undefined && course.original_price_usd !== null ? Number(course.original_price_usd) : 0,
       tags: course.tags || [], requirements: course.requirements || [],
       what_will_learn: course.what_will_learn || [], who_is_for: course.who_is_for || [],
       certificate_bg_url: course.certificate_bg_url || "",
       certificate_text_color: course.certificate_text_color || "#000000",
       certificate_name_x: course.certificate_name_x || 50,
       certificate_name_y: course.certificate_name_y || 40,
+      certificate_name_size: course.certificate_name_size || 24,
       certificate_course_x: course.certificate_course_x || 50,
       certificate_course_y: course.certificate_course_y || 55,
       certificate_date_x: course.certificate_date_x || 50,
-      certificate_date_y: course.certificate_date_y || 70
+      certificate_date_y: course.certificate_date_y || 70,
+      certificate_date_size: course.certificate_date_size || 14
     });
     
     // Load curriculum & students
@@ -495,10 +569,14 @@ export default function AdminCoursesPage() {
     if (!courseForm.title) return toast.error("يرجى إدخال عنوان الكورس");
     try {
       const saved = await upsertCourse(courseForm as any);
-      setSelectedCourse(saved);
+      setSelectedCourse(null);
       toast.success("تم حفظ بيانات الدورة بنجاح!");
       loadCourses();
-    } catch (err) { toast.error("حدث خطأ أثناء حفظ الكورس"); }
+      setView("list");
+    } catch (err) { 
+      console.error(err);
+      toast.error("حدث خطأ أثناء حفظ الكورس"); 
+    }
   };
 
   const handleDeleteCourse = async (id: string) => {
@@ -511,44 +589,112 @@ export default function AdminCoursesPage() {
   // --- Curriculum Actions ---
   const handleSaveSection = async () => {
     if (!editingSectionTitle || !selectedCourse) return;
-    await upsertSection({
-      id: editingSectionId || undefined,
-      course_id: selectedCourse.id,
-      title: editingSectionTitle,
-      description: editingSectionDescription,
-      sort_order: editingSectionId ? curriculumSections.find(s => s.id === editingSectionId)?.sort_order || 1 : curriculumSections.length + 1
-    });
-    setEditingSectionTitle(""); setEditingSectionDescription(""); setEditingSectionId(null); setShowSectionModal(false);
-    toast.success("تم حفظ القسم");
-    const { sections } = await getCourseBySlug(selectedCourse.slug);
-    setCurriculumSections(sections);
+    setSavingSection(true);
+    try {
+      const savedSection = await upsertSection({
+        id: editingSectionId || undefined,
+        course_id: selectedCourse.id,
+        title: editingSectionTitle,
+        description: editingSectionDescription,
+        sort_order: editingSectionId ? curriculumSections.find(s => s.id === editingSectionId)?.sort_order || 1 : curriculumSections.length + 1
+      });
+
+      // Optimistic state update
+      setCurriculumSections(prev => {
+        const existingIdx = prev.findIndex(s => s.id === savedSection.id);
+        if (existingIdx > -1) {
+          const updated = [...prev];
+          updated[existingIdx] = { ...savedSection, lessons: prev[existingIdx].lessons || [] };
+          return updated;
+        } else {
+          return [...prev, { ...savedSection, lessons: [] }];
+        }
+      });
+
+      setEditingSectionTitle(""); setEditingSectionDescription(""); setEditingSectionId(null); setShowSectionModal(false);
+      toast.success("تم حفظ القسم بنجاح");
+
+      const { sections } = await getCourseBySlug(selectedCourse.slug);
+      setCurriculumSections(sections);
+    } catch (err: any) {
+      console.error("Error saving section:", err);
+      toast.error(err.message || "حدث خطأ أثناء حفظ القسم في قاعدة البيانات");
+    } finally {
+      setSavingSection(false);
+    }
   };
 
   const handleDeleteSection = async (id: string) => {
     if (!confirm("هل أنت متأكد من حذف هذا القسم بجميع دروسه؟")) return;
-    await deleteSection(id);
-    toast.success("تم حذف القسم");
-    const { sections } = await getCourseBySlug(selectedCourse!.slug);
-    setCurriculumSections(sections);
+    const prevSections = [...curriculumSections];
+    setCurriculumSections(prev => prev.filter(s => s.id !== id));
+    try {
+      await deleteSection(id);
+      toast.success("تم حذف القسم بنجاح");
+      const { sections } = await getCourseBySlug(selectedCourse!.slug);
+      setCurriculumSections(sections);
+    } catch (err: any) {
+      console.error("Error deleting section:", err);
+      setCurriculumSections(prevSections);
+      toast.error("فشل حذف القسم. يرجى المحاولة مرة أخرى.");
+    }
   };
 
   const handleSaveLesson = async () => {
     if (!editingLesson?.title || !selectedCourse) return toast.error("يرجى إدخال عنوان الدرس");
     const sectionId = editingLesson.section_id || activeSectionForLesson;
     if (!sectionId) return;
-    await upsertLesson({ ...editingLesson, section_id: sectionId, title: editingLesson.title } as any);
-    setShowLessonModal(false); setEditingLesson(null);
-    toast.success("تم حفظ الدرس");
-    const { sections } = await getCourseBySlug(selectedCourse.slug);
-    setCurriculumSections(sections);
+    setSavingLesson(true);
+    try {
+      const savedLesson = await upsertLesson({ ...editingLesson, section_id: sectionId, title: editingLesson.title } as any);
+      
+      setCurriculumSections(prev => {
+        return prev.map(sec => {
+          if (sec.id !== sectionId) return sec;
+          const existingLessons = sec.lessons || [];
+          const existingIdx = existingLessons.findIndex(l => l.id === savedLesson.id);
+          let newLessons = [...existingLessons];
+          if (existingIdx > -1) {
+            newLessons[existingIdx] = savedLesson;
+          } else {
+            newLessons.push(savedLesson);
+          }
+          return { ...sec, lessons: newLessons };
+        });
+      });
+
+      setShowLessonModal(false); setEditingLesson(null);
+      toast.success("تم حفظ الدرس بنجاح");
+
+      const { sections } = await getCourseBySlug(selectedCourse.slug);
+      setCurriculumSections(sections);
+    } catch (err: any) {
+      console.error("Error saving lesson:", err);
+      toast.error(err.message || "حدث خطأ أثناء حفظ الدرس في قاعدة البيانات");
+    } finally {
+      setSavingLesson(false);
+    }
   };
 
   const handleDeleteLesson = async (id: string) => {
     if (!confirm("هل أنت متأكد من حذف هذا الدرس؟")) return;
-    await deleteLesson(id);
-    toast.success("تم حذف الدرس");
-    const { sections } = await getCourseBySlug(selectedCourse!.slug);
-    setCurriculumSections(sections);
+    const prevSections = [...curriculumSections];
+    setCurriculumSections(prev => {
+      return prev.map(sec => ({
+        ...sec,
+        lessons: (sec.lessons || []).filter(l => l.id !== id)
+      }));
+    });
+    try {
+      await deleteLesson(id);
+      toast.success("تم حذف الدرس بنجاح");
+      const { sections } = await getCourseBySlug(selectedCourse!.slug);
+      setCurriculumSections(sections);
+    } catch (err: any) {
+      console.error("Error deleting lesson:", err);
+      setCurriculumSections(prevSections);
+      toast.error("فشل حذف الدرس. يرجى المحاولة مرة أخرى.");
+    }
   };
 
   // --- Drag and Drop Logic ---
@@ -688,20 +834,29 @@ export default function AdminCoursesPage() {
             <form onSubmit={handleSaveCourse} className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-bold text-zinc-400">عنوان الكورس *</label>
-                <input required value={courseForm.title} onChange={e => setCourseForm({ ...courseForm, title: e.target.value })} className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm focus:border-rose-500/50" />
+                <input required value={courseForm.title || ""} onChange={e => setCourseForm({ ...courseForm, title: e.target.value })} className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm focus:border-rose-500/50" />
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-bold text-zinc-400">الرابط الفريد (Slug)</label>
-                <input value={courseForm.slug} onChange={e => setCourseForm({ ...courseForm, slug: e.target.value })} className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm text-zinc-300" />
+                <input value={courseForm.slug || ""} onChange={e => setCourseForm({ ...courseForm, slug: e.target.value })} className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm text-zinc-300" />
               </div>
               
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-zinc-400">السعر بالجنيه المصري (EGP) *</label>
-                <input type="number" required value={courseForm.price} onChange={e => setCourseForm({ ...courseForm, price: Number(e.target.value) })} className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm" />
+                <label className="text-xs font-bold text-rose-400">السعر بالجنيه المصري (EGP) *</label>
+                <input type="number" required value={courseForm.price_egp !== undefined ? courseForm.price_egp : courseForm.price} onChange={e => setCourseForm({ ...courseForm, price_egp: Number(e.target.value), price: Number(e.target.value) })} className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm focus:border-rose-500/50" />
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-bold text-zinc-400">السعر الأصلي قبل الخصم (EGP)</label>
-                <input type="number" value={courseForm.original_price || ""} onChange={e => setCourseForm({ ...courseForm, original_price: Number(e.target.value) })} className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm" />
+                <input type="number" value={courseForm.original_price_egp !== undefined ? (courseForm.original_price_egp || "") : (courseForm.original_price || "")} onChange={e => setCourseForm({ ...courseForm, original_price_egp: Number(e.target.value), original_price: Number(e.target.value) })} className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm focus:border-rose-500/50" />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-emerald-400">السعر بالدولار الأمريكي (USD) *</label>
+                <input type="number" required value={courseForm.price_usd || 0} onChange={e => setCourseForm({ ...courseForm, price_usd: Number(e.target.value) })} className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm focus:border-emerald-500/50" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-zinc-400">السعر الأصلي قبل الخصم (USD)</label>
+                <input type="number" value={courseForm.original_price_usd || ""} onChange={e => setCourseForm({ ...courseForm, original_price_usd: Number(e.target.value) })} className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm focus:border-emerald-500/50" />
               </div>
 
               <div className="flex flex-col gap-2">
@@ -730,9 +885,9 @@ export default function AdminCoursesPage() {
                 </select>
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-zinc-400">صورة غلاف الكورس (Thumbnail)</label>
+                <label className="text-xs font-bold text-zinc-400">صورة غلاف الكورس (تظهر في الصفحة الرئيسية وكروت المتجر)</label>
                 <div className="flex gap-2">
-                  <input value={courseForm.image_url} onChange={e => setCourseForm({ ...courseForm, image_url: e.target.value })} className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm flex-1 text-zinc-300" />
+                  <input value={courseForm.image_url || ""} onChange={e => setCourseForm({ ...courseForm, image_url: e.target.value })} className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm flex-1 text-zinc-300" />
                   <label className="h-[46px] px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer">
                     {uploadingField === "image_url" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4 rotate-180" />}
                     <span>رفع صورة</span>
@@ -768,83 +923,6 @@ export default function AdminCoursesPage() {
                 </div>
               </div>
 
-              {/* Coupon Management Block */}
-              <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-4 md:col-span-2 space-y-4">
-                <label className="text-xs font-bold text-rose-400 block font-alexandria">إدارة كوبونات الخصم لهذا الكورس</label>
-                
-                <div className="flex flex-wrap gap-4 items-end">
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-[10px] text-zinc-500 font-bold">كود الكوبون (مثال: YA50)</span>
-                    <input id="couponCodeInput" type="text" placeholder="YA50" className="bg-white/5 border border-white/5 rounded-lg py-2 px-3 text-xs w-36 uppercase font-mono" />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-[10px] text-zinc-500 font-bold">نسبة الخصم %</span>
-                    <input id="couponPercentInput" type="number" defaultValue="50" min="1" max="100" className="bg-white/5 border border-white/5 rounded-lg py-2 px-3 text-xs w-24 font-mono" />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const codeEl = document.getElementById("couponCodeInput") as HTMLInputElement;
-                      const percentEl = document.getElementById("couponPercentInput") as HTMLInputElement;
-                      if (codeEl && percentEl) {
-                        const code = codeEl.value.trim();
-                        const percent = parseInt(percentEl.value);
-                        if (!code || isNaN(percent) || percent < 1 || percent > 100) {
-                          toast.error("يرجى إدخال قيم صحيحة للكوبون");
-                          return;
-                        }
-                        const cleanCode = code.toUpperCase().replace(/[^A-Z0-9]/g, "");
-                        const newTag = `coupon:${cleanCode}:${percent}`;
-                        const currentTags = courseForm.tags || [];
-                        if (currentTags.some(t => t.startsWith(`coupon:${cleanCode}:`))) {
-                          toast.error("هذا الكوبون موجود بالفعل");
-                          return;
-                        }
-                        setCourseForm(prev => ({
-                          ...prev,
-                          tags: [...(prev.tags || []), newTag]
-                        }));
-                        codeEl.value = "";
-                        toast.success(`تمت إضافة الكوبون ${cleanCode} بنجاح!`);
-                      }
-                    }}
-                    className="h-9 px-4 bg-[#D6004B] hover:bg-[#b0003d] text-white rounded-lg font-bold text-xs flex items-center justify-center cursor-pointer"
-                  >
-                    <span>إضافة كود خصم</span>
-                  </button>
-                </div>
-
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {(courseForm.tags || [])
-                    .filter(t => t.startsWith("coupon:"))
-                    .map(t => {
-                      const parts = t.split(":");
-                      const code = parts[1];
-                      const percent = parts[2];
-                      return (
-                        <div key={t} className="flex items-center gap-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-2.5 py-1 rounded-lg text-xs font-bold font-mono">
-                          <span>{code} ({percent}%)</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCourseForm(prev => ({
-                                ...prev,
-                                tags: (prev.tags || []).filter(tag => tag !== t)
-                              }));
-                              toast.success("تم حذف الكوبون");
-                            }}
-                            className="text-rose-500 hover:text-rose-300 font-sans"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      );
-                    })}
-                  {!(courseForm.tags || []).some(t => t.startsWith("coupon:")) && (
-                    <span className="text-zinc-600 text-xs italic">لا توجد كوبونات خصم نشطة لهذا الكورس حالياً.</span>
-                  )}
-                </div>
-              </div>
               
               <div className="md:col-span-2">
                 <RichTextEditor 
@@ -879,7 +957,7 @@ export default function AdminCoursesPage() {
                 </button>
               </div>
 
-              {curriculumSections.length === 0 ? (
+              {curriculumSections.length === 0 && !savingSection ? (
                 <div className="text-center py-12 border border-dashed border-white/10 rounded-2xl">
                   <AlertCircle className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
                   <p className="text-zinc-500 font-bold text-sm">المنهج فارغ. أضف وحدة دراسية للبدء.</p>
@@ -887,22 +965,48 @@ export default function AdminCoursesPage() {
               ) : (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSectionDragEnd}>
                   <SortableContext items={curriculumSections.map(s => s.id)} strategy={verticalListSortingStrategy}>
-                    {curriculumSections.map((sec, index) => (
-                      <SortableSection 
-                        key={sec.id} 
-                        index={index}
-                        section={sec} 
-                        lessons={sec.lessons}
-                        expanded={expandedSections[sec.id]}
-                        toggleExpand={(id: string) => setExpandedSections(prev => ({ ...prev, [id]: !prev[id] }))}
-                        onEdit={(s: any) => { setEditingSectionId(s.id); setEditingSectionTitle(s.title); setEditingSectionDescription(s.description || ""); setShowSectionModal(true); }}
-                        onDelete={handleDeleteSection}
-                        onAddLesson={(sId: string) => { setActiveSectionForLesson(sId); setEditingLesson({ title: "", video_url: "", duration_seconds: 300, is_preview: false, lecture_type: "video" }); setShowLessonModal(true); }}
-                        onEditLesson={(les: any) => { setEditingLesson(les); setShowLessonModal(true); }}
-                        onDeleteLesson={handleDeleteLesson}
-                        onLessonDragEnd={onLessonDragEnd}
-                      />
-                    ))}
+                    <div className="space-y-4">
+                      <AnimatePresence initial={false}>
+                        {curriculumSections.map((sec, index) => (
+                          <motion.div
+                            key={sec.id}
+                            initial={{ opacity: 0, y: 15 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <SortableSection 
+                              index={index}
+                              section={sec} 
+                              lessons={sec.lessons}
+                              expanded={expandedSections[sec.id]}
+                              toggleExpand={(id: string) => setExpandedSections(prev => ({ ...prev, [id]: !prev[id] }))}
+                              onEdit={(s: any) => { setEditingSectionId(s.id); setEditingSectionTitle(s.title); setEditingSectionDescription(s.description || ""); setShowSectionModal(true); }}
+                              onDelete={handleDeleteSection}
+                              onAddLesson={(sId: string) => { setActiveSectionForLesson(sId); setEditingLesson({ title: "", video_url: "", duration_seconds: 300, is_preview: false, lecture_type: "video" }); setShowLessonModal(true); }}
+                              onEditLesson={(les: any) => { setEditingLesson(les); setShowLessonModal(true); }}
+                              onDeleteLesson={handleDeleteLesson}
+                              onLessonDragEnd={onLessonDragEnd}
+                            />
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+
+                      {/* Skeleton loader for saving a new section */}
+                      {savingSection && !editingSectionId && (
+                        <div className="border border-white/5 bg-[#0f0f15]/50 rounded-2xl p-4 flex items-center justify-between gap-4 animate-pulse">
+                          <div className="flex items-center gap-3 w-full">
+                            <div className="w-5 h-5 rounded bg-white/5" />
+                            <div className="w-8 h-8 rounded-lg bg-white/5" />
+                            <div className="space-y-2 flex-1">
+                              <div className="h-4 bg-white/10 rounded w-1/3" />
+                              <div className="h-3 bg-white/5 rounded w-1/2" />
+                            </div>
+                          </div>
+                          <div className="w-24 h-8 bg-white/5 rounded-lg" />
+                        </div>
+                      )}
+                    </div>
                   </SortableContext>
                 </DndContext>
               )}
@@ -973,20 +1077,29 @@ export default function AdminCoursesPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="flex flex-col gap-2">
                       <label className="text-xs font-bold text-zinc-400">موضع اسم الطالب أفقي (X %)</label>
-                      <input type="number" value={courseForm.certificate_name_x} onChange={e => setCourseForm({...courseForm, certificate_name_x: Number(e.target.value)})} className="bg-white/5 border border-white/5 rounded-xl py-2 px-4 text-sm" />
+                      <input type="number" value={courseForm.certificate_name_x ?? ""} onChange={e => setCourseForm({...courseForm, certificate_name_x: Number(e.target.value)})} className="bg-white/5 border border-white/5 rounded-xl py-2 px-4 text-sm text-white" />
                     </div>
                     <div className="flex flex-col gap-2">
                       <label className="text-xs font-bold text-zinc-400">موضع اسم الطالب عمودي (Y %)</label>
-                      <input type="number" value={courseForm.certificate_name_y} onChange={e => setCourseForm({...courseForm, certificate_name_y: Number(e.target.value)})} className="bg-white/5 border border-white/5 rounded-xl py-2 px-4 text-sm" />
+                      <input type="number" value={courseForm.certificate_name_y ?? ""} onChange={e => setCourseForm({...courseForm, certificate_name_y: Number(e.target.value)})} className="bg-white/5 border border-white/5 rounded-xl py-2 px-4 text-sm text-white" />
                     </div>
                     
                     <div className="flex flex-col gap-2">
                       <label className="text-xs font-bold text-zinc-400">موضع التاريخ أفقي (X %)</label>
-                      <input type="number" value={courseForm.certificate_date_x} onChange={e => setCourseForm({...courseForm, certificate_date_x: Number(e.target.value)})} className="bg-white/5 border border-white/5 rounded-xl py-2 px-4 text-sm" />
+                      <input type="number" value={courseForm.certificate_date_x ?? ""} onChange={e => setCourseForm({...courseForm, certificate_date_x: Number(e.target.value)})} className="bg-white/5 border border-white/5 rounded-xl py-2 px-4 text-sm text-white" />
                     </div>
                     <div className="flex flex-col gap-2">
                       <label className="text-xs font-bold text-zinc-400">موضع التاريخ عمودي (Y %)</label>
-                      <input type="number" value={courseForm.certificate_date_y} onChange={e => setCourseForm({...courseForm, certificate_date_y: Number(e.target.value)})} className="bg-[#0f0f15] border border-white/5 rounded-xl py-2 px-4 text-sm" />
+                      <input type="number" value={courseForm.certificate_date_y ?? ""} onChange={e => setCourseForm({...courseForm, certificate_date_y: Number(e.target.value)})} className="bg-[#0f0f15] border border-white/5 rounded-xl py-2 px-4 text-sm text-white" />
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-bold text-rose-400">حجم خط اسم الطالب (بكسل)</label>
+                      <input type="number" value={courseForm.certificate_name_size ?? ""} onChange={e => setCourseForm({...courseForm, certificate_name_size: Number(e.target.value)})} className="bg-white/5 border border-white/5 rounded-xl py-2 px-4 text-sm text-white" />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-bold text-zinc-400">حجم خط التاريخ (بكسل)</label>
+                      <input type="number" value={courseForm.certificate_date_size ?? ""} onChange={e => setCourseForm({...courseForm, certificate_date_size: Number(e.target.value)})} className="bg-white/5 border border-white/5 rounded-xl py-2 px-4 text-sm text-white" />
                     </div>
                   </div>
                 </div>
@@ -1002,10 +1115,11 @@ export default function AdminCoursesPage() {
                       <div className="absolute inset-0 z-10 font-bold" style={{ color: courseForm.certificate_text_color }}>
                         {/* Auto-detected Language Font Selection */}
                         <div 
-                          className="absolute whitespace-nowrap text-xl sm:text-2xl lg:text-3xl transition-all" 
+                          className="absolute whitespace-nowrap transition-all" 
                           style={{ 
                             left: `${courseForm.certificate_name_x}%`, 
                             top: `${courseForm.certificate_name_y}%`, 
+                            fontSize: `${courseForm.certificate_name_size || 24}px`,
                             transform: 'translate(-50%, -50%)',
                             fontFamily: /[\u0600-\u06FF]/.test(testStudentName) ? "'Cairo', 'Alexandria', sans-serif" : "'Alike', serif",
                             fontWeight: /[\u0600-\u06FF]/.test(testStudentName) ? 900 : 'normal',
@@ -1013,8 +1127,16 @@ export default function AdminCoursesPage() {
                         >
                           {testStudentName || "[اسم الطالب هنا]"}
                         </div>
-                        <div className="absolute whitespace-nowrap text-xs sm:text-sm font-mono" style={{ left: `${courseForm.certificate_date_x}%`, top: `${courseForm.certificate_date_y}%`, transform: 'translate(-50%, -50%)' }}>
-                          {new Date().toLocaleDateString("ar-EG")}
+                        <div 
+                          className="absolute whitespace-nowrap font-mono" 
+                          style={{ 
+                            left: `${courseForm.certificate_date_x}%`, 
+                            top: `${courseForm.certificate_date_y}%`, 
+                            fontSize: `${courseForm.certificate_date_size || 14}px`,
+                            transform: 'translate(-50%, -50%)' 
+                          }}
+                        >
+                          {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
                         </div>
                       </div>
                     </>
@@ -1109,6 +1231,21 @@ export default function AdminCoursesPage() {
                 )}
              </div>
           )}
+
+          {/* Save Course Footer Action */}
+          <div className="flex items-center justify-between bg-[#0a0a0f]/90 backdrop-blur-md border border-white/5 p-6 rounded-3xl shadow-2xl mt-8">
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-bold text-white font-alexandria">حفظ التغييرات بالكامل</span>
+              <span className="text-zinc-500 text-xs">حفظ جميع تفاصيل الدورة والمنهج والشهادة الحالية في قاعدة البيانات</span>
+            </div>
+            <button 
+              type="button"
+              onClick={() => handleSaveCourse()} 
+              className="h-12 px-8 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-rose-600/20 cursor-pointer"
+            >
+              <Save className="w-5 h-5" /> <span>حفظ الكورس بالكامل 🚀</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -1122,15 +1259,18 @@ export default function AdminCoursesPage() {
             </h3>
             <div className="flex flex-col gap-2">
               <label className="text-xs text-zinc-400 font-bold">اسم الوحدة الدراسية *</label>
-              <input required value={editingSectionTitle} onChange={e => setEditingSectionTitle(e.target.value)} placeholder="مثال: الوحدة الأولى: مقدمة..." className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm focus:border-rose-500/50" />
+              <input required disabled={savingSection} value={editingSectionTitle} onChange={e => setEditingSectionTitle(e.target.value)} placeholder="مثال: الوحدة الأولى: مقدمة..." className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm focus:border-rose-500/50 text-white disabled:opacity-50" />
             </div>
             <div className="flex flex-col gap-2">
               <label className="text-xs text-zinc-400 font-bold">وصف الوحدة الدراسية</label>
-              <textarea rows={3} value={editingSectionDescription} onChange={e => setEditingSectionDescription(e.target.value)} placeholder="اكتب وصفاً أو تفاصيل مختصرة عن محتوى هذه الوحدة..." className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm focus:border-rose-500/50" />
+              <textarea rows={3} disabled={savingSection} value={editingSectionDescription} onChange={e => setEditingSectionDescription(e.target.value)} placeholder="اكتب وصفاً أو تفاصيل مختصرة عن محتوى هذه الوحدة..." className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm focus:border-rose-500/50 text-white disabled:opacity-50" />
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-white/5 pt-4">
-              <button onClick={() => setShowSectionModal(false)} className="h-10 px-4 bg-white/5 hover:bg-white/10 rounded-xl font-bold text-xs cursor-pointer">إلغاء</button>
-              <button onClick={handleSaveSection} className="h-10 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs cursor-pointer">حفظ الوحدة</button>
+              <button disabled={savingSection} onClick={() => setShowSectionModal(false)} className="h-10 px-4 bg-white/5 hover:bg-white/10 rounded-xl font-bold text-xs cursor-pointer disabled:opacity-50 text-white">إلغاء</button>
+              <button disabled={savingSection || !editingSectionTitle} onClick={handleSaveSection} className="h-10 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
+                {savingSection ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                <span>حفظ الوحدة</span>
+              </button>
             </div>
           </div>
         </div>
@@ -1146,7 +1286,7 @@ export default function AdminCoursesPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5 sm:col-span-2">
                 <label className="text-xs text-zinc-400 font-bold">عنوان المحاضرة *</label>
-                <input required value={editingLesson.title} onChange={e => setEditingLesson({ ...editingLesson, title: e.target.value })} className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm" />
+                <input required value={editingLesson.title || ""} onChange={e => setEditingLesson({ ...editingLesson, title: e.target.value })} className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm" />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs text-zinc-400 font-bold">نوع المحاضرة والمحتوى</label>
@@ -1159,11 +1299,51 @@ export default function AdminCoursesPage() {
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-zinc-400 font-bold">المدة (بالثواني)</label>
-                <input type="number" value={editingLesson.duration_seconds} onChange={e => setEditingLesson({ ...editingLesson, duration_seconds: Number(e.target.value) })} className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm" />
+                <label className="text-xs text-zinc-400 font-bold">مدة المحاضرة</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center gap-2 bg-white/5 border border-white/5 rounded-xl px-3 h-[46px]">
+                    <input 
+                      type="number" 
+                      min={0}
+                      placeholder="0"
+                      value={Math.floor((editingLesson.duration_seconds || 0) / 3600) || ""} 
+                      onChange={e => {
+                        const h = Math.max(0, parseInt(e.target.value) || 0);
+                        const m = Math.floor(((editingLesson.duration_seconds || 0) % 3600) / 60);
+                        const s = (editingLesson.duration_seconds || 0) % 60;
+                        setEditingLesson({
+                          ...editingLesson,
+                          duration_seconds: (h * 3600) + (m * 60) + s
+                        });
+                      }} 
+                      className="bg-transparent border-0 w-full text-sm focus:ring-0 text-white outline-none" 
+                    />
+                    <span className="text-xs text-zinc-500 font-bold shrink-0">ساعة</span>
+                  </div>
+                  <div className="flex items-center gap-2 bg-white/5 border border-white/5 rounded-xl px-3 h-[46px]">
+                    <input 
+                      type="number" 
+                      min={0}
+                      max={59}
+                      placeholder="0"
+                      value={Math.floor(((editingLesson.duration_seconds || 0) % 3600) / 60) || ""} 
+                      onChange={e => {
+                        const h = Math.floor((editingLesson.duration_seconds || 0) / 3600);
+                        const m = Math.min(59, Math.max(0, parseInt(e.target.value) || 0));
+                        const s = (editingLesson.duration_seconds || 0) % 60;
+                        setEditingLesson({
+                          ...editingLesson,
+                          duration_seconds: (h * 3600) + (m * 60) + s
+                        });
+                      }} 
+                      className="bg-transparent border-0 w-full text-sm focus:ring-0 text-white outline-none" 
+                    />
+                    <span className="text-xs text-zinc-500 font-bold shrink-0">دقيقة</span>
+                  </div>
+                </div>
               </div>
               
-              {/* Video URL with Live Preview & Direct Upload to Private Supabase Storage */}
+              {/* Video URL with Live Preview & Direct Upload to Bunny Stream */}
               {editingLesson.lecture_type === "video" && (
                 <div className="flex flex-col gap-3 sm:col-span-2 space-y-2 bg-white/[0.01] border border-white/5 p-5 rounded-2xl">
                   <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
@@ -1171,11 +1351,11 @@ export default function AdminCoursesPage() {
                       <Video className="w-4 h-4" />
                       <span>رفع واستضافة الفيديو الآمن (Private Streaming Host)</span>
                     </label>
-                    <span className="text-[10px] text-zinc-500 font-bold">مدعوم بالكامل بواسطة Supabase Storage</span>
+                    <span className="text-[10px] text-zinc-500 font-bold">مدعوم بالكامل بواسطة Bunny Stream API</span>
                   </div>
 
                   {/* Drag/Drop and File picker box */}
-                  {!editingLesson.video_url && (
+                  {!editingLesson.video_url && bunnyUploadStatus !== "Encoding" && (
                     <div className="border-2 border-dashed border-white/10 hover:border-rose-500/40 rounded-xl p-8 text-center transition-all bg-black/25 relative group">
                       <input 
                         type="file" 
@@ -1191,7 +1371,7 @@ export default function AdminCoursesPage() {
                         </div>
                         <div className="text-sm font-bold text-white">اسحب ملف الفيديو هنا أو اضغط للاستعراض</div>
                         <p className="text-zinc-500 text-xs font-cairo">
-                          يدعم صيغ MP4, MKV, MOV, WebM حتى 5 جيجابايت
+                          يتم الرفع مباشرة إلى Bunny Stream (يدعم ملفات ضخمة جداً)
                         </p>
                       </div>
 
@@ -1219,18 +1399,38 @@ export default function AdminCoursesPage() {
                     </div>
                   )}
 
+                  {/* Polling/Encoding Progress container */}
+                  {bunnyUploadStatus === "Encoding" && (
+                    <div className="border border-dashed border-amber-500/20 rounded-xl p-8 text-center bg-black/25 relative">
+                      <div className="space-y-3 max-w-md mx-auto">
+                        <Loader2 className="w-10 h-10 text-amber-500 animate-spin mx-auto" />
+                        <div className="text-sm font-bold text-white">جاري تشفير ومعالجة الفيديو على خوادم Bunny Stream</div>
+                        <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+                          <div 
+                            className="bg-amber-500 h-full transition-all duration-300"
+                            style={{ width: `${bunnyEncodeProgress || 0}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-[10px] text-zinc-500 font-bold">
+                          <span>نسبة تقدم التشفير: {bunnyEncodeProgress || 0}%</span>
+                          <span>يرجى عدم إغلاق النافذة...</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Video URL Manual Backup and Edit */}
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-[10px] text-zinc-500 font-bold">مسار الفيديو الحالي في التخزين</span>
+                    <span className="text-[10px] text-zinc-500 font-bold">مسار الفيديو أو الـ Video ID الحالي</span>
                     <div className="flex gap-2">
                       <input 
                         type="text" 
-                        value={editingLesson.video_url || ""} 
+                        value={editingLesson.video_id || editingLesson.video_url || ""} 
                         onChange={e => setEditingLesson({ ...editingLesson, video_url: e.target.value })} 
-                        placeholder="مسار الفيديو أو رابط مباشر..." 
+                        placeholder="مسار الفيديو أو معرف Bunny Video ID..." 
                         className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs flex-1 font-mono text-zinc-300" 
                       />
-                      {editingLesson.video_url && (
+                      {(editingLesson.video_url || editingLesson.video_id) && (
                         <button 
                           type="button"
                           onClick={handleVideoDelete}
@@ -1243,13 +1443,19 @@ export default function AdminCoursesPage() {
                   </div>
 
                   {/* Generated Thumbnail preview & details */}
-                  {editingLesson.video_url && (
+                  {(editingLesson.video_url || bunnyUploadStatus === "Encoding") && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
                       
                       {/* Video Player Preview */}
                       <div className="rounded-xl overflow-hidden border border-white/10 bg-zinc-950 aspect-video relative flex flex-col justify-center items-center">
                         <span className="absolute top-2 right-2 bg-black/60 text-[9px] text-zinc-400 font-black px-2 py-0.5 rounded backdrop-blur z-20 font-alexandria uppercase tracking-wider">Video Stream Preview</span>
-                        {editingLesson.video_url.startsWith("http") ? (
+                        {bunnyUploadStatus === "Encoding" ? (
+                          <div className="text-center p-4 flex flex-col items-center justify-center space-y-3">
+                            <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
+                            <p className="text-amber-400 text-[11px] font-bold">جاري تجهيز الفيديو للمشاهدة...</p>
+                            <span className="text-[10px] text-zinc-500 font-mono">نسبة تشفير الفيديو: {bunnyEncodeProgress}%</span>
+                          </div>
+                        ) : editingLesson.video_url?.startsWith("http") ? (
                           <video 
                             src={editingLesson.video_url} 
                             controls 
@@ -1259,7 +1465,7 @@ export default function AdminCoursesPage() {
                         ) : (
                           <div className="text-center p-4">
                             <Video className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
-                            <p className="text-zinc-500 text-[11px] font-bold">الفيديو مسار محلي آمن في Supabase</p>
+                            <p className="text-zinc-500 text-[11px] font-bold">الفيديو مسار محلي آمن في Bunny Stream</p>
                           </div>
                         )}
                       </div>
@@ -1268,19 +1474,19 @@ export default function AdminCoursesPage() {
                       <div className="rounded-xl overflow-hidden border border-white/10 bg-zinc-950 aspect-video relative flex flex-col justify-center items-center">
                         <span className="absolute top-2 right-2 bg-black/60 text-[9px] text-emerald-400 font-black px-2 py-0.5 rounded backdrop-blur z-20 font-alexandria uppercase tracking-wider flex items-center gap-1">
                           <CheckCircle className="w-2.5 h-2.5" />
-                          Auto-Extracted Thumbnail
+                          Thumbnail Preview
                         </span>
                         
-                        {autoThumbnailUrl ? (
+                        {editingLesson.thumbnail_url || autoThumbnailUrl ? (
                           <img 
-                            src={autoThumbnailUrl} 
+                            src={editingLesson.thumbnail_url || autoThumbnailUrl || ""} 
                             alt="Extracted frame" 
                             className="w-full h-full object-cover" 
                           />
                         ) : (
                           <div className="text-center p-4">
                             <ImageIcon className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
-                            <p className="text-zinc-500 text-[11px] font-bold">لا توجد صورة مصغرة تلقائية بعد</p>
+                            <p className="text-zinc-500 text-[11px] font-bold">سيتم جلب الصورة المصغرة تلقائياً فور جهوزية الفيديو</p>
                           </div>
                         )}
                       </div>
@@ -1390,8 +1596,18 @@ export default function AdminCoursesPage() {
               </div>
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-white/5 pt-4">
-              <button onClick={() => { setShowLessonModal(false); setEditingLesson(null); }} className="h-10 px-4 bg-white/5 hover:bg-white/10 rounded-xl font-bold text-xs cursor-pointer">إلغاء</button>
-              <button onClick={handleSaveLesson} className="h-10 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs cursor-pointer">حفظ المحاضرة</button>
+              <button disabled={savingLesson} onClick={() => { setShowLessonModal(false); setEditingLesson(null); }} className="h-10 px-4 bg-white/5 hover:bg-white/10 rounded-xl font-bold text-xs cursor-pointer disabled:opacity-50 text-white">إلغاء</button>
+              <button 
+                disabled={savingLesson || !editingLesson.title || bunnyUploadStatus === "Uploading" || bunnyUploadStatus === "Encoding"} 
+                onClick={handleSaveLesson} 
+                className="h-10 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {savingLesson ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                <span>
+                  {bunnyUploadStatus === "Uploading" ? "جاري الرفع..." : 
+                   bunnyUploadStatus === "Encoding" ? "جاري المعالجة..." : "حفظ المحاضرة"}
+                </span>
+              </button>
             </div>
           </div>
         </div>

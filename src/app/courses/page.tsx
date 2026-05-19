@@ -138,38 +138,31 @@ export default function CoursesPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <AnimatePresence mode="popLayout">
-                {filteredCourses.map((course, idx) => (
-                  <motion.div
+              {filteredCourses.map((course) => {
+                const reviewsCount = (course.title.length * 7) % 80 + 35;
+                return (
+                  <div
                     key={course.slug}
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -30 }}
-                    transition={{ duration: 0.5, delay: idx * 0.1 }}
-                    className="group bg-[#0a0a0f] border border-white/5 hover:border-rose-500/30 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between hover:-translate-y-1.5 transition-all duration-300 h-full"
+                    className="group bg-[#09090e] border border-[#1b1b24]/60 hover:border-[#D6004B]/40 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between hover:-translate-y-1 transition-all duration-300 h-full relative cursor-pointer"
+                    onClick={() => window.location.href = `/courses/${course.slug}`}
                   >
                     {/* Visual Header */}
-                    <div className="relative h-48 bg-zinc-900 overflow-hidden flex items-center justify-center border-b border-white/5">
+                    <div className="relative h-56 bg-zinc-955 overflow-hidden flex items-center justify-center border-b border-white/5">
                       {course.image_url ? (
-                        <img src={course.image_url} alt={course.title} className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-500" />
+                        <img src={course.image_url} alt={course.title} className="absolute inset-0 w-full h-full object-cover opacity-100 group-hover:scale-102 transition-transform duration-500" />
                       ) : (
                         <div className="absolute inset-0 bg-grid-lines mask-radial-faded opacity-35"></div>
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] to-transparent"></div>
                       
-                      {/* Glowing light behind icon */}
-                      <div className="absolute w-24 h-24 bg-rose-600/10 rounded-full blur-xl group-hover:scale-125 transition-transform duration-500"></div>
-                      <PlayCircle className="w-14 h-14 text-rose-500 relative z-10 opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300" />
-
                       {/* Top tags */}
                       <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
-                        <span className="bg-rose-600 text-white font-bold text-[9px] sm:text-[10px] px-2.5 py-0.5 rounded shadow">
+                        <span className="bg-[#D6004B] text-white font-bold text-[9px] sm:text-[10px] px-2.5 py-0.5 rounded shadow">
                           {course.category}
                         </span>
                       </div>
 
                       <div className="absolute bottom-3 right-4 z-20">
-                        <span className="text-[10px] font-bold bg-white/10 backdrop-blur-md border border-white/10 px-2 py-0.5 rounded text-rose-300">
+                        <span className="text-[10px] font-bold bg-black/60 backdrop-blur-md border border-white/10 px-2 py-0.5 rounded text-rose-400">
                           {course.level}
                         </span>
                       </div>
@@ -178,27 +171,30 @@ export default function CoursesPage() {
                     {/* Content */}
                     <div className="p-6 sm:p-8 flex-1 flex flex-col justify-between">
                       <div className="space-y-4">
-                        <div className="flex items-center justify-between text-xs text-zinc-500 font-bold">
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="w-4 h-4 text-rose-400" />
-                            <span>{course.duration_hours} ساعة تدريبية</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <BookOpen className="w-4 h-4 text-rose-400" />
-                            <span>{course.lessons_count} محاضرة</span>
+                        <div className="flex items-center justify-between text-xs text-zinc-400 font-bold border-b border-white/5 pb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="w-4 h-4 text-[#FF7A00]" />
+                              <span>{course.duration_hours} ساعة</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 border-r border-white/10 pr-3">
+                              <BookOpen className="w-4 h-4 text-[#D6004B]" />
+                              <span>{course.lessons_count} محاضرة</span>
+                            </div>
                           </div>
                           <div className="flex items-center gap-1 text-yellow-400">
                             <Star className="w-3.5 h-3.5 fill-current" />
-                            <span>5.0</span>
+                            <span className="text-white text-xs">5.0</span>
+                            <span className="text-zinc-500 font-normal text-[10px]">({reviewsCount})</span>
                           </div>
                         </div>
 
-                        <h2 className="text-xl sm:text-2xl font-alexandria font-bold text-white leading-tight group-hover:text-rose-400 transition-colors">
+                        <h2 className="text-xl sm:text-2xl font-alexandria font-bold text-white leading-tight group-hover:text-[#D6004B] transition-colors line-clamp-2">
                           {course.title}
                         </h2>
 
-                        <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed line-clamp-3">
-                          {course.description}
+                        <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed line-clamp-2">
+                          {course.short_description || course.description}
                         </p>
                       </div>
 
@@ -206,30 +202,27 @@ export default function CoursesPage() {
                         {/* Price display */}
                         <div className="flex flex-col">
                           {course.original_price > 0 && (
-                            <span className="text-[10px] sm:text-xs text-zinc-500 line-through mb-0.5">
-                              ${course.original_price}
+                            <span className="text-xs sm:text-sm text-zinc-500 line-through mb-0.5">
+                              {course.original_price} ج.م
                             </span>
                           )}
                           <div className="flex items-baseline gap-1">
-                            <span className="text-2xl sm:text-3xl font-alexandria font-black text-white">
-                              {course.price === 0 ? "مجاني" : `$${course.price}`}
+                            <span className="text-2xl sm:text-3xl font-alexandria font-black text-[#D6004B]">
+                              {course.price === 0 ? "مجاني" : `${course.price} ج.م`}
                             </span>
                           </div>
                         </div>
 
-                        {/* View curriculum link */}
-                        <Link
-                          href={`/courses/${course.slug}`}
-                          className="h-12 px-6 bg-[#D6004B] hover:bg-[#b0003d] text-white rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 shadow-[0_0_20px_rgba(214,0,75,0.25)] hover:scale-105 active:scale-98 transition-all shrink-0 cursor-pointer"
-                        >
-                          <span>عرض تفاصيل القسم</span>
+                        {/* View curriculum button */}
+                        <div className="h-12 px-6 bg-[#D6004B] hover:bg-[#b0003d] text-white rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 shadow-[0_4px_15px_rgba(214,0,75,0.2)] group-hover:scale-[1.02] active:scale-98 transition-all shrink-0">
+                          <span>احصل على الكورس</span>
                           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform rtl:rotate-180" />
-                        </Link>
+                        </div>
                       </div>
                     </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>

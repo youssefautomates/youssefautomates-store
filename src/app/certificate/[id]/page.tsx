@@ -63,10 +63,11 @@ export default function CertificateVerificationPage({ params }: { params: Promis
                   <img src={cert.certificate_bg_url} alt="Certificate Background" className="absolute inset-0 w-full h-full object-cover" />
                   <div className="absolute inset-0 z-10 font-bold" style={{ color: cert.certificate_text_color || "#000000" }}>
                     <div 
-                      className="absolute whitespace-nowrap text-xl sm:text-2xl lg:text-3xl transition-all" 
+                      className="absolute whitespace-nowrap transition-all" 
                       style={{ 
                         left: `${cert.certificate_name_x || 50}%`, 
                         top: `${cert.certificate_name_y || 40}%`, 
+                        fontSize: `${cert.certificate_name_size || 24}px`,
                         transform: 'translate(-50%, -50%)',
                         fontFamily: /[\u0600-\u06FF]/.test(cert.student_name) ? "'Cairo', 'Alexandria', sans-serif" : "'Alike', serif",
                         fontWeight: /[\u0600-\u06FF]/.test(cert.student_name) ? 900 : 'normal',
@@ -74,7 +75,15 @@ export default function CertificateVerificationPage({ params }: { params: Promis
                     >
                       {cert.student_name}
                     </div>
-                    <div className="absolute whitespace-nowrap text-xs sm:text-sm font-mono" style={{ left: `${cert.certificate_date_x || 50}%`, top: `${cert.certificate_date_y || 70}%`, transform: 'translate(-50%, -50%)' }}>
+                    <div 
+                      className="absolute whitespace-nowrap font-mono" 
+                      style={{ 
+                        left: `${cert.certificate_date_x || 50}%`, 
+                        top: `${cert.certificate_date_y || 70}%`, 
+                        fontSize: `${cert.certificate_date_size || 14}px`,
+                        transform: 'translate(-50%, -50%)' 
+                      }}
+                    >
                       {cert.issued_at}
                     </div>
                   </div>

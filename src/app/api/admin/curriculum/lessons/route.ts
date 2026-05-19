@@ -8,7 +8,7 @@ import { upsertLesson, deleteLesson } from "@/lib/coursesDb";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { id, section_id, title, slug, video_url, content, duration_seconds, sort_order, is_preview, lecture_type, attachment_url, attachment_name, external_link } = body;
+    const { id, section_id, title, slug, video_url, content, duration_seconds, sort_order, is_preview, lecture_type, attachment_url, attachment_name, external_link, video_id, playback_url, thumbnail_url } = body;
 
     if (!section_id || !title) {
       return NextResponse.json({ success: false, error: "Section ID and Title are required" }, { status: 400 });
@@ -28,7 +28,10 @@ export async function POST(req: Request) {
       lecture_type: lecture_type || "video",
       attachment_url: attachment_url || undefined,
       attachment_name: attachment_name || undefined,
-      external_link: external_link || undefined
+      external_link: external_link || undefined,
+      video_id: video_id || undefined,
+      playback_url: playback_url || undefined,
+      thumbnail_url: thumbnail_url || undefined
     });
 
     return NextResponse.json({ success: true, lesson: result });

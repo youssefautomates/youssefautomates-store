@@ -13,6 +13,7 @@ interface ProductMediaProps {
   aspectRatio?: string;
   isHovered?: boolean;
   staticOnly?: boolean;
+  priority?: boolean;
 }
 
 export function ProductMedia({ 
@@ -22,7 +23,8 @@ export function ProductMedia({
   className,
   aspectRatio = "aspect-video",
   isHovered = false,
-  staticOnly = false
+  staticOnly = false,
+  priority = false
 }: ProductMediaProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isInView, setIsInView] = useState(false);
@@ -70,7 +72,7 @@ export function ProductMedia({
     <div 
       ref={containerRef}
       className={cn(
-        "relative w-full overflow-hidden bg-zinc-950 flex items-center justify-center transition-all duration-500",
+        "relative w-full overflow-hidden bg-zinc-950 flex items-center justify-center transition-all duration-500 aspect-video",
         aspectRatio,
         isHovered && !staticOnly && "brightness-110",
         className
@@ -83,12 +85,23 @@ export function ProductMedia({
         "bg-gradient-to-t from-rose-600/20 to-transparent"
       )} />
 
-      {video_url && !isYouTube ? (
+      {staticOnly && image_url ? (
+        <Image
+          src={image_url}
+          alt={title}
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          priority={priority}
+          loading={priority ? undefined : "lazy"}
+          className="object-cover object-center transition-transform duration-700"
+          style={{ transform: isHovered ? 'scale(1.02)' : 'scale(1)' }}
+        />
+      ) : video_url && !isYouTube ? (
         <video
           ref={videoRef}
           src={`${video_url}#t=0.1`}
-          className="w-full h-full object-cover transition-transform duration-700"
-          style={{ transform: isHovered && !staticOnly ? 'scale(1.05)' : 'scale(1)' }}
+          className="w-full h-full object-cover object-center transition-transform duration-700"
+          style={{ transform: isHovered && !staticOnly ? 'scale(1.02)' : 'scale(1)' }}
           muted
           loop={!staticOnly}
           playsInline
@@ -101,8 +114,11 @@ export function ProductMedia({
             src={`https://img.youtube.com/vi/${ytId}/maxresdefault.jpg`}
             alt={title}
             fill
-            className="object-cover transition-transform duration-700"
-            style={{ transform: isHovered ? 'scale(1.05)' : 'scale(1)' }}
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            priority={priority}
+            loading={priority ? undefined : "lazy"}
+            className="object-cover object-center transition-transform duration-700"
+            style={{ transform: isHovered ? 'scale(1.02)' : 'scale(1)' }}
           />
           <div className="absolute inset-0 flex items-center justify-center">
             <PlayCircle className={cn(
@@ -116,8 +132,11 @@ export function ProductMedia({
           src={image_url}
           alt={title}
           fill
-          className="object-cover transition-transform duration-700"
-          style={{ transform: isHovered ? 'scale(1.05)' : 'scale(1)' }}
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          priority={priority}
+          loading={priority ? undefined : "lazy"}
+          className="object-cover object-center transition-transform duration-700"
+          style={{ transform: isHovered ? 'scale(1.02)' : 'scale(1)' }}
         />
       ) : (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0a0f] text-zinc-800">

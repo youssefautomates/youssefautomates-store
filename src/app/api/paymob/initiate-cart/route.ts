@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { createOrder } from "@/lib/orders";
+import { headers } from "next/headers";
+import { resolveUserCurrency, resolveProductPrice, getUSDtoEGPExchangeRate } from "@/lib/pricing";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     console.log("[CART_BACKEND_REQUEST_BODY] Received:", JSON.stringify(body, null, 2));
     const { amount, email, firstName, lastName, phone, items, paymentMethod, cardData } = body;
+
+    // --- Geolocation Currency Resolver ---
+    const headersList = await headers();
+    const userCurrency = await resolveUserCurrency(headersList);
+    console.log(`[PAYMOB_CART_INITIATE] Server Resolved Currency: ${userCurrency}`);
 
     // --- Env Validation ---
     const secretKey = process.env.PAYMOB_SECRET_KEY;
@@ -34,18 +41,91 @@ export async function POST(req: Request) {
       throw new Error("Cart is empty");
     }
 
-    const amountCents = Math.round(parseFloat(amount) * 100);
+    // 1. Dual Pricing Secure Resolver Layer for Multi-Item Cart
+    let totalExpectedEGP = 0;
+    const verifiedItems: any[] = [];
+
+    for (const item of items) {
+      let dbItem: any = null;
+      let isCourseItem = item.id.startsWith("course-");
+
+      if (isCourseItem) {
+        const { data: course } = await supabase
+          .from("courses")
+          .select("*")
+          .eq("id", item.id)
+          .maybeSingle();
+        if (course) dbItem = course;
+      }
+
+      if (!dbItem) {
+        const { data: product } = await supabase
+          .from("products")
+          .select("*")
+          .eq("id", item.id)
+          .maybeSingle();
+        if (product) dbItem = product;
+      }
+
+      if (!dbItem) {
+        const { data: bundle } = await supabase
+          .from("bundles")
+          .select("*")
+          .eq("id", item.id)
+          .maybeSingle();
+        if (bundle) dbItem = bundle;
+      }
+
+      // Secondary fallback to courses
+      if (!dbItem) {
+        const { data: course } = await supabase
+          .from("courses")
+          .select("*")
+          .eq("id", item.id)
+          .maybeSingle();
+        if (course) {
+          dbItem = course;
+          isCourseItem = true;
+        }
+      }
+
+      if (!dbItem) {
+        throw new Error(`المحتوى المطلق (${item.title}) غير متوفر حالياً في قاعدة البيانات`);
+      }
+
+      const resolvedPrice = resolveProductPrice(dbItem, userCurrency);
+      const itemEGPPrice = userCurrency === "USD"
+        ? Math.round(resolvedPrice.price * getUSDtoEGPExchangeRate())
+        : resolvedPrice.price;
+
+      totalExpectedEGP += itemEGPPrice;
+      verifiedItems.push({
+        id: item.id,
+        title: dbItem.title,
+        priceEGP: itemEGPPrice
+      });
+    }
+
+    console.log(`[PAYMOB_CART_INITIATE] Server calculated totalExpectedEGP: ${totalExpectedEGP} EGP | Client submitted: ${amount} EGP`);
+
+    // Prevent price spoofing from client side
+    const clientAmount = parseFloat(amount);
+    if (Math.abs(clientAmount - totalExpectedEGP) > 10) { // 10 EGP threshold for rounding safe across multiple products
+      throw new Error(`محاولة تلاعب بأسعار السلة! الإجمالي الفعلي هو ${totalExpectedEGP} ج.م`);
+    }
+
+    const amountCents = Math.round(totalExpectedEGP * 100);
 
     // 2. Create Orders in Supabase locally first (One per item)
     const dbOrders = [];
-    for (const item of items) {
+    for (const item of verifiedItems) {
       const order = await createOrder({
         customer_name: `${firstName} ${lastName}`,
         customer_email: email,
         customer_phone: phone || "+201000000000",
         product_id: item.id,
         product_title: item.title,
-        amount: parseFloat(item.price),
+        amount: item.priceEGP,
         currency: "EGP",
         status: "pending",
         payment_id: "PENDING", 

@@ -23,6 +23,7 @@ import { fetchBundleBySlug, HydratedBundle } from "@/lib/bundles";
 import { toast } from "sonner";
 import { useCart } from "@/context/CartContext";
 import { Product } from "@/lib/products";
+import { ProductReviews } from "@/components/ProductReviews";
 
 export default function BundlePage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params);
@@ -189,10 +190,10 @@ export default function BundlePage({ params }: { params: Promise<{ slug: string 
                         key={idx}
                         className="bg-white/[0.01] border border-white/5 hover:border-white/10 p-5 rounded-3xl flex flex-col md:flex-row gap-5 items-start md:items-center justify-between transition-all duration-300 group"
                       >
-                        <div className="flex gap-4 items-center min-w-0">
-                          <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0 bg-neutral-900 border border-white/5 relative">
+                        <div className="flex gap-4 items-center min-w-0 w-full md:w-auto">
+                          <div className="w-24 aspect-video rounded-xl overflow-hidden shrink-0 bg-neutral-900 border border-white/5 relative">
                             {image ? (
-                              <img src={image} alt={title} className="w-full h-full object-cover" />
+                              <img src={image} alt={title} className="w-full h-full object-cover object-center" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white/20">YA</div>
                             )}
@@ -200,7 +201,7 @@ export default function BundlePage({ params }: { params: Promise<{ slug: string 
                               {typeBadge}
                             </span>
                           </div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <h4 className="text-sm md:text-base font-bold text-white group-hover:text-rose-500 transition-colors truncate">
                               {title}
                             </h4>
@@ -239,11 +240,11 @@ export default function BundlePage({ params }: { params: Promise<{ slug: string 
                           <div className="flex flex-col text-right md:text-left">
                             {originalPrice && originalPrice > 0 && (
                               <span className="text-[10px] text-zinc-600 line-through">
-                                ${originalPrice}
+                                {originalPrice} ج.م
                               </span>
                             )}
                             <span className="text-xs font-black text-zinc-400 font-mono">
-                              ${price} (مشمول مجاناً)
+                              {price} ج.م (مشمول مجاناً)
                             </span>
                           </div>
                           
@@ -316,12 +317,12 @@ export default function BundlePage({ params }: { params: Promise<{ slug: string 
                     <div className="flex flex-col">
                       {bundle.original_price && bundle.original_price > 0 && (
                         <span className="text-zinc-600 font-alexandria text-xs sm:text-base md:text-xl line-through decoration-rose-500/30 mb-0">
-                          ${bundle.original_price}
+                          {bundle.original_price} ج.م
                         </span>
                       )}
                       <div className="flex items-baseline gap-1.5 md:gap-3">
-                        <span className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-alexandria font-black text-white tracking-tighter">${bundle.price}</span>
-                        <span className="text-sm sm:text-lg md:text-xl font-alexandria font-black text-rose-500 uppercase">USD</span>
+                        <span className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-alexandria font-black text-white tracking-tighter">{bundle.price}</span>
+                        <span className="text-sm sm:text-lg md:text-xl font-alexandria font-black text-rose-500 uppercase">ج.م</span>
                       </div>
                     </div>
                     {bundle.discount_pct && bundle.discount_pct > 0 ? (
@@ -394,6 +395,9 @@ export default function BundlePage({ params }: { params: Promise<{ slug: string 
 
           </div>
 
+          {/* Reviews Section */}
+          <ProductReviews productId={bundle.id} />
+
           {/* Related engine Carousel */}
           <div className="mt-20 border-t border-white/5 pt-16">
             <RelatedCarousel sourceType="bundle" sourceId={bundle.id} />
@@ -406,9 +410,9 @@ export default function BundlePage({ params }: { params: Promise<{ slug: string 
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-2xl border-t border-white/10 p-3 z-50 flex items-center justify-between gap-3 pb-safe shadow-[0_-20px_50px_rgba(0,0,0,0.8)] supports-[backdrop-filter]:bg-black/60">
         <div className="flex flex-col pl-2">
           <span className="text-lg font-alexandria font-black text-white leading-none tracking-tighter">
-            ${bundle.price} <span className="text-[10px] text-rose-500 font-black">USD</span>
+            {bundle.price} <span className="text-[10px] text-rose-500 font-black">ج.م</span>
           </span>
-          {bundle.original_price && <span className="text-[9px] text-zinc-400 line-through mt-0.5">بدلاً من ${bundle.original_price}</span>}
+          {bundle.original_price && <span className="text-[9px] text-zinc-400 line-through mt-0.5">بدلاً من {bundle.original_price} ج.م</span>}
         </div>
         <div className="flex gap-2 flex-1">
           <button

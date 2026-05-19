@@ -560,7 +560,7 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ courseS
             {/* Cinematic Overlay Grid */}
             <div className="absolute inset-0 bg-grid-lines mask-radial-faded opacity-20 pointer-events-none z-0"></div>
 
-            {currentLesson.lecture_type === "video" && currentLesson.video_url ? (
+            {currentLesson.lecture_type === "video" && (currentLesson.video_url || currentLesson.video_id) ? (
               <div className="w-full aspect-video z-10">
                 <SecureVideoPlayer
                   lessonId={currentLesson.id}

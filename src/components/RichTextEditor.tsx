@@ -23,6 +23,8 @@ export function RichTextEditor({ value, onChange, label, placeholder }: RichText
   const [uploadType, setUploadType] = useState<"image" | "video">("image");
   const [showMediaMenu, setShowMediaMenu] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedImg, setSelectedImg] = useState<HTMLImageElement | null>(null);
+  const [imgStyle, setImgStyle] = useState<{ top: number; left: number } | null>(null);
 
   const [activeStates, setActiveStates] = useState({
     bold: false,
@@ -45,6 +47,184 @@ export function RichTextEditor({ value, onChange, label, placeholder }: RichText
       }
     }
   }, [value]);
+
+  // Click handler to detect images inside editor or toolbar
+  useEffect(() => {
+    const handleDocumentClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      
+      // If clicked inside the floating toolbar, do not close it
+      if (target.closest(".image-toolbar-container")) {
+        return;
+      }
+
+      if (target.tagName === "IMG" && editorRef.current?.contains(target)) {
+        const img = target as HTMLImageElement;
+        setSelectedImg(img);
+        
+        // Calculate position relative to editor container
+        const rect = img.getBoundingClientRect();
+        const editor = editorRef.current;
+        const editorRect = editor.getBoundingClientRect();
+        setImgStyle({
+          top: rect.bottom - editorRect.top + editor.scrollTop + 8,
+          left: Math.max(10, rect.left - editorRect.left + (rect.width - 320) / 2)
+        });
+      } else {
+        setSelectedImg(null);
+        setImgStyle(null);
+      }
+    };
+
+    document.addEventListener("click", handleDocumentClick);
+    return () => {
+      document.removeEventListener("click", handleDocumentClick);
+    };
+  }, []);
+
+  const resizeImage = (factor: number) => {
+    if (!selectedImg) return;
+    
+    // Read the current style width or getBoundingClientRect width
+    let currentWidth = parseFloat(selectedImg.style.width || "");
+    if (isNaN(currentWidth) || !currentWidth) {
+      currentWidth = selectedImg.getBoundingClientRect().width || selectedImg.clientWidth || 300;
+    }
+    
+    // Calculate new width
+    const newWidth = Math.max(30, Math.min(1200, Math.round(currentWidth * factor)));
+    
+    selectedImg.style.width = `${newWidth}px`;
+    selectedImg.style.height = "auto";
+    selectedImg.style.maxWidth = "100%"; // override any overriding css max-width
+    
+    handleInput();
+    
+    // Recalculate position
+    setTimeout(() => {
+      if (!selectedImg || !editorRef.current) return;
+      const rect = selectedImg.getBoundingClientRect();
+      const editorRect = editorRef.current.getBoundingClientRect();
+      setImgStyle({
+        top: rect.bottom - editorRect.top + editorRef.current.scrollTop + 8,
+        left: Math.max(10, rect.left - editorRect.left + (rect.width - 320) / 2)
+      });
+    }, 50);
+  };
+
+  const setImageWidthPercent = (pct: number) => {
+    if (!selectedImg) return;
+    selectedImg.style.width = `${pct}%`;
+    selectedImg.style.height = "auto";
+    selectedImg.style.maxWidth = "100%";
+    handleInput();
+
+    // Recalculate position
+    setTimeout(() => {
+      if (!selectedImg || !editorRef.current) return;
+      const rect = selectedImg.getBoundingClientRect();
+      const editorRect = editorRef.current.getBoundingClientRect();
+      setImgStyle({
+        top: rect.bottom - editorRect.top + editorRef.current.scrollTop + 8,
+        left: Math.max(10, rect.left - editorRect.left + (rect.width - 320) / 2)
+      });
+    }, 50);
+  };
+
+  const setImageAlign = (align: "left" | "center" | "right" | "none") => {
+    if (!selectedImg) return;
+    if (align === "left") {
+      selectedImg.style.float = "left";
+      selectedImg.style.margin = "0 0 16px 16px";
+      selectedImg.style.display = "inline-block";
+    } else if (align === "right") {
+      selectedImg.style.float = "right";
+      selectedImg.style.margin = "0 16px 16px 0";
+      selectedImg.style.display = "inline-block";
+    } else if (align === "center") {
+      selectedImg.style.float = "none";
+      selectedImg.style.margin = "16px auto";
+      selectedImg.style.display = "block";
+    } else {
+      selectedImg.style.float = "none";
+      selectedImg.style.margin = "0";
+      selectedImg.style.display = "inline";
+    }
+    handleInput();
+
+    // Recalculate position
+    setTimeout(() => {
+      if (!selectedImg || !editorRef.current) return;
+      const rect = selectedImg.getBoundingClientRect();
+      const editorRect = editorRef.current.getBoundingClientRect();
+      setImgStyle({
+        top: rect.bottom - editorRect.top + editorRef.current.scrollTop + 8,
+        left: Math.max(10, rect.left - editorRect.left + (rect.width - 320) / 2)
+      });
+    }, 50);
+  };
+
+  const getImgWidthPercent = (): number => {
+    if (!selectedImg || !editorRef.current) return 100;
+    const styleWidth = selectedImg.style.width;
+    if (styleWidth.endsWith("%")) {
+      return parseInt(styleWidth) || 100;
+    }
+    const imgWidth = selectedImg.getBoundingClientRect().width;
+    const editorWidth = editorRef.current.getBoundingClientRect().width || 1;
+    return Math.min(100, Math.max(10, Math.round((imgWidth / editorWidth) * 100)));
+  };
+
+
+  const applyInlineStyle = (styleName: string, styleValue: string) => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    const range = selection.getRangeAt(0);
+    if (range.collapsed) return; // No text selected
+
+    const span = document.createElement("span");
+    span.style.setProperty(styleName, styleValue);
+    
+    try {
+      range.surroundContents(span);
+    } catch (e) {
+      // Bounding crossing fallback
+      document.execCommand("styleWithCSS", false, "true");
+      const container = document.createElement("div");
+      container.appendChild(range.cloneContents());
+      const html = `<span style="${styleName}: ${styleValue}">${container.innerHTML}</span>`;
+      document.execCommand("insertHTML", false, html);
+    }
+    
+    handleInput();
+    editorRef.current?.focus();
+  };
+
+  const scaleFontSize = (direction: "up" | "down") => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    const range = selection.getRangeAt(0);
+    if (range.collapsed) return;
+
+    let parent: HTMLElement | null = range.commonAncestorContainer as HTMLElement;
+    if (parent.nodeType === Node.TEXT_NODE) {
+      parent = parent.parentElement;
+    }
+    
+    let currentSize = 16;
+    if (parent) {
+      const computedSize = window.getComputedStyle(parent).fontSize;
+      const parsed = parseFloat(computedSize);
+      if (!isNaN(parsed)) {
+        currentSize = parsed;
+      }
+    }
+    
+    const newSize = direction === "up" ? currentSize + 2 : Math.max(8, currentSize - 2);
+    applyInlineStyle("font-size", `${newSize}px`);
+  };
 
   const handleInput = () => {
     if (editorRef.current) {
@@ -187,32 +367,51 @@ export function RichTextEditor({ value, onChange, label, placeholder }: RichText
             <option value="<blockquote>">اقتباس (Quote)</option>
           </select>
 
+          {/* Font Family Selector */}
+          <select 
+            onChange={(e) => {
+              if (e.target.value) {
+                applyInlineStyle("font-family", e.target.value);
+              }
+            }}
+            defaultValue="Cairo"
+            className="bg-[#0f0f15] border border-white/5 rounded-lg py-1 px-2 text-xs text-zinc-300 focus:outline-none focus:border-rose-500/30 cursor-pointer h-8 font-bold"
+            title="نوع الخط"
+          >
+            <option value="Cairo">Cairo (الافتراضي)</option>
+            <option value="Alexandria">Alexandria</option>
+            <option value="Tahoma">Tahoma</option>
+            <option value="Arial">Arial</option>
+            <option value="'Times New Roman', serif">Times New Roman</option>
+            <option value="'Courier New', monospace">Courier New</option>
+            <option value="Georgia, serif">Georgia</option>
+          </select>
+
           {/* Font Size Selector */}
           <select 
             onChange={(e) => {
               if (e.target.value) {
-                execCmd("fontSize", e.target.value);
-                e.target.value = ""; // reset selection
+                applyInlineStyle("font-size", e.target.value);
               }
             }}
-            defaultValue=""
+            defaultValue="16px"
             className="bg-[#0f0f15] border border-white/5 rounded-lg py-1 px-2 text-xs text-zinc-300 focus:outline-none focus:border-rose-500/30 cursor-pointer h-8 font-bold"
             title="حجم الخط"
           >
-            <option value="" disabled>حجم الخط</option>
-            <option value="1">صغير جداً (10px)</option>
-            <option value="2">صغير (13px)</option>
-            <option value="3">عادي (16px)</option>
-            <option value="4">متوسط (18px)</option>
-            <option value="5">كبير (24px)</option>
-            <option value="6">كبير جداً (32px)</option>
-            <option value="7">ضخم (48px)</option>
+            <option value="12px">12px</option>
+            <option value="14px">14px</option>
+            <option value="16px">16px</option>
+            <option value="18px">18px</option>
+            <option value="20px">20px</option>
+            <option value="24px">24px</option>
+            <option value="32px">32px</option>
+            <option value="48px">48px</option>
           </select>
 
           {/* Font Size Scaling Buttons */}
           <button 
             type="button" 
-            onClick={() => execCmd("increaseFontSize")} 
+            onClick={() => scaleFontSize("up")} 
             className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer flex items-center justify-center font-black text-[10px]"
             title="تكبير الخط"
           >
@@ -220,7 +419,7 @@ export function RichTextEditor({ value, onChange, label, placeholder }: RichText
           </button>
           <button 
             type="button" 
-            onClick={() => execCmd("decreaseFontSize")} 
+            onClick={() => scaleFontSize("down")} 
             className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer flex items-center justify-center font-black text-[10px]"
             title="تصغير الخط"
           >
@@ -462,18 +661,146 @@ export function RichTextEditor({ value, onChange, label, placeholder }: RichText
             font-style: italic;
             cursor: text;
           }
+          .rich-editor-content img {
+            transition: outline 0.15s ease-in-out;
+            cursor: pointer;
+          }
+          .rich-editor-content img:hover {
+            outline: 2px solid rgba(244, 63, 94, 0.4);
+          }
+          .rich-editor-content img:focus, .rich-editor-content img[data-selected] {
+            outline: 3px solid rgba(244, 63, 94, 0.85);
+          }
         `}} />
-        <div 
-          ref={editorRef}
-          contentEditable
-          onInput={handleInput}
-          onSelect={updateActiveStates}
-          onKeyUp={updateActiveStates}
-          onMouseUp={updateActiveStates}
-          data-placeholder={placeholder || "اكتب هنا تفاصيل المحتوى الدراسي الفاخر..."}
-          className="rich-editor-content min-h-[160px] max-h-[350px] p-4 text-sm text-zinc-200 outline-none overflow-y-auto scrollbar-thin scrollbar-thumb-rose-600/20 bg-black/25 leading-relaxed text-right w-full font-sans rtl select-text"
-          style={{ direction: 'rtl' }}
-        />
+        <div className="relative w-full">
+          <div 
+            ref={editorRef}
+            contentEditable
+            onInput={handleInput}
+            onSelect={updateActiveStates}
+            onKeyUp={updateActiveStates}
+            onMouseUp={updateActiveStates}
+            data-placeholder={placeholder || "اكتب هنا تفاصيل المحتوى الدراسي الفاخر..."}
+            className="rich-editor-content min-h-[160px] max-h-[350px] p-4 text-sm text-zinc-200 outline-none overflow-y-auto scrollbar-thin scrollbar-thumb-rose-600/20 bg-black/25 leading-relaxed text-right w-full font-sans rtl select-text"
+            style={{ direction: 'rtl' }}
+          />
+
+          {selectedImg && imgStyle && (
+            <div 
+              className="image-toolbar-container absolute bg-[#0b0b12]/95 backdrop-blur-md border border-white/10 rounded-xl p-2.5 shadow-2xl flex flex-wrap items-center gap-2 z-30 select-none animate-in fade-in zoom-in-95 duration-150"
+              style={{ 
+                top: `${imgStyle.top}px`, 
+                left: `${imgStyle.left}px`,
+                direction: "rtl"
+              }}
+            >
+              <span className="text-[10px] text-zinc-400 font-bold px-1.5 border-l border-white/10">تحجيم الصورة:</span>
+              
+              <button 
+                type="button" 
+                onClick={() => resizeImage(1.15)} 
+                className="px-2.5 py-1 bg-white/5 hover:bg-rose-600 hover:text-white rounded-lg text-xs font-bold text-zinc-300 transition-colors"
+                title="تكبير الحجم"
+              >
+                تكبير (+)
+              </button>
+              
+              <button 
+                type="button" 
+                onClick={() => resizeImage(0.85)} 
+                className="px-2.5 py-1 bg-white/5 hover:bg-rose-600 hover:text-white rounded-lg text-xs font-bold text-zinc-300 transition-colors"
+                title="تصغير الحجم"
+              >
+                تصغير (-)
+              </button>
+
+              <div className="w-px h-4 bg-white/10 mx-0.5" />
+
+              {/* Slider Resizer */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-zinc-400">العرض:</span>
+                <input 
+                  type="range" 
+                  min="10" 
+                  max="100" 
+                  value={getImgWidthPercent()} 
+                  onChange={(e) => setImageWidthPercent(Number(e.target.value))}
+                  className="w-20 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-rose-500" 
+                />
+                <span className="text-[9px] text-zinc-400 font-mono w-6 text-left">{getImgWidthPercent()}%</span>
+              </div>
+
+              <div className="w-px h-4 bg-white/10 mx-0.5" />
+
+              <button 
+                type="button" 
+                onClick={() => setImageWidthPercent(25)} 
+                className="px-2 py-0.5 bg-white/5 hover:bg-white/10 rounded-md text-[10px] text-zinc-400 hover:text-zinc-200 transition-colors font-mono"
+              >
+                25%
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setImageWidthPercent(50)} 
+                className="px-2 py-0.5 bg-white/5 hover:bg-white/10 rounded-md text-[10px] text-zinc-400 hover:text-zinc-200 transition-colors font-mono"
+              >
+                50%
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setImageWidthPercent(100)} 
+                className="px-2 py-0.5 bg-white/5 hover:bg-white/10 rounded-md text-[10px] text-zinc-400 hover:text-zinc-200 transition-colors font-mono"
+              >
+                100%
+              </button>
+
+              <div className="w-px h-4 bg-white/10 mx-0.5" />
+              <span className="text-[10px] text-zinc-400 font-bold px-1">المحاذاة:</span>
+
+              <button 
+                type="button" 
+                onClick={() => setImageAlign("left")} 
+                className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] text-zinc-300 transition-colors font-bold"
+                title="محاذاة لليسار"
+              >
+                يسار
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setImageAlign("center")} 
+                className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] text-zinc-300 transition-colors font-bold"
+                title="محاذاة للوسط"
+              >
+                وسط
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setImageAlign("right")} 
+                className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] text-zinc-300 transition-colors font-bold"
+                title="محاذاة لليمين"
+              >
+                يمين
+              </button>
+
+              <div className="w-px h-4 bg-white/10 mx-0.5" />
+
+              <button 
+                type="button" 
+                onClick={() => {
+                  selectedImg.remove();
+                  setSelectedImg(null);
+                  setImgStyle(null);
+                  handleInput();
+                  toast.success("تم حذف الصورة بنجاح.");
+                }} 
+                className="p-1.5 text-red-400 hover:text-white hover:bg-red-600 rounded-lg transition-colors"
+                title="حذف الصورة"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

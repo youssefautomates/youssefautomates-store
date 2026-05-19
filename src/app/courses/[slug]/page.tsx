@@ -12,6 +12,7 @@ import Link from "next/link";
 import { getCourseBySlug, checkEnrollment, type LmsCourse, type LmsSection, type LmsLesson } from "@/lib/coursesDb";
 import { supabaseClient } from "@/lib/supabaseClient";
 import RelatedCarousel from "@/components/RelatedCarousel";
+import { ProductReviews } from "@/components/ProductReviews";
 
 export default function CourseDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
@@ -285,6 +286,9 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
           )}
 
         </section>
+
+        {/* Reviews Section */}
+        <ProductReviews productId={course.id} />
 
         {/* Smart Related Recommendations */}
         <section className="container mx-auto px-4 max-w-6xl mt-20 border-t border-white/5 pt-16">

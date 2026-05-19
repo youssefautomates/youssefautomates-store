@@ -2,10 +2,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { 
-  Play, Pause, Volume2, VolumeX, Maximize, Minimize, 
-  Settings, RotateCcw, RotateCw, Loader2, PlayCircle,
-  Volume1, ChevronRight, HelpCircle, Shield, Sparkles,
-  Award, ArrowLeft, BookOpen, Trash2, Search, Plus, X, FileText
+  Loader2, BookOpen, Trash2, Search, Plus, X, FileText, Shield, Award, 
+  ArrowLeft, Settings, Activity, Wifi, WifiOff, Maximize, Minimize
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -36,51 +34,222 @@ export default function SecureVideoPlayer({
   onNextLesson,
   nextLessonTitle
 }: SecureVideoPlayerProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Video State
-  const [videoUrl, setVideoUrl] = useState<string>("");
+  // Core Player States
+  const [iframeSrc, setIframeSrc] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // Custom Controls State
-  const [isPlaying, setIsPlaying] = useState(false);
+
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
-  const [playbackRate, setPlaybackRate] = useState(1);
-  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showControls, setShowControls] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [showEndedOverlay, setShowEndedOverlay] = useState(false);
+
+  // Smart Learning Experience States
+  const [videoQuality, setVideoQuality] = useState<string>("auto");
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const [showQualityMenu, setShowQualityMenu] = useState(false);
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const [showAnalyticsPanel, setShowAnalyticsPanel] = useState(false);
   
-  // Security / Anti-Piracy State
-  const [isBlurred, setIsBlurred] = useState(false);
-  const [devToolsDetected, setDevToolsDetected] = useState(false);
-  
-  // Student Notes State
+  // Adaptive Buffer Recovery State
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [bufferCount, setBufferCount] = useState(0);
+  const lastTimeRef = useRef<number>(0);
+  const bufferTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Offline / Connection Detection States
+  const [isOffline, setIsOffline] = useState(false);
+
+  // Watch Heatmap & Analytics Engine States
+  const [heatmapData, setHeatmapData] = useState<number[]>(new Array(30).fill(0));
+  const [pauseCount, setPauseCount] = useState(0);
+  const [totalWatchedSeconds, setTotalWatchedSeconds] = useState(0);
+  const lastWatchedSecondRef = useRef<number>(-1);
+
+  // Floating Picture-in-Picture State
+  const [isFloating, setIsFloating] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Automatic Continue Learning Countdown State
+  const [countdown, setCountdown] = useState(5);
+  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [autoPlayCancelled, setAutoPlayCancelled] = useState(false);
+
+  // Smart Recommendations State
+  const [recommendedCourses, setRecommendedCourses] = useState<any[]>([]);
+
+  // Student Notes States
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState<LessonNote[]>([]);
   const [noteText, setNoteText] = useState("");
   const [noteSearch, setNoteSearch] = useState("");
   const [savingNote, setSavingNote] = useState(false);
 
-  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Security / Anti-Capture States
+  const [isBlurred, setIsBlurred] = useState(false);
+  const [devToolsDetected, setDevToolsDetected] = useState(false);
 
+  // Sync control refs to prevent redundant database writes
+  const lastSyncTimeRef = useRef<number>(-1);
 
+  // Double-tap Mobile Seek Gesture States
+  const lastTapRef = useRef<{ time: number; x: number }>({ time: 0, x: 0 });
+  const [showSeekIndicator, setShowSeekIndicator] = useState<{ show: boolean; direction: "forward" | "backward" }>({ show: false, direction: "forward" });
 
-  // 3. DevTools and Visibility/Screen Recording Detections
+  // 1. Initialize Player and Fetch Progress
+  const initPlayer = async () => {
+    setLoading(true);
+    setError(null);
+    setShowEndedOverlay(false);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    lastSyncTimeRef.current = -1;
+    lastWatchedSecondRef.current = -1;
+    setPauseCount(0);
+    setTotalWatchedSeconds(0);
+    setHeatmapData(new Array(30).fill(0));
+    setCountdown(5);
+    setAutoPlayCancelled(false);
+
+    try {
+      // Get the last saved position for Resume Watching
+      const progress = await getVideoProgress(userId, lessonId);
+      const resumeTime = progress?.last_position || 0;
+
+      // Construct embed source pointing to the secure proxy API route
+      const params = new URLSearchParams();
+      params.set("color", "D6004B"); // Match our luxury rose theme color
+      if (resumeTime > 0) {
+        params.set("time", resumeTime.toString());
+      }
+      
+      const embedUrl = `/api/video/embed/${lessonId}?${params.toString()}`;
+      setIframeSrc(embedUrl);
+
+      if (resumeTime > 0) {
+        toast.success(`تم استئناف الدرس من ثانية ${resumeTime} 🔄`);
+      }
+    } catch (err: any) {
+      setError("حدث خطأ أثناء تحميل مشغل الفيديو المؤمن");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 2. Fetch Student Lesson Notes
+  const fetchNotes = async () => {
+    try {
+      const list = await getLessonNotes(userId, lessonId);
+      setNotes(list);
+    } catch (e) {}
+  };
+
   useEffect(() => {
-    // A. Blur if tab loses focus or visibility changes
+    initPlayer();
+    fetchNotes();
+  }, [lessonId]);
+
+  // 3. Smart Recommendations Fetching
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      try {
+        const { data: currentCourse } = await supabaseClient
+          .from("courses")
+          .select("category")
+          .eq("id", courseId)
+          .maybeSingle();
+
+        const cat = currentCourse?.category || "الأتمتة";
+
+        const { data: related } = await supabaseClient
+          .from("courses")
+          .select("id, title, slug, image_url, price, category")
+          .eq("category", cat)
+          .neq("id", courseId)
+          .limit(3);
+
+        setRecommendedCourses(related || []);
+      } catch (e) {
+        console.error("Failed to load recommendations:", e);
+      }
+    };
+
+    if (showEndedOverlay) {
+      fetchRecommendations();
+    }
+  }, [showEndedOverlay, courseId]);
+
+  // 4. Automatic Continue Learning Countdown
+  useEffect(() => {
+    if (showEndedOverlay && onNextLesson && nextLessonTitle && !autoPlayCancelled) {
+      setCountdown(5);
+      countdownTimerRef.current = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(countdownTimerRef.current!);
+            onNextLesson();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    };
+  }, [showEndedOverlay, onNextLesson, autoPlayCancelled]);
+
+  // 5. Offline & Connection Failure Detection
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleOnline = () => {
+      setIsOffline(false);
+      toast.success("تم استعادة الاتصال بالشبكة بنجاح! ⚡");
+      postPlayerMessage("play");
+    };
+
+    const handleOffline = () => {
+      setIsOffline(true);
+      toast.error("انقطع الاتصال بالإنترنت. تم إيقاف التشغيل مؤقتاً 🌐");
+      postPlayerMessage("pause");
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    setIsOffline(!navigator.onLine);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  // 6. Floating Picture-in-Picture & Scroll Observer
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleScroll = () => {
+      if (!containerRef.current || isFullscreen) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      // Enable PiP if the main player scrolls completely out of viewport
+      const outOfView = rect.bottom < 0;
+      setIsFloating(outOfView && isPlaying);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [isPlaying, isFullscreen]);
+
+  // 7. Security Checkers (DevTools & Tab/Page Blur Screen Protection)
+  useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === "hidden") {
         setIsBlurred(true);
-        if (videoRef.current && !videoRef.current.paused) {
-          videoRef.current.pause();
-          setIsPlaying(false);
-        }
+        postPlayerMessage("pause");
       } else {
         setIsBlurred(false);
       }
@@ -88,17 +257,13 @@ export default function SecureVideoPlayer({
 
     const handleBlur = () => {
       setIsBlurred(true);
-      if (videoRef.current && !videoRef.current.paused) {
-        videoRef.current.pause();
-        setIsPlaying(false);
-      }
+      postPlayerMessage("pause");
     };
 
     const handleFocus = () => {
       setIsBlurred(false);
     };
 
-    // B. Docked DevTools Detection via dimension checks
     const checkDevTools = () => {
       const threshold = 160;
       const widthDiff = window.outerWidth - window.innerWidth;
@@ -107,10 +272,7 @@ export default function SecureVideoPlayer({
       if (widthDiff > threshold || heightDiff > threshold) {
         setDevToolsDetected(true);
         setIsBlurred(true);
-        if (videoRef.current) {
-          videoRef.current.pause();
-          setIsPlaying(false);
-        }
+        postPlayerMessage("pause");
       } else {
         setDevToolsDetected(false);
       }
@@ -121,7 +283,6 @@ export default function SecureVideoPlayer({
     window.addEventListener("focus", handleFocus);
     window.addEventListener("resize", checkDevTools);
     
-    // Regular check interval
     const devToolsInterval = setInterval(checkDevTools, 2000);
 
     return () => {
@@ -133,175 +294,118 @@ export default function SecureVideoPlayer({
     };
   }, []);
 
-  // 4. Fetch Secure Stream Source
-  const fetchSignedUrl = async (silent = false) => {
-    if (!silent) setLoading(true);
-    try {
-      // Direct call to our secure API streaming endpoint (by default proxy stream layer is active)
-      const res = await fetch(`/api/video/stream/${lessonId}`);
-      const data = await res.json();
-      if (res.ok && data.url) {
-        setVideoUrl(data.url);
-        setError(null);
-      } else {
-        setError(data.error || "فشل تحميل المحاضرة الآمنة");
-      }
-    } catch (err) {
-      setError("خطأ في الاتصال بخادم تشفير الفيديو");
-    } finally {
-      if (!silent) setLoading(false);
+  // 8. Adaptive Buffer Recovery Check Loop
+  useEffect(() => {
+    if (!isPlaying || loading || error || showEndedOverlay || isOffline) {
+      if (bufferTimerRef.current) clearInterval(bufferTimerRef.current);
+      return;
     }
-  };
 
-  // 5. Fetch Student Lesson Notes
-  const fetchNotes = async () => {
-    try {
-      const list = await getLessonNotes(userId, lessonId);
-      setNotes(list);
-    } catch (e) {}
-  };
-
-  useEffect(() => {
-    fetchSignedUrl();
-    fetchNotes();
-    setIsPlaying(false);
-    setShowEndedOverlay(false);
-    setShowNotes(false);
-    
-    // Auto-refresh token in background every 4 minutes before expiry
-    const interval = setInterval(() => {
-      fetchSignedUrl(true);
-    }, 240000);
-
-    return () => clearInterval(interval);
-  }, [lessonId]);
-
-  // 6. Resume Watching Load Progress
-  useEffect(() => {
-    const initProgress = async () => {
-      if (!videoRef.current || !videoUrl) return;
-      try {
-        const progress = await getVideoProgress(userId, lessonId);
-        if (progress && progress.last_position > 0) {
-          if (progress.last_position < (videoRef.current.duration || 99999) - 10) {
-            videoRef.current.currentTime = progress.last_position;
-            toast.success(`تم استئناف الدرس من ثانية ${progress.last_position} 🔄`);
+    bufferTimerRef.current = setInterval(() => {
+      // If playing but current time is not moving, the video is buffering
+      if (currentTime === lastTimeRef.current && currentTime > 0) {
+        setIsBuffering(true);
+        setBufferCount(prev => {
+          const next = prev + 1;
+          if (next === 3) {
+            // Buffer recovery triggered: drop quality automatically to 480p/360p
+            postPlayerMessage("setQuality", "480p");
+            setVideoQuality("480p");
+            toast.warning("تم اكتشاف بطء في اتصال الإنترنت. جاري خفض جودة التشغيل تلقائياً لتفادي التقطيع... ⚡");
           }
-        }
-      } catch (e) {}
-    };
+          return next;
+        });
+      } else {
+        setIsBuffering(false);
+        setBufferCount(0);
+      }
+      lastTimeRef.current = currentTime;
+    }, 2000);
 
-    if (!loading && videoUrl) {
-      const timer = setTimeout(initProgress, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [loading, videoUrl, lessonId]);
-
-  // 7. Auto Sync Progress loop (every 10 seconds)
-  useEffect(() => {
-    const syncInterval = setInterval(async () => {
-      if (!videoRef.current || loading || error || !videoUrl || isBlurred) return;
-      
-      const video = videoRef.current;
-      const watched = Math.floor(video.currentTime);
-      const total = Math.floor(video.duration || 0);
-      if (total === 0) return;
-
-      const completed = watched >= total * 0.92; // 92% complete mark
-
-      await saveVideoProgress({
-        user_id: userId,
-        course_id: courseId,
-        lesson_id: lessonId,
-        watched_seconds: watched,
-        completed,
-        last_position: watched
-      });
-    }, 10000);
-
-    return () => clearInterval(syncInterval);
-  }, [userId, courseId, lessonId, loading, error, videoUrl, isBlurred]);
-
-  const resetControlsTimeout = () => {
-    setShowControls(true);
-    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-    
-    if (isPlaying) {
-      controlsTimeoutRef.current = setTimeout(() => {
-        if (!showNotes) {
-          setShowControls(false);
-          setShowSpeedMenu(false);
-        }
-      }, 3000);
-    }
-  };
-
-  useEffect(() => {
-    resetControlsTimeout();
     return () => {
-      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+      if (bufferTimerRef.current) clearInterval(bufferTimerRef.current);
     };
-  }, [isPlaying, showNotes]);
+  }, [isPlaying, currentTime, loading, error, showEndedOverlay, isOffline]);
 
-  // Player Control Handlers
-  const handlePlayPause = () => {
-    if (isBlurred || devToolsDetected) return;
-    if (!videoRef.current) return;
-    if (isPlaying) {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      videoRef.current.play().catch(() => {});
-      setIsPlaying(true);
-      setShowEndedOverlay(false);
+  // 9. Keyboard Shortcuts Implementation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore key events when typing notes
+      if (
+        document.activeElement?.tagName === "INPUT" || 
+        document.activeElement?.tagName === "TEXTAREA"
+      ) {
+        return;
+      }
+
+      switch (e.key.toLowerCase()) {
+        case " ":
+          e.preventDefault();
+          if (isPlaying) {
+            postPlayerMessage("pause");
+          } else {
+            postPlayerMessage("play");
+          }
+          break;
+        case "arrowright":
+          e.preventDefault();
+          seekSkip(10);
+          break;
+        case "arrowleft":
+          e.preventDefault();
+          seekSkip(-10);
+          break;
+        case "f":
+          e.preventDefault();
+          toggleFullscreen();
+          break;
+        case "d": // Increase speed
+          e.preventDefault();
+          const nextSpeed = Math.min(2, playbackSpeed + 0.25);
+          postPlayerMessage("setPlaybackSpeed", nextSpeed);
+          setPlaybackSpeed(nextSpeed);
+          toast.info(`سرعة التشغيل الحالية: ${nextSpeed}x`);
+          break;
+        case "s": // Decrease speed
+          e.preventDefault();
+          const prevSpeed = Math.max(0.5, playbackSpeed - 0.25);
+          postPlayerMessage("setPlaybackSpeed", prevSpeed);
+          setPlaybackSpeed(prevSpeed);
+          toast.info(`سرعة التشغيل الحالية: ${prevSpeed}x`);
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isPlaying, playbackSpeed, currentTime, duration]);
+
+  // PostMessage helper to talk with Bunny CDN Embedded player
+  const postPlayerMessage = (event: string, value?: any) => {
+    const iframe = containerRef.current?.querySelector("iframe");
+    if (iframe?.contentWindow) {
+      try {
+        iframe.contentWindow.postMessage(
+          JSON.stringify({ event, value }),
+          "*"
+        );
+      } catch (e) {
+        console.error("Failed to post message to iframe:", e);
+      }
     }
-    resetControlsTimeout();
   };
 
-  const handleTimeUpdate = () => {
-    if (!videoRef.current) return;
-    setCurrentTime(videoRef.current.currentTime);
-  };
-
-  const handleLoadedMetadata = () => {
-    if (!videoRef.current) return;
-    setDuration(videoRef.current.duration);
-  };
-
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!videoRef.current) return;
-    const time = Number(e.target.value);
-    videoRef.current.currentTime = time;
+  const seekVideo = (time: number) => {
+    postPlayerMessage("seek", time);
     setCurrentTime(time);
-    resetControlsTimeout();
   };
 
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!videoRef.current) return;
-    const vol = Number(e.target.value);
-    setVolume(vol);
-    videoRef.current.volume = vol;
-    setIsMuted(vol === 0);
-    resetControlsTimeout();
+  const seekSkip = (seconds: number) => {
+    const targetTime = Math.min(Math.max(0, currentTime + seconds), duration || 99999);
+    seekVideo(targetTime);
   };
 
-  const handleToggleMute = () => {
-    if (!videoRef.current) return;
-    const nextMuted = !isMuted;
-    setIsMuted(nextMuted);
-    videoRef.current.muted = nextMuted;
-    resetControlsTimeout();
-  };
-
-  const handleSpeedChange = (rate: number) => {
-    if (!videoRef.current) return;
-    setPlaybackRate(rate);
-    videoRef.current.playbackRate = rate;
-    setShowSpeedMenu(false);
-    resetControlsTimeout();
-  };
-
-  const handleFullscreenToggle = () => {
+  const toggleFullscreen = () => {
     if (!containerRef.current) return;
     if (!document.fullscreenElement) {
       containerRef.current.requestFullscreen().then(() => {
@@ -312,7 +416,6 @@ export default function SecureVideoPlayer({
         setIsFullscreen(false);
       }).catch(() => {});
     }
-    resetControlsTimeout();
   };
 
   useEffect(() => {
@@ -323,32 +426,139 @@ export default function SecureVideoPlayer({
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  const handleSkip = (seconds: number) => {
-    if (!videoRef.current) return;
-    videoRef.current.currentTime = Math.min(
-      Math.max(0, videoRef.current.currentTime + seconds),
-      duration
-    );
-    resetControlsTimeout();
+  // Update Watch Analytics Engine & Heatmap
+  const recordWatchSecond = (time: number) => {
+    if (duration <= 0) return;
+    const sec = Math.floor(time);
+    
+    // Accumulate total watch time metrics
+    if (sec !== lastWatchedSecondRef.current) {
+      setTotalWatchedSeconds(prev => prev + 1);
+      lastWatchedSecondRef.current = sec;
+
+      // Update Heatmap buckets (30 vertical zones)
+      const bucketIndex = Math.min(29, Math.floor((time / duration) * 30));
+      setHeatmapData(prev => {
+        const next = [...prev];
+        next[bucketIndex] = (next[bucketIndex] || 0) + 1;
+        return next;
+      });
+    }
   };
+
+  // Database synchronizer for progress tracking
+  const syncProgress = async (watched: number, total: number, forceCompleted = false) => {
+    if (watched <= 0 || total <= 0) return;
+    const completed = forceCompleted || watched >= total * 0.92;
+    try {
+      await saveVideoProgress({
+        user_id: userId,
+        course_id: courseId,
+        lesson_id: lessonId,
+        watched_seconds: Math.floor(watched),
+        completed,
+        last_position: Math.floor(watched)
+      });
+      lastSyncTimeRef.current = Math.floor(watched);
+    } catch (e) {
+      console.error("Failed to save progress update:", e);
+    }
+  };
+
+  // 10. Listen for postMessage Event APIs from Bunny Stream Player
+  useEffect(() => {
+    const handlePlayerMessage = async (e: MessageEvent) => {
+      if (!e.origin.includes("mediadelivery.net") && !e.origin.includes("bunnycdn.com")) return;
+
+      try {
+        let eventData = e.data;
+        if (typeof eventData === "string") {
+          eventData = JSON.parse(eventData);
+        }
+
+        if (eventData && typeof eventData === "object") {
+          const eventName = eventData.event || eventData.eventName;
+          
+          if (eventName === "timeupdate" || eventName === "player:timeupdate") {
+            const time = Number(eventData.value || eventData.currentTime);
+            const dur = Number(eventData.duration || eventData.totalTime || duration);
+            if (!isNaN(time)) {
+              setCurrentTime(time);
+              recordWatchSecond(time);
+              if (!isNaN(dur) && dur > 0) {
+                setDuration(dur);
+              }
+
+              // Auto-sync progress to database every 10 seconds
+              const sec = Math.floor(time);
+              if (sec % 10 === 0 && sec !== lastSyncTimeRef.current) {
+                syncProgress(time, dur || duration);
+              }
+            }
+          } else if (eventName === "durationchange" || eventName === "player:durationchange") {
+            const dur = Number(eventData.value || eventData.duration);
+            if (!isNaN(dur)) {
+              setDuration(dur);
+            }
+          } else if (eventName === "ended" || eventName === "player:ended") {
+            await handleVideoEnded();
+          } else if (eventName === "play" || eventName === "player:play") {
+            setIsPlaying(true);
+            if (duration > 0) {
+              await syncProgress(currentTime, duration);
+            }
+          } else if (eventName === "pause" || eventName === "player:pause") {
+            setIsPlaying(false);
+            setPauseCount(prev => prev + 1);
+            if (duration > 0) {
+              await syncProgress(currentTime, duration);
+            }
+          }
+        }
+      } catch (err) {}
+    };
+
+    window.addEventListener("message", handlePlayerMessage);
+    return () => {
+      window.removeEventListener("message", handlePlayerMessage);
+    };
+  }, [currentTime, duration, lessonId, isPlaying]);
 
   const handleVideoEnded = async () => {
     setIsPlaying(false);
     setShowEndedOverlay(true);
-    
-    await saveVideoProgress({
-      user_id: userId,
-      course_id: courseId,
-      lesson_id: lessonId,
-      watched_seconds: Math.floor(duration),
-      completed: true,
-      last_position: Math.floor(duration)
-    });
-    
+    await syncProgress(duration || currentTime, duration || currentTime, true);
     onLessonComplete();
   };
 
-  // Add a lesson note at exact second
+  // Double-tap Mobile seek gesture detector
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (loading || error || isFloating) return;
+    const now = Date.now();
+    const tapInterval = now - lastTapRef.current.time;
+    const touch = e.touches[0];
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const clickX = touch.clientX - rect.left;
+    const playerWidth = rect.width;
+
+    if (tapInterval < 300) {
+      if (clickX > playerWidth / 2) {
+        seekSkip(10);
+        setShowSeekIndicator({ show: true, direction: "forward" });
+      } else {
+        seekSkip(-10);
+        setShowSeekIndicator({ show: true, direction: "backward" });
+      }
+      setTimeout(() => {
+        setShowSeekIndicator(prev => ({ ...prev, show: false }));
+      }, 800);
+    }
+    lastTapRef.current = { time: now, x: clickX };
+  };
+
+  // Notes Management Form Actions
   const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!noteText.trim()) return;
@@ -359,14 +569,13 @@ export default function SecureVideoPlayer({
       setNoteText("");
       toast.success("تم حفظ الملاحظة بنجاح 📝");
       fetchNotes();
-    } catch (e) {
+    } catch (err) {
       toast.error("فشل حفظ الملاحظة");
     } finally {
       setSavingNote(false);
     }
   };
 
-  // Delete a lesson note
   const handleDeleteNote = async (id: string) => {
     try {
       await deleteLessonNote(id);
@@ -387,400 +596,528 @@ export default function SecureVideoPlayer({
     n.note_content.toLowerCase().includes(noteSearch.toLowerCase())
   );
 
-  return (
-    <div 
-      ref={containerRef}
-      onMouseMove={resetControlsTimeout}
-      onMouseLeave={() => isPlaying && !showNotes && setShowControls(false)}
-      className="relative w-full aspect-video rounded-3xl bg-[#030305] border border-white/5 overflow-hidden group select-none shadow-2xl flex items-center justify-center"
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      {/* 1. Visibility & Anti-Screen Capture Blur filter */}
-      <div className={`absolute inset-0 w-full h-full transition-all duration-500 z-0 ${isBlurred ? "blur-[30px] scale-[1.02] pointer-events-none" : ""}`}>
-        
-        {/* Standard Video Element */}
-        {videoUrl && (
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            onClick={handlePlayPause}
-            onTimeUpdate={handleTimeUpdate}
-            onLoadedMetadata={handleLoadedMetadata}
-            onEnded={handleVideoEnded}
-            className="w-full h-full object-contain cursor-pointer"
-            preload="auto"
-            playsInline
-            controlsList="nodownload nofullscreen"
-            disablePictureInPicture
-            disableRemotePlayback
-          />
-        )}
-      </div>
+  // Compute maximum zone hits in Heatmap
+  const maxZoneCount = Math.max(...heatmapData, 1);
+  const completionPercentage = duration > 0 ? Math.min(100, Math.floor((totalWatchedSeconds / duration) * 100)) : 0;
 
-      {/* 2. Security Alerts (DevTools Detected or Tab Blur Warning) */}
-      <AnimatePresence>
-        {(isBlurred || devToolsDetected) && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/80 backdrop-blur-md z-40 flex flex-col items-center justify-center gap-4 text-center p-6"
+  return (
+    <div className="relative w-full aspect-video">
+      {/* Scroll PiP Placeholder Spacer */}
+      {isFloating && (
+        <div className="w-full h-full bg-zinc-950/20 border-2 border-dashed border-zinc-800 rounded-3xl flex flex-col items-center justify-center gap-2 p-6 animate-pulse">
+          <Activity className="w-8 h-8 text-[#D6004B]/60" />
+          <p className="text-xs text-zinc-500 font-cairo">المحاضرة تعمل حالياً في المشغل العائم بالأسفل 📺</p>
+        </div>
+      )}
+
+      <div 
+        ref={containerRef}
+        onTouchStart={handleTouchStart}
+        className={isFloating 
+          ? "fixed bottom-6 left-6 w-80 sm:w-96 aspect-video z-50 shadow-2xl rounded-2xl border border-white/10 overflow-hidden bg-[#030303] animate-fade-in group select-none"
+          : "relative w-full h-full rounded-3xl bg-[#030303] overflow-hidden group select-none shadow-2xl border border-white/5"
+        }
+      >
+        {/* Close Button on Floating Player */}
+        {isFloating && (
+          <button 
+            onClick={() => {
+              postPlayerMessage("pause");
+              setIsFloating(false);
+            }}
+            className="absolute top-2 left-2 z-40 p-1.5 bg-black/80 hover:bg-black border border-white/10 text-white rounded-full transition-colors cursor-pointer"
+            title="إيقاف مؤقت وإغلاق المشغل"
           >
-            <div className="w-16 h-16 rounded-full bg-rose-500/10 border border-rose-500/20 text-[#D6004B] flex items-center justify-center shadow-[0_0_30px_rgba(214,0,75,0.2)] animate-pulse">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+
+        {/* 1. Official Bunny Embed Iframe (Direct Integration) */}
+        {!loading && !error && iframeSrc && (
+          <div className={`absolute inset-0 w-full h-full transition-all duration-500 z-0 ${isBlurred ? "blur-[30px] scale-[1.02] pointer-events-none" : ""}`}>
+            <iframe
+              src={iframeSrc}
+              loading="lazy"
+              className="w-full h-full border-none absolute inset-0 z-10"
+              allow="autoplay; encrypted-media; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        )}
+
+        {/* 2. Security Anti-Capture/DevTools Cover Overlay */}
+        <AnimatePresence>
+          {(isBlurred || devToolsDetected) && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/90 backdrop-blur-md z-45 flex flex-col items-center justify-center gap-4 text-center p-6"
+            >
+              <div className="w-16 h-16 rounded-full bg-rose-500/10 border border-rose-500/20 text-[#D6004B] flex items-center justify-center shadow-[0_0_30px_rgba(214,0,75,0.2)] animate-pulse">
+                <Shield className="w-8 h-8" />
+              </div>
+              <div className="space-y-2 max-w-sm">
+                <h4 className="font-alexandria font-black text-white text-base">تم إيقاف الفيديو لدواعي الأمان 🔒</h4>
+                <p className="text-zinc-400 text-xs font-cairo leading-relaxed">
+                  {devToolsDetected 
+                    ? "تم اكتشاف محاولة فتح أدوات المطور (DevTools). يرجى إغلاق أدوات المطور للاستمرار في مشاهدة المحتوى بأمان."
+                    : "تم تعتيم الفيديو تلقائياً نظراً لعدم نشاط الصفحة أو محاولة تصوير شاشة العرض. يرجى التركيز في المحاضرة للاستمرار."}
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 3. Offline Overlay Warning */}
+        <AnimatePresence>
+          {isOffline && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="absolute inset-x-0 top-0 bg-rose-600/90 backdrop-blur-md z-40 text-center py-2.5 px-4 flex items-center justify-center gap-2 text-white text-xs font-bold font-cairo"
+            >
+              <WifiOff className="w-4 h-4 animate-bounce" />
+              <span>لقد انقطع الاتصال بالإنترنت حالياً. سيتم استئناف التشغيل تلقائياً فور استقرار الشبكة.</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 4. Smart Mobile Double Tap Seek Indicator overlay */}
+        <AnimatePresence>
+          {showSeekIndicator.show && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.5 }}
+              className="absolute inset-0 bg-black/20 pointer-events-none z-30 flex items-center justify-center"
+            >
+              <div className="bg-black/80 backdrop-blur-md px-5 py-3 rounded-full flex items-center gap-2 text-white border border-white/10">
+                <span className="text-xs font-alexandria font-black">
+                  {showSeekIndicator.direction === "forward" ? "تقدم +10 ثوانٍ ⏩" : "رجوع -10 ثوانٍ ⏪"}
+                </span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 5. Loading Skeleton Overlay */}
+        {loading && (
+          <div className="absolute inset-0 bg-[#06060a] z-50 flex flex-col items-center justify-center gap-4">
+            <Loader2 className="w-12 h-12 text-[#D6004B] animate-spin" />
+            <div className="text-center space-y-1">
+              <h4 className="font-alexandria font-bold text-white text-sm">تحميل آمن للمحاضرة</h4>
+              <p className="text-zinc-500 text-xs font-cairo">يتم تحضير مشغل البث المؤمن الموفر من يوسف أوتوميتس...</p>
+            </div>
+          </div>
+        )}
+
+        {/* 6. Error Display Panel */}
+        {error && (
+          <div className="absolute inset-0 bg-[#08080c] z-50 flex flex-col items-center justify-center gap-5 p-6 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-rose-950/20 border border-rose-500/20 flex items-center justify-center text-rose-500">
               <Shield className="w-8 h-8" />
             </div>
-            <div className="space-y-2 max-w-sm">
-              <h4 className="font-alexandria font-black text-white text-base">تم إيقاف الفيديو لدواعي الأمان 🔒</h4>
-              <p className="text-zinc-400 text-xs font-cairo leading-relaxed">
-                {devToolsDetected 
-                  ? "تم اكتشاف محاولة فتح أدوات المطور (DevTools). يرجى إغلاق النافذة الجانبية للاستمرار في مشاهدة المحتوى الفني بأمان."
-                  : "تم تعتيم الفيديو تلقائياً نظراً لعدم نشاط الصفحة أو محاولة تصوير شاشة العرض. يرجى التركيز في المحاضرة للاستمرار."}
+            <div className="space-y-2 max-w-md">
+              <h4 className="font-alexandria font-bold text-white text-base">بث غير مصرح به أو رابط منتهي</h4>
+              <p className="text-zinc-500 text-xs leading-relaxed font-cairo">
+                {error === "يجب الاشتراك في هذا الكورس أولاً لمشاهدة الفيديو"
+                  ? "عذراً، هذا الكورس مغلق حالياً. يرجى الاشتراك للوصول إلى المحاضرة."
+                  : "جلسة العرض غير مصرح بها أو منتهية الصلاحية. يرجى التأكد من تسجيل الدخول وإعادة المحاولة."}
               </p>
             </div>
-          </motion.div>
+            <button 
+              onClick={() => initPlayer()}
+              className="px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-xs font-bold font-alexandria transition-all active:scale-95"
+            >
+              إعادة محاولة التحميل
+            </button>
+          </div>
         )}
-      </AnimatePresence>
 
-
-
-      {/* 4. Loading Skeleton Overlay */}
-      {loading && (
-        <div className="absolute inset-0 bg-[#06060a] z-50 flex flex-col items-center justify-center gap-4">
-          <Loader2 className="w-12 h-12 text-[#D6004B] animate-spin" />
-          <div className="text-center space-y-1">
-            <h4 className="font-alexandria font-bold text-white text-sm">جاري التشفير والتحميل الآمن</h4>
-            <p className="text-zinc-500 text-xs font-cairo">يتم الاتصال بخادم البث المباشر الموفر من يوسف أوتوميتس...</p>
-          </div>
-        </div>
-      )}
-
-      {/* 5. Error Display */}
-      {error && (
-        <div className="absolute inset-0 bg-[#08080c] z-50 flex flex-col items-center justify-center gap-5 p-6 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-rose-950/20 border border-rose-500/20 flex items-center justify-center text-rose-500">
-            <Shield className="w-8 h-8" />
-          </div>
-          <div className="space-y-2 max-w-md">
-            <h4 className="font-alexandria font-bold text-white text-base">بث غير مصرح به أو رابط منتهي</h4>
-            <p className="text-zinc-500 text-xs leading-relaxed font-cairo">
-              {error === "يجب الاشتراك في هذا الكورس أولاً لمشاهدة الفيديو"
-                ? "عذراً، هذا الكورس مغلق حالياً. يرجى الاشتراك للوصول إلى المحاضرة."
-                : "جلسة العرض غير مصرح بها أو منتهية الصلاحية. يرجى التأكد من تسجيل الدخول وإعادة المحاولة."}
-            </p>
-          </div>
-          <button 
-            onClick={() => fetchSignedUrl()}
-            className="px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-xs font-bold font-alexandria transition-all active:scale-95"
-          >
-            إعادة محاولة التحميل
-          </button>
-        </div>
-      )}
-
-      {/* 6. Shield DRM Branding Overlay */}
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 bg-black/60 backdrop-blur-md border border-white/5 px-2.5 py-1.5 rounded-lg text-[9px] text-zinc-400 font-bold opacity-60 pointer-events-none tracking-widest font-alexandria">
-        <Shield className="w-3 h-3 text-[#D6004B]" />
-        <span>بث مشفر وآمن Enterprise-Grade</span>
-      </div>
-
-      {/* 7. Custom Control Center */}
-      <AnimatePresence>
-        {showControls && !loading && !error && !isBlurred && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/30 z-10 pointer-events-none flex flex-col justify-between p-4"
-          >
-            {/* Top Bar inside player */}
-            <div className="w-full flex items-center justify-between pointer-events-auto">
-              <span className="text-[10px] text-zinc-400 font-bold font-mono">
-                {playbackRate !== 1 ? `سرعة التشغيل: ${playbackRate}x` : ""}
-              </span>
-            </div>
-
-            {/* Middle Play/Skip Overlay */}
-            <div className="flex items-center justify-center gap-8 pointer-events-auto my-auto self-center">
+        {/* 7. Enterprise DRM Branding & Controls Cluster (Premium Learning HUD) */}
+        {!loading && !error && !isFloating && (
+          <div className="absolute top-4 inset-x-4 z-20 flex items-center justify-between pointer-events-none">
+            {/* Left side actions (Notes drawer & HUD Tools) */}
+            <div className="flex items-center gap-2 pointer-events-auto">
               <button 
-                onClick={() => handleSkip(-10)} 
-                className="w-11 h-11 rounded-full bg-black/40 hover:bg-black/60 border border-white/5 text-white flex items-center justify-center transition-all hover:scale-105 active:scale-90 cursor-pointer"
-                title="رجوع 10 ثواني"
+                onClick={() => setShowNotes(!showNotes)}
+                className={`h-8 px-2.5 rounded-lg border flex items-center gap-1.5 transition-all cursor-pointer text-[10px] font-bold font-alexandria bg-black/60 backdrop-blur-md ${showNotes ? "bg-[#D6004B]/20 border-[#D6004B] text-white" : "border-white/5 text-zinc-300 hover:text-white"}`}
               >
-                <RotateCcw className="w-5 h-5 text-zinc-300" />
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>ملاحظاتي</span>
               </button>
 
               <button 
-                onClick={handlePlayPause}
-                className="w-16 h-16 rounded-full bg-[#D6004B] hover:bg-[#ff0059] text-white flex items-center justify-center transition-all hover:scale-110 active:scale-95 shadow-lg shadow-[#D6004B]/30 cursor-pointer"
+                onClick={() => setShowAnalyticsPanel(!showAnalyticsPanel)}
+                className={`h-8 px-2.5 rounded-lg border flex items-center gap-1.5 transition-all cursor-pointer text-[10px] font-bold font-alexandria bg-black/60 backdrop-blur-md ${showAnalyticsPanel ? "bg-[#D6004B]/20 border-[#D6004B] text-white" : "border-white/5 text-zinc-300 hover:text-white"}`}
               >
-                {isPlaying ? <Pause className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 fill-current ml-1" />}
-              </button>
-
-              <button 
-                onClick={() => handleSkip(10)} 
-                className="w-11 h-11 rounded-full bg-black/40 hover:bg-black/60 border border-white/5 text-white flex items-center justify-center transition-all hover:scale-105 active:scale-90 cursor-pointer"
-                title="تسريع 10 ثواني"
-              >
-                <RotateCw className="w-5 h-5 text-zinc-300" />
+                <Activity className="w-3.5 h-3.5" />
+                <span>الإحصائيات</span>
               </button>
             </div>
 
-            {/* Bottom Controls Panel */}
-            <div className="w-full space-y-3 pointer-events-auto">
-              
-              {/* Progress Slider */}
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] font-mono text-zinc-400 font-bold shrink-0">{formatTime(currentTime)}</span>
-                <input 
-                  type="range"
-                  min={0}
-                  max={duration || 100}
-                  value={currentTime}
-                  onChange={handleSeek}
-                  className="w-full h-1 bg-white/10 hover:h-1.5 rounded-lg appearance-none cursor-pointer accent-[#D6004B] transition-all"
-                />
-                <span className="text-[10px] font-mono text-zinc-400 font-bold shrink-0">{formatTime(duration)}</span>
-              </div>
+            {/* Right side actions (Quality & Speed options) */}
+            <div className="flex items-center gap-2 pointer-events-auto relative">
+              {/* Quality Settings */}
+              <div className="relative">
+                <button 
+                  onClick={() => {
+                    setShowQualityMenu(!showQualityMenu);
+                    setShowSpeedMenu(false);
+                  }}
+                  className="h-8 px-2.5 rounded-lg border border-white/5 text-zinc-300 hover:text-white text-[10px] font-bold font-alexandria flex items-center gap-1 bg-black/60 backdrop-blur-md cursor-pointer"
+                >
+                  <Settings className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>الجودة: {videoQuality.toUpperCase()}</span>
+                </button>
 
-              {/* Action Buttons Row */}
-              <div className="flex items-center justify-between">
-                
-                {/* Volume & Details */}
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1.5 group/volume">
-                    <button 
-                      onClick={handleToggleMute}
-                      className="text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                <AnimatePresence>
+                  {showQualityMenu && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute left-0 mt-1 bg-[#09090e]/95 border border-white/10 rounded-xl p-1.5 shadow-xl min-w-[110px] z-30 backdrop-blur-xl"
                     >
-                      {isMuted ? <VolumeX className="w-4.5 h-4.5" /> : volume < 0.3 ? <Volume1 className="w-4.5 h-4.5" /> : <Volume2 className="w-4.5 h-4.5" />}
-                    </button>
-                    <input 
-                      type="range"
-                      min={0}
-                      max={1}
-                      step={0.05}
-                      value={isMuted ? 0 : volume}
-                      onChange={handleVolumeChange}
-                      className="w-0 group-hover/volume:w-16 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-white transition-all duration-300"
-                    />
-                  </div>
-                </div>
-
-                {/* Right controls: Notes, Speed, Fullscreen */}
-                <div className="flex items-center gap-3 relative">
-                  
-                  {/* Notes Button trigger */}
-                  <button 
-                    onClick={() => setShowNotes(!showNotes)}
-                    className={`h-8 px-2.5 rounded-lg border flex items-center gap-1.5 transition-all cursor-pointer text-xs font-bold font-alexandria ${showNotes ? "bg-[#D6004B]/20 border-[#D6004B] text-white" : "hover:bg-white/5 border-transparent hover:border-white/5 text-zinc-300 hover:text-white"}`}
-                  >
-                    <BookOpen className="w-4 h-4" />
-                    <span>ملاحظاتي</span>
-                  </button>
-                  
-                  {/* Speed Trigger */}
-                  <button 
-                    onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-                    className="h-8 px-2.5 rounded-lg hover:bg-white/5 border border-transparent hover:border-white/5 text-zinc-300 hover:text-white text-xs font-bold font-alexandria flex items-center gap-1 transition-all cursor-pointer"
-                  >
-                    <Settings className="w-4.5 h-4.5" />
-                    <span>{playbackRate}x</span>
-                  </button>
-
-                  {/* Playback rate popup */}
-                  <AnimatePresence>
-                    {showSpeedMenu && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        className="absolute bottom-11 right-12 bg-[#0d0d13] border border-white/10 rounded-xl p-1.5 shadow-xl min-w-[100px] z-30"
-                      >
-                        {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
-                          <button
-                            key={rate}
-                            onClick={() => handleSpeedChange(rate)}
-                            className={`w-full px-3 py-1.5 rounded-lg text-right text-xs font-alexandria transition-colors hover:bg-white/5 cursor-pointer block ${playbackRate === rate ? "text-[#D6004B] font-black" : "text-zinc-400 font-bold"}`}
-                          >
-                            {rate === 1 ? "عادي 1.0x" : `${rate}x`}
-                          </button>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Fullscreen Trigger */}
-                  <button 
-                    onClick={handleFullscreenToggle}
-                    className="p-1.5 text-zinc-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
-                  >
-                    {isFullscreen ? <Minimize className="w-4.5 h-4.5" /> : <Maximize className="w-4.5 h-4.5" />}
-                  </button>
-
-                </div>
-
+                      {["auto", "1080p", "720p", "480p", "360p"].map(q => (
+                        <button
+                          key={q}
+                          onClick={() => {
+                            postPlayerMessage("setQuality", q);
+                            setVideoQuality(q);
+                            setShowQualityMenu(false);
+                            toast.success(`تم تغيير الدقة إلى ${q.toUpperCase()}`);
+                          }}
+                          className={`w-full px-3 py-1.5 rounded-lg text-right text-[10px] font-alexandria transition-colors hover:bg-white/5 cursor-pointer block ${videoQuality === q ? "text-[#D6004B] font-black" : "text-zinc-400 font-bold"}`}
+                        >
+                          {q.toUpperCase()}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              {/* Speed Settings */}
+              <div className="relative">
+                <button 
+                  onClick={() => {
+                    setShowSpeedMenu(!showSpeedMenu);
+                    setShowQualityMenu(false);
+                  }}
+                  className="h-8 px-2.5 rounded-lg border border-white/5 text-zinc-300 hover:text-white text-[10px] font-bold font-alexandria flex items-center gap-1 bg-black/60 backdrop-blur-md cursor-pointer"
+                >
+                  <Activity className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>السرعة: {playbackSpeed}x</span>
+                </button>
 
-      {/* 8. Built-in interactive Notes slide-out panel */}
-      <AnimatePresence>
-        {showNotes && (
-          <motion.div 
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="absolute top-0 right-0 bottom-0 w-80 bg-[#07070c]/95 border-l border-white/10 backdrop-blur-xl z-30 p-4 flex flex-col justify-between"
-          >
-            {/* Header */}
-            <div className="space-y-4 shrink-0">
+                <AnimatePresence>
+                  {showSpeedMenu && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute left-0 mt-1 bg-[#09090e]/95 border border-white/10 rounded-xl p-1.5 shadow-xl min-w-[90px] z-30 backdrop-blur-xl"
+                    >
+                      {[0.5, 0.75, 1, 1.25, 1.5, 2].map(speed => (
+                        <button
+                          key={speed}
+                          onClick={() => {
+                            postPlayerMessage("setPlaybackSpeed", speed);
+                            setPlaybackSpeed(speed);
+                            setShowSpeedMenu(false);
+                            toast.success(`تم تغيير سرعة الفيديو إلى ${speed}x`);
+                          }}
+                          className={`w-full px-3 py-1.5 rounded-lg text-right text-[10px] font-alexandria transition-colors hover:bg-white/5 cursor-pointer block ${playbackSpeed === speed ? "text-[#D6004B] font-black" : "text-zinc-400 font-bold"}`}
+                        >
+                          {speed === 1 ? "عادي (1x)" : `${speed}x`}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 8. Smart Interactive Learning Analytics overlay */}
+        <AnimatePresence>
+          {showAnalyticsPanel && !isFloating && (
+            <motion.div 
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              className="absolute left-4 top-14 w-72 bg-[#09090e]/95 border border-white/10 rounded-2xl p-4 z-20 backdrop-blur-xl shadow-2xl space-y-4"
+            >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-white">
-                  <FileText className="w-4 h-4 text-[#D6004B]" />
-                  <span className="font-alexandria font-bold text-xs">ملاحظات المحاضرة</span>
+                <div className="flex items-center gap-1.5 text-white">
+                  <Activity className="w-4 h-4 text-[#D6004B]" />
+                  <span className="font-alexandria font-bold text-xs">إحصائيات التعلم الذكية</span>
                 </div>
                 <button 
-                  onClick={() => setShowNotes(false)}
+                  onClick={() => setShowAnalyticsPanel(false)}
                   className="p-1 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white cursor-pointer"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              {/* Search Bar */}
-              <div className="relative">
-                <Search className="absolute right-3 top-2.5 w-3.5 h-3.5 text-zinc-500" />
-                <input 
-                  type="text"
-                  placeholder="ابحث في ملاحظاتك..."
-                  value={noteSearch}
-                  onChange={(e) => setNoteSearch(e.target.value)}
-                  className="w-full bg-white/5 border border-white/5 rounded-xl py-1.5 pr-8 pl-3 text-[11px] text-white placeholder-zinc-500 focus:outline-none focus:border-[#D6004B] font-cairo"
-                />
-              </div>
-            </div>
-
-            {/* Notes List */}
-            <div className="flex-1 overflow-y-auto my-4 space-y-2 pr-1 custom-scrollbar">
-              {filteredNotes.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-4">
-                  <BookOpen className="w-8 h-8 text-zinc-600 mb-2" />
-                  <p className="text-[10px] text-zinc-500 font-cairo">لا توجد ملاحظات مسجلة بعد.</p>
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="bg-white/5 rounded-xl p-2.5 border border-white/5 space-y-1">
+                  <span className="text-[10px] text-zinc-500 font-cairo">وقت المشاهدة الفعلي</span>
+                  <p className="text-xs font-bold text-white font-mono">{formatTime(totalWatchedSeconds)}</p>
                 </div>
-              ) : (
-                filteredNotes.map((note) => (
-                  <div 
-                    key={note.id}
-                    className="p-2.5 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors group/note space-y-1.5 text-right relative"
+                <div className="bg-white/5 rounded-xl p-2.5 border border-white/5 space-y-1">
+                  <span className="text-[10px] text-zinc-500 font-cairo">مرات التوقف المؤقت</span>
+                  <p className="text-xs font-bold text-white font-mono">{pauseCount}</p>
+                </div>
+              </div>
+
+              {/* Progress completion bar */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[10px] font-bold">
+                  <span className="text-zinc-500 font-cairo">معدل الإكمال الفعلي</span>
+                  <span className="text-[#D6004B] font-mono">{completionPercentage}%</span>
+                </div>
+                <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                  <div style={{ width: `${completionPercentage}%` }} className="h-full bg-[#D6004B] rounded-full transition-all duration-500" />
+                </div>
+              </div>
+
+              {/* Watch Heatmap Chart */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] text-zinc-500 font-bold font-cairo block">مناطق التركيز والتكرار 🔥</span>
+                <div className="flex items-end gap-0.5 h-12 w-full px-2 bg-black/40 rounded-xl py-1 border border-white/5">
+                  {heatmapData.map((count, idx) => {
+                    const heightPercent = (count / maxZoneCount) * 100;
+                    return (
+                      <div 
+                        key={idx}
+                        style={{ height: `${Math.max(10, heightPercent)}%` }}
+                        className={`flex-1 rounded-t transition-all duration-300 ${count > 0 ? "bg-gradient-to-t from-[#D6004B] to-rose-400/40" : "bg-zinc-800/40"}`}
+                        title={`المنطقة ${idx + 1}: تم تشغيلها ${count} مرات`}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between text-[9px] text-zinc-600 font-mono font-bold">
+                  <span>البداية 0:00</span>
+                  <span>النهاية {formatTime(duration)}</span>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 9. Built-in Student Notes slide-out panel */}
+        <AnimatePresence>
+          {showNotes && !isFloating && (
+            <motion.div 
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="absolute top-0 right-0 bottom-0 w-80 bg-[#07070c]/95 border-l border-white/10 backdrop-blur-xl z-30 p-4 flex flex-col justify-between"
+            >
+              <div className="space-y-4 shrink-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-white">
+                    <FileText className="w-4 h-4 text-[#D6004B]" />
+                    <span className="font-alexandria font-bold text-xs">ملاحظات المحاضرة</span>
+                  </div>
+                  <button 
+                    onClick={() => setShowNotes(false)}
+                    className="p-1 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white cursor-pointer"
                   >
-                    <div className="flex items-center justify-between">
-                      <button 
-                        onClick={() => handleDeleteNote(note.id)}
-                        className="opacity-0 group-hover/note:opacity-100 text-zinc-500 hover:text-rose-500 transition-opacity p-0.5 rounded cursor-pointer"
-                        title="حذف الملاحظة"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <Search className="absolute right-3 top-2.5 w-3.5 h-3.5 text-zinc-500" />
+                  <input 
+                    type="text"
+                    placeholder="ابحث في ملاحظاتك..."
+                    value={noteSearch}
+                    onChange={(e) => setNoteSearch(e.target.value)}
+                    className="w-full bg-white/5 border border-white/5 rounded-xl py-1.5 pr-8 pl-3 text-[11px] text-white placeholder-zinc-500 focus:outline-none focus:border-[#D6004B] font-cairo"
+                  />
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto my-4 space-y-2 pr-1 custom-scrollbar">
+                {filteredNotes.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-4">
+                    <BookOpen className="w-8 h-8 text-zinc-600 mb-2" />
+                    <p className="text-[10px] text-zinc-500 font-cairo">لا توجد ملاحظات مسجلة بعد.</p>
+                  </div>
+                ) : (
+                  filteredNotes.map((note) => (
+                    <div 
+                      key={note.id}
+                      className="p-2.5 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors group/note space-y-1.5 text-right relative"
+                    >
+                      <div className="flex items-center justify-between">
+                        <button 
+                          onClick={() => handleDeleteNote(note.id)}
+                          className="opacity-0 group-hover/note:opacity-100 text-zinc-500 hover:text-rose-500 transition-opacity p-0.5 rounded cursor-pointer"
+                          title="حذف الملاحظة"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button 
+                          onClick={() => seekVideo(note.timestamp_seconds)}
+                          className="px-2 py-0.5 rounded bg-[#D6004B]/10 hover:bg-[#D6004B]/20 text-[#D6004B] font-mono text-[9px] font-bold cursor-pointer"
+                          title="انتقل إلى هذه الثانية"
+                        >
+                          {formatTime(note.timestamp_seconds)}
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-zinc-300 leading-relaxed font-cairo whitespace-pre-wrap">{note.note_content}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <form onSubmit={handleAddNote} className="space-y-2 shrink-0 border-t border-white/5 pt-3">
+                <div className="flex items-center justify-between text-[10px] text-zinc-500 font-bold font-cairo">
+                  <span>عند ثانية: {formatTime(currentTime)}</span>
+                  <span>اكتب ملاحظة جديدة</span>
+                </div>
+                <div className="flex gap-2">
+                  <input 
+                    type="text"
+                    placeholder="سجل فكرتك أو فك الشفرة هنا..."
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    className="flex-1 bg-white/5 border border-white/5 rounded-xl py-2 px-3 text-[11px] text-white placeholder-zinc-500 focus:outline-none focus:border-[#D6004B] font-cairo"
+                  />
+                  <button 
+                    type="submit"
+                    disabled={savingNote || !noteText.trim()}
+                    className="w-9 h-9 shrink-0 bg-[#D6004B] hover:bg-[#ff0059] disabled:bg-zinc-800 disabled:text-zinc-600 text-white rounded-xl flex items-center justify-center cursor-pointer transition-colors active:scale-95"
+                  >
+                    {savingNote ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 10. Ended / Lesson Completed Overlay with countdown autoplay & recommendations */}
+        <AnimatePresence>
+          {showEndedOverlay && !isFloating && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-[#06060a]/98 backdrop-blur-md z-40 flex flex-col justify-between p-6 text-center overflow-y-auto"
+            >
+              {/* Animated Glow */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250px] sm:w-[400px] h-[250px] sm:h-[400px] bg-[#D6004B]/5 rounded-full blur-[90px] pointer-events-none z-0"></div>
+
+              {/* Header section (Countdown or completion status) */}
+              <div className="z-10 space-y-4 pt-4 shrink-0">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+                  <Award className="w-6 h-6 animate-bounce" />
+                </div>
+
+                <div className="space-y-1">
+                  <h4 className="font-alexandria font-black text-white text-base">تم إكمال الدرس بنجاح! 🎉</h4>
+                  <p className="text-zinc-400 text-[11px] font-cairo">رائع! لقد أضفت تقدماً جديداً إلى ملفك الشخصي.</p>
+                </div>
+
+                {onNextLesson && nextLessonTitle && (
+                  <div className="bg-white/5 border border-white/5 rounded-2xl p-3 max-w-sm mx-auto space-y-2.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-right">
+                        <span className="text-[9px] text-[#D6004B] font-bold font-alexandria block uppercase tracking-wider">المحاضرة القادمة</span>
+                        <span className="text-[11px] text-white font-bold font-cairo truncate block max-w-[200px]">{nextLessonTitle}</span>
+                      </div>
+                      
+                      {!autoPlayCancelled && (
+                        <div className="w-8 h-8 rounded-full border-2 border-[#D6004B] flex items-center justify-center text-[11px] font-bold text-white font-mono shrink-0 animate-pulse">
+                          {countdown}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 shrink-0">
                       <button 
                         onClick={() => {
-                          if (videoRef.current) {
-                            videoRef.current.currentTime = note.timestamp_seconds;
-                            setCurrentTime(note.timestamp_seconds);
-                            if (videoRef.current.paused) handlePlayPause();
-                          }
+                          if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+                          onNextLesson();
                         }}
-                        className="px-2 py-0.5 rounded bg-[#D6004B]/10 hover:bg-[#D6004B]/20 text-[#D6004B] font-mono text-[9px] font-bold cursor-pointer"
-                        title="انتقل إلى هذه الثانية"
+                        className="flex-1 h-8 bg-[#D6004B] hover:bg-[#ff0059] text-white font-alexandria font-black text-[10px] rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-all shadow-md shadow-[#D6004B]/20 cursor-pointer"
                       >
-                        {formatTime(note.timestamp_seconds)}
+                        <span>تشغيل الآن</span>
+                        <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180" />
                       </button>
+
+                      {!autoPlayCancelled ? (
+                        <button 
+                          onClick={() => {
+                            setAutoPlayCancelled(true);
+                            if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+                            toast.info("تم إلغاء التشغيل التلقائي");
+                          }}
+                          className="px-3 h-8 bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 font-cairo text-[10px] rounded-xl cursor-pointer"
+                        >
+                          إلغاء
+                        </button>
+                      ) : (
+                        <span className="px-3 h-8 bg-zinc-900 border border-zinc-800 text-zinc-500 font-cairo text-[10px] rounded-xl flex items-center justify-center">
+                          التشغيل التلقائي موقوف
+                        </span>
+                      )}
                     </div>
-                    <p className="text-[11px] text-zinc-300 leading-relaxed font-cairo whitespace-pre-wrap">{note.note_content}</p>
                   </div>
-                ))
-              )}
-            </div>
-
-            {/* Footer Form */}
-            <form onSubmit={handleAddNote} className="space-y-2 shrink-0 border-t border-white/5 pt-3">
-              <div className="flex items-center justify-between text-[10px] text-zinc-500 font-bold font-cairo">
-                <span>عند ثانية: {formatTime(currentTime)}</span>
-                <span>اكتب ملاحظة جديدة</span>
-              </div>
-              <div className="flex gap-2">
-                <input 
-                  type="text"
-                  placeholder="سجل فكرتك أو فك الشفرة هنا..."
-                  value={noteText}
-                  onChange={(e) => setNoteText(e.target.value)}
-                  className="flex-1 bg-white/5 border border-white/5 rounded-xl py-2 px-3 text-[11px] text-white placeholder-zinc-500 focus:outline-none focus:border-[#D6004B] font-cairo"
-                />
-                <button 
-                  type="submit"
-                  disabled={savingNote || !noteText.trim()}
-                  className="w-9 h-9 shrink-0 bg-[#D6004B] hover:bg-[#ff0059] disabled:bg-zinc-800 disabled:text-zinc-600 text-white rounded-xl flex items-center justify-center cursor-pointer transition-colors active:scale-95"
-                >
-                  {savingNote ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 9. Ended / Lecture Finished Overlay with Next Lesson CTA */}
-      <AnimatePresence>
-        {showEndedOverlay && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-[#06060a]/95 backdrop-blur-md z-40 flex flex-col items-center justify-center p-6 text-center"
-          >
-            <div className="absolute w-[200px] sm:w-[350px] h-[200px] sm:h-[350px] bg-[#D6004B]/5 rounded-full blur-[80px] pointer-events-none z-0 animate-pulse"></div>
-
-            <div className="z-10 space-y-6 max-w-sm">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(16,185,129,0.15)]">
-                <Award className="w-8 h-8 animate-bounce" />
+                )}
               </div>
 
-              <div className="space-y-1.5">
-                <h4 className="font-alexandria font-black text-white text-base">تم إكمال المحاضرة بنجاح! 🎉</h4>
-                <p className="text-zinc-400 text-xs font-cairo leading-relaxed">أحسنت صنعاً! لقد أتممت هذا الدرس وخطوت خطوة أخرى في مسارك التدريبي.</p>
-              </div>
-
-              {onNextLesson && nextLessonTitle ? (
-                <div className="space-y-3">
-                  <button 
-                    onClick={() => {
-                      setShowEndedOverlay(false);
-                      onNextLesson();
-                    }}
-                    className="w-full h-11 bg-[#D6004B] hover:bg-[#ff0059] text-white font-alexandria font-black text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_8px_20px_rgba(214,0,75,0.25)] hover:shadow-[0_12px_25px_rgba(214,0,75,0.4)] cursor-pointer"
-                  >
-                    <span>الانتقال للمحاضرة التالية</span>
-                    <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
-                  </button>
-                  <p className="text-zinc-500 text-[10px] font-bold truncate max-w-xs mx-auto font-cairo">
-                    التالي: {nextLessonTitle}
-                  </p>
+              {/* Recommendations Section (Courses suggestions) */}
+              {recommendedCourses.length > 0 && (
+                <div className="z-10 my-4 shrink-0">
+                  <h5 className="font-alexandria font-bold text-white text-[11px] text-right mb-3 px-1">كورسات أخرى قد تهمك 💡</h5>
+                  <div className="grid grid-cols-3 gap-3">
+                    {recommendedCourses.map(c => (
+                      <a 
+                        key={c.id} 
+                        href={`/courses/${c.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white/5 border border-white/5 rounded-2xl p-2 text-right hover:border-white/10 transition-all flex flex-col gap-1.5 select-none"
+                      >
+                        <img 
+                          src={c.image_url} 
+                          alt={c.title} 
+                          className="w-full aspect-[16/10] object-cover rounded-xl border border-white/5"
+                        />
+                        <span className="text-[9px] text-zinc-400 font-cairo block truncate font-bold">{c.title}</span>
+                        <span className="text-[9px] text-[#D6004B] font-mono font-bold block">{c.price_egp || c.price ? `${c.price_egp || c.price} EGP` : "ميجاني"}</span>
+                      </a>
+                    ))}
+                  </div>
                 </div>
-              ) : (
+              )}
+
+              {/* Bottom footer button */}
+              <div className="z-10 pb-2 shrink-0">
                 <button 
                   onClick={() => setShowEndedOverlay(false)}
-                  className="px-6 h-10 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-alexandria font-bold text-xs rounded-xl active:scale-95 transition-all cursor-pointer"
+                  className="px-6 h-8.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-alexandria font-bold text-[10px] rounded-xl active:scale-95 transition-all cursor-pointer"
                 >
-                  إغلاق وإعادة المشاهدة
+                  إعادة تشغيل المحاضرة الحالية
                 </button>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

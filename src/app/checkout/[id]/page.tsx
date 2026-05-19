@@ -21,6 +21,8 @@ import { supabase } from "@/lib/supabase";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { type Product, calcDiscount } from "@/lib/products";
 
+import { resolveUserCurrency, resolveProductPrice, formatPrice, getUSDtoEGPExchangeRate, type Currency } from "@/lib/pricing";
+
 const COUNTRY_CODES = [
   { code: "+20", name: "مصر (Egypt)", flag: "🇪🇬" },
   { code: "+966", name: "السعودية (Saudi Arabia)", flag: "🇸🇦" },
@@ -39,7 +41,7 @@ const COUNTRY_CODES = [
   { code: "+963", name: "سوريا (Syria)", flag: "🇸🇾" },
   { code: "+961", name: "لبنان (Lebanon)", flag: "🇱🇧" },
   { code: "+970", name: "فلسطين (Palestine)", flag: "🇵🇸" },
-  { code: "+967", name: "اليمن (Yemen)", flag: "🇾🇪" },
+  { code: "+967", name: "اليمن (Yemen)", flag: "🇪🇬" }
 ];
 
 const checkoutSchema = z.object({
@@ -62,6 +64,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; percent: number } | null>(null);
   const [couponError, setCouponError] = useState("");
+  const [currency, setCurrency] = useState<Currency>("EGP");
   
   // Card Fields State
   const [cardNumber, setCardNumber] = useState("");
@@ -81,6 +84,13 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
   }, [paymentMethod]);
 
   const router = useRouter();
+
+  // Force credit card payment for international users
+  useEffect(() => {
+    if (currency === "USD") {
+      setPaymentMethod("card");
+    }
+  }, [currency]);
 
   // Card Formatting & Validation Handlers
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -146,10 +156,13 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
   };
 
   useEffect(() => {
-    fetchProduct();
+    resolveUserCurrency().then(detectedCurrency => {
+      setCurrency(detectedCurrency);
+      fetchProduct(detectedCurrency);
+    });
   }, [resolvedParams.id]); // eslint-disable-line
 
-  async function fetchProduct() {
+  async function fetchProduct(resolvedCurrency: Currency) {
     setIsFetching(true);
     try {
       let data: any = null;
@@ -207,26 +220,35 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
 
       if (!data) throw new Error("المحتوى المطلوب غير متوفر حالياً");
       
-      setProduct(data as Product);
+      // Resolve prices depending on resolvedCurrency
+      const resolvedPricing = resolveProductPrice(data, resolvedCurrency);
+      
+      const mappedProduct: Product = {
+        ...data,
+        price: resolvedPricing.price,
+        original_price: resolvedPricing.original_price
+      };
+
+      setProduct(mappedProduct);
       setIsCourse(isCourseItem);
       
       // Track InitiateCheckout
       if (typeof window !== "undefined") {
         if ((window as any).fbq) {
           (window as any).fbq('track', 'InitiateCheckout', {
-            content_name: data.title,
-            content_ids: [data.id],
+            content_name: mappedProduct.title,
+            content_ids: [mappedProduct.id],
             content_type: isCourseItem ? 'course' : 'product',
-            value: data.price,
-            currency: 'EGP'
+            value: mappedProduct.price,
+            currency: resolvedCurrency
           });
         }
         if ((window as any).ttq) {
           (window as any).ttq.track('InitiateCheckout', {
-            contents: [{ content_id: data.id, content_name: data.title, price: data.price, quantity: 1 }],
+            contents: [{ content_id: mappedProduct.id, content_name: mappedProduct.title, price: mappedProduct.price, quantity: 1 }],
             content_type: isCourseItem ? 'course' : 'product',
-            value: data.price,
-            currency: 'EGP'
+            value: mappedProduct.price,
+            currency: resolvedCurrency
           });
         }
       }
@@ -386,12 +408,16 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
 
       const fullPhone = `${countryCode}${data.phone}`;
 
-      const finalPrice = appliedCoupon 
+      const baseFinalPrice = appliedCoupon 
         ? Math.round(product.price * (1 - appliedCoupon.percent / 100)) 
         : product.price;
 
+      const finalPriceEGP = currency === "USD"
+        ? Math.round(baseFinalPrice * getUSDtoEGPExchangeRate())
+        : baseFinalPrice;
+
       const payloadBody = {
-        amount: finalPrice,
+        amount: finalPriceEGP,
         email: data.email,
         firstName: data.fullName.split(" ")[0],
         lastName: data.fullName.split(" ").slice(1).join(" ") || "Customer",
@@ -589,12 +615,10 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                     </>
                   )}
 
-
-
                   {/* Payment Method Selector */}
                   <div className="pt-4 mt-4">
                     <Label className="font-cairo font-bold text-zinc-400 text-sm mb-3 block">طريقة الدفع</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className={cn("grid gap-3", currency === "EGP" ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1")}>
                       
                       <div 
                         onClick={() => setPaymentMethod("card")}
@@ -615,26 +639,28 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                         </div>
                       </div>
 
-                      <div 
-                        onClick={() => setPaymentMethod("wallet")}
-                        className={cn(
-                          "cursor-pointer border rounded-2xl p-3.5 flex items-center gap-3 transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]",
-                          paymentMethod === "wallet" 
-                            ? "border-emerald-500/50 bg-emerald-500/10 shadow-[inset_0_0_30px_rgba(16,185,129,0.1)]" 
-                            : "border-white/5 bg-white/5 hover:border-white/10 hover:shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]"
-                        )}
-                      >
-                        <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center", paymentMethod === "wallet" ? "border-emerald-500" : "border-zinc-500")}>
-                          {paymentMethod === "wallet" && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
+                      {currency === "EGP" && (
+                        <div 
+                          onClick={() => setPaymentMethod("wallet")}
+                          className={cn(
+                            "cursor-pointer border rounded-2xl p-3.5 flex items-center gap-3 transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]",
+                            paymentMethod === "wallet" 
+                              ? "border-emerald-500/50 bg-emerald-500/10 shadow-[inset_0_0_30px_rgba(16,185,129,0.1)]" 
+                              : "border-white/5 bg-white/5 hover:border-white/10 hover:shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]"
+                          )}
+                        >
+                          <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center", paymentMethod === "wallet" ? "border-emerald-500" : "border-zinc-500")}>
+                            {paymentMethod === "wallet" && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
+                          </div>
+                          <div className="w-6 h-6 rounded flex items-center justify-center bg-zinc-800 shrink-0">
+                            <span className={cn("text-xs font-black font-sans", paymentMethod === "wallet" ? "text-emerald-400" : "text-zinc-500")}>Pay</span>
+                          </div>
+                          <div className="font-cairo">
+                            <p className={cn("font-bold", paymentMethod === "wallet" ? "text-white" : "text-zinc-300")}>المحافظ الإلكترونية</p>
+                            <p className="text-xs text-zinc-500">فودافون كاش والأخرى</p>
+                          </div>
                         </div>
-                        <div className="w-6 h-6 rounded flex items-center justify-center bg-zinc-800 shrink-0">
-                          <span className={cn("text-xs font-black font-sans", paymentMethod === "wallet" ? "text-emerald-400" : "text-zinc-500")}>Pay</span>
-                        </div>
-                        <div className="font-cairo">
-                          <p className={cn("font-bold", paymentMethod === "wallet" ? "text-white" : "text-zinc-300")}>المحافظ الإلكترونية</p>
-                          <p className="text-xs text-zinc-500">فودافون كاش والأخرى</p>
-                        </div>
-                      </div>
+                      )}
 
                     </div>
                   </div>
@@ -865,21 +891,21 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                     {product.original_price ? (
                       <div className="flex justify-between items-center text-zinc-400 font-cairo">
                         <span>السعر الأصلي</span>
-                        <span className="line-through">{product.original_price} ج.م</span>
+                        <span className="line-through">{formatPrice(product.original_price, currency)}</span>
                       </div>
                     ) : null}
                     
                     {discountPct ? (
                       <div className="flex justify-between items-center text-emerald-400 font-cairo font-bold">
                         <span>خصم الدورة ({discountPct}%)</span>
-                        <span>- {savings} ج.م</span>
+                        <span>- {formatPrice(savings, currency)}</span>
                       </div>
                     ) : null}
 
                     {appliedCoupon ? (
                       <div className="flex justify-between items-center text-emerald-400 font-cairo font-bold bg-emerald-500/5 p-2.5 rounded-xl border border-emerald-500/10">
                         <span>خصم الكوبون ({appliedCoupon.percent}%)</span>
-                        <span>- {Math.round(product.price * (appliedCoupon.percent / 100))} ج.م</span>
+                        <span>- {formatPrice(Math.round(product.price * (appliedCoupon.percent / 100)), currency)}</span>
                       </div>
                     ) : null}
 
@@ -887,11 +913,13 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                       <span className="font-alexandria font-bold text-white text-xl">الإجمالي</span>
                       <div className="flex items-baseline gap-1 text-white">
                         <span className="text-3xl font-alexandria font-black">
-                          {appliedCoupon 
-                            ? Math.round(product.price * (1 - appliedCoupon.percent / 100)) 
-                            : product.price}
+                          {formatPrice(
+                            appliedCoupon 
+                              ? Math.round(product.price * (1 - appliedCoupon.percent / 100)) 
+                              : product.price, 
+                            currency
+                          )}
                         </span>
-                        <span className="text-sm font-cairo">ج.م</span>
                       </div>
                     </div>
                   </div>

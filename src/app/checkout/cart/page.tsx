@@ -19,6 +19,8 @@ import { cn } from "@/lib/utils";
 import { useCart } from "@/context/CartContext";
 import { supabaseClient } from "@/lib/supabaseClient";
 
+import { resolveUserCurrency, resolveProductPrice, formatPrice, getUSDtoEGPExchangeRate, type Currency } from "@/lib/pricing";
+
 const COUNTRY_CODES = [
   { code: "+20", name: "مصر (Egypt)", flag: "🇪🇬" },
   { code: "+966", name: "السعودية (Saudi Arabia)", flag: "🇸🇦" },
@@ -37,7 +39,7 @@ const COUNTRY_CODES = [
   { code: "+963", name: "سوريا (Syria)", flag: "🇸🇾" },
   { code: "+961", name: "لبنان (Lebanon)", flag: "🇱🇧" },
   { code: "+970", name: "فلسطين (Palestine)", flag: "🇵🇸" },
-  { code: "+967", name: "اليمن (Yemen)", flag: "🇾🇪" },
+  { code: "+967", name: "اليمن (Yemen)", flag: "🇪🇬" }
 ];
 
 const checkoutSchema = z.object({
@@ -50,9 +52,10 @@ const checkoutSchema = z.object({
 type CheckoutValues = z.infer<typeof checkoutSchema>;
 
 export default function CartCheckoutPage() {
-  const { items, cartTotal, clearCart } = useCart();
+  const { items, clearCart } = useCart();
   const [isLoading, setIsLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"card" | "wallet">("card");
+  const [currency, setCurrency] = useState<Currency>("EGP");
   
   // Card Fields State
   const [cardNumber, setCardNumber] = useState("");
@@ -73,15 +76,41 @@ export default function CartCheckoutPage() {
 
   const router = useRouter();
 
-  // Track InitiateCheckout on mount
+  // Load visitor currency on mount
+  useEffect(() => {
+    resolveUserCurrency().then(detectedCurrency => {
+      setCurrency(detectedCurrency);
+    });
+  }, []);
+
+  // Force credit card payment for international users
+  useEffect(() => {
+    if (currency === "USD") {
+      setPaymentMethod("card");
+    }
+  }, [currency]);
+
+  // Resolve prices dynamically
+  const resolvedItems = items.map(item => {
+    const resolvedPricing = resolveProductPrice(item, currency);
+    return {
+      ...item,
+      price: resolvedPricing.price,
+      original_price: resolvedPricing.original_price
+    };
+  });
+
+  const resolvedCartTotal = resolvedItems.reduce((sum, item) => sum + item.price, 0);
+
+  // Track InitiateCheckout on mount/currency load
   useEffect(() => {
     if (items.length > 0) {
       if ((window as any).fbq) {
         (window as any).fbq('track', 'InitiateCheckout', {
           content_ids: items.map(i => i.id),
           content_type: 'product',
-          value: cartTotal,
-          currency: 'EGP'
+          value: resolvedCartTotal,
+          currency: currency
         });
       }
       if ((window as any).ttq) {
@@ -92,12 +121,12 @@ export default function CartCheckoutPage() {
             quantity: 1,
             price: i.price
           })),
-          value: cartTotal,
-          currency: 'EGP'
+          value: resolvedCartTotal,
+          currency: currency
         });
       }
     }
-  }, []);
+  }, [currency, resolvedCartTotal]); // eslint-disable-line
 
   // Card Formatting & Validation Handlers
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -311,9 +340,18 @@ export default function CartCheckoutPage() {
 
       const fullPhone = `${countryCode}${data.phone}`;
 
+      const finalPriceEGP = currency === "USD"
+        ? Math.round(resolvedCartTotal * getUSDtoEGPExchangeRate())
+        : resolvedCartTotal;
+
       const payloadBody = {
-        items: items.map(i => ({ id: i.id, price: i.price, title: i.title })),
-        amount: cartTotal,
+        items: resolvedItems.map(i => {
+          const itemPriceEGP = currency === "USD"
+            ? Math.round(i.price * getUSDtoEGPExchangeRate())
+            : i.price;
+          return { id: i.id, price: itemPriceEGP, title: i.title };
+        }),
+        amount: finalPriceEGP,
         email: data.email,
         firstName: data.fullName.split(" ")[0],
         lastName: data.fullName.split(" ").slice(1).join(" ") || "Customer",
@@ -501,7 +539,7 @@ export default function CartCheckoutPage() {
                   {/* Payment Method Selector */}
                   <div className="pt-4 mt-4">
                     <Label className="font-cairo font-bold text-zinc-400 text-sm mb-3 block">طريقة الدفع</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className={cn("grid gap-3", currency === "EGP" ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1")}>
                       
                       <div 
                         onClick={() => setPaymentMethod("card")}
@@ -522,26 +560,28 @@ export default function CartCheckoutPage() {
                         </div>
                       </div>
 
-                      <div 
-                        onClick={() => setPaymentMethod("wallet")}
-                        className={cn(
-                          "cursor-pointer border rounded-2xl p-3.5 flex items-center gap-3 transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]",
-                          paymentMethod === "wallet" 
-                            ? "border-emerald-500/50 bg-emerald-500/10 shadow-[inset_0_0_30px_rgba(16,185,129,0.1)]" 
-                            : "border-white/5 bg-white/5 hover:border-white/10 hover:shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]"
-                        )}
-                      >
-                        <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center", paymentMethod === "wallet" ? "border-emerald-500" : "border-zinc-500")}>
-                          {paymentMethod === "wallet" && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
+                      {currency === "EGP" && (
+                        <div 
+                          onClick={() => setPaymentMethod("wallet")}
+                          className={cn(
+                            "cursor-pointer border rounded-2xl p-3.5 flex items-center gap-3 transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]",
+                            paymentMethod === "wallet" 
+                              ? "border-emerald-500/50 bg-emerald-500/10 shadow-[inset_0_0_30px_rgba(16,185,129,0.1)]" 
+                              : "border-white/5 bg-white/5 hover:border-white/10 hover:shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]"
+                          )}
+                        >
+                          <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center", paymentMethod === "wallet" ? "border-emerald-500" : "border-zinc-500")}>
+                            {paymentMethod === "wallet" && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
+                          </div>
+                          <div className="w-6 h-6 rounded flex items-center justify-center bg-zinc-800 shrink-0">
+                            <span className={cn("text-xs font-black font-sans", paymentMethod === "wallet" ? "text-emerald-400" : "text-zinc-500")}>Pay</span>
+                          </div>
+                          <div className="font-cairo">
+                            <p className={cn("font-bold", paymentMethod === "wallet" ? "text-white" : "text-zinc-300")}>المحافظ الإلكترونية</p>
+                            <p className="text-xs text-zinc-500">فودافون كاش والأخرى</p>
+                          </div>
                         </div>
-                        <div className="w-6 h-6 rounded flex items-center justify-center bg-zinc-800 shrink-0">
-                          <span className={cn("text-xs font-black font-sans", paymentMethod === "wallet" ? "text-emerald-400" : "text-zinc-500")}>Pay</span>
-                        </div>
-                        <div className="font-cairo">
-                          <p className={cn("font-bold", paymentMethod === "wallet" ? "text-white" : "text-zinc-300")}>المحافظ الإلكترونية</p>
-                          <p className="text-xs text-zinc-500">فودافون كاش والأخرى</p>
-                        </div>
-                      </div>
+                      )}
 
                     </div>
                   </div>
@@ -686,7 +726,7 @@ export default function CartCheckoutPage() {
                   </h3>
                   
                   <div className="flex flex-col gap-4 mb-6">
-                    {items.map((item) => (
+                    {resolvedItems.map((item) => (
                       <div key={item.id} className="flex gap-4 items-start pb-4 border-b border-white/5 last:border-0 last:pb-0">
                         <div className="w-16 h-16 rounded-xl bg-zinc-900 border border-white/10 relative overflow-hidden shrink-0">
                           {item.image_url && (
@@ -695,7 +735,7 @@ export default function CartCheckoutPage() {
                         </div>
                         <div>
                           <h4 className="font-cairo font-bold text-white text-sm leading-tight mb-1 line-clamp-2">{item.title}</h4>
-                          <span className="text-rose-400 font-bold text-sm">{item.price} ج.م</span>
+                          <span className="text-rose-400 font-bold text-sm">{formatPrice(item.price, currency)}</span>
                         </div>
                       </div>
                     ))}
@@ -705,8 +745,7 @@ export default function CartCheckoutPage() {
                     <div className="flex justify-between items-center">
                       <span className="font-alexandria font-bold text-white text-xl">الإجمالي</span>
                       <div className="flex items-baseline gap-1 text-white">
-                        <span className="text-3xl font-alexandria font-black">{cartTotal}</span>
-                        <span className="text-sm font-cairo">ج.م</span>
+                        <span className="text-3xl font-alexandria font-black">{formatPrice(resolvedCartTotal, currency)}</span>
                       </div>
                     </div>
                   </div>

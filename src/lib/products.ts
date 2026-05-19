@@ -30,6 +30,10 @@ export interface Product {
   short_description: string;
   price: number;
   original_price: number | null;
+  price_egp?: number;
+  original_price_egp?: number | null;
+  price_usd?: number;
+  original_price_usd?: number | null;
   discount_pct: number | null;
   status: "نشط" | "مسودة" | "مخفي";
   is_featured: boolean;

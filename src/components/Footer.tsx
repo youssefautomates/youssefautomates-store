@@ -40,7 +40,7 @@ export function Footer() {
               </span>
             </Link>
             <p className="text-zinc-500 text-sm leading-relaxed">
-              نساعدك على أتمتة وتطوير أعمالك الرقمية باستخدام أحدث تقنيات الذكاء الاصطناعي وتدفقات عمل n8n الجاهزة للاستخدام الفوري.
+              منصتك المتكاملة لاحتراف أتمتة الأعمال n8n والذكاء الاصطناعي، وتحميل أرقى المنتجات الرقمية والدورات التعليمية المبتكرة.
             </p>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
@@ -55,10 +55,10 @@ export function Footer() {
             <h4 className="font-alexandria font-bold text-white text-xs tracking-wider uppercase">روابط سريعة</h4>
             <ul className="space-y-3 text-sm">
               {[
-                { label: "الرئيسية للمتجر", href: "/" },
-                { label: "الحزم والمنتجات", href: "#products" },
-                { label: "آراء وتقييمات العملاء", href: "#reviews" },
-                { label: "الأسئلة الشائعة", href: "#faq" }
+                { label: "الرئيسية", href: "/" },
+                { label: "الدورات التعليمية", href: "/#courses" },
+                { label: "المنتجات الرقمية", href: "/#products" },
+                { label: "الأسئلة الشائعة", href: "/#faq" }
               ].map((link, i) => (
                 <li key={i}>
                   <Link 

@@ -123,7 +123,9 @@ function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean;
   
   const [form, setForm] = useState<any>({
     title: "", slug: "", description: "", short_description: "",
-    price: "", original_price: "", status: "نشط",
+    price: "", original_price: "", 
+    price_egp: "", original_price_egp: "", price_usd: "", original_price_usd: "",
+    status: "نشط",
     image_url: "", file_url: "", category: "الأتمتة", 
     slides: Array(5).fill(null).map(() => ({ type: 'image', url: '' })),
     file_type: "zip", displayTags: "",
@@ -144,7 +146,11 @@ function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean;
         setForm({
           title: unpacked.title, slug: unpacked.slug,
           description: unpacked.description || "", short_description: unpacked.short_description || "",
-          price: String(unpacked.price), original_price: String(unpacked.original_price || ""),
+          price: String(unpacked.price || ""), original_price: String(unpacked.original_price || ""),
+          price_egp: String(unpacked.price_egp !== undefined && unpacked.price_egp !== null ? unpacked.price_egp : unpacked.price || ""),
+          original_price_egp: String(unpacked.original_price_egp !== undefined && unpacked.original_price_egp !== null ? unpacked.original_price_egp : unpacked.original_price || ""),
+          price_usd: String(unpacked.price_usd !== undefined && unpacked.price_usd !== null ? unpacked.price_usd : ""),
+          original_price_usd: String(unpacked.original_price_usd !== undefined && unpacked.original_price_usd !== null ? unpacked.original_price_usd : ""),
           status: unpacked.status, is_featured: unpacked.is_featured,
           image_url: unpacked.image_url || "", file_url: unpacked.file_url || "",
           category: unpacked.category || "", 
@@ -158,6 +164,7 @@ function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean;
         setForm({
           title: "", slug: "", description: "", short_description: "",
           price: "", original_price: "", status: "نشط",
+          price_egp: "", original_price_egp: "", price_usd: "", original_price_usd: "",
           is_featured: false, image_url: "", file_url: "", category: "الأتمتة", 
           video_url: "", gallery: [""], file_type: "zip", displayTags: "",
           seo_title: "", seo_description: ""
@@ -172,12 +179,17 @@ function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean;
     if (!form.price || isNaN(Number(form.price))) { toast.error("السعر غير صالح"); return; }
 
     setSaving(true);
-    const price = parseFloat(form.price);
-    const orig = form.original_price ? parseFloat(form.original_price) : null;
+    const price_egp = form.price_egp ? parseFloat(form.price_egp) : (parseFloat(form.price) || 0);
+    const original_price_egp = form.original_price_egp ? parseFloat(form.original_price_egp) : (form.original_price ? parseFloat(form.original_price) : null);
+    const price_usd = form.price_usd ? parseFloat(form.price_usd) : 0;
+    const original_price_usd = form.original_price_usd ? parseFloat(form.original_price_usd) : null;
     
     // Determine primary image for the database column
-    const primarySlide = form.slides[0];
-    let finalImageUrl = primarySlide.type === 'image' ? primarySlide.url : "";
+    let finalImageUrl = form.image_url || "";
+    if (!finalImageUrl) {
+      const primarySlide = form.slides[0];
+      finalImageUrl = primarySlide && primarySlide.type === 'image' ? primarySlide.url : "";
+    }
     if (!finalImageUrl) {
       const firstImg = form.slides.find((s: any) => s.type === 'image' && s.url);
       finalImageUrl = firstImg ? firstImg.url : "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=800";
@@ -188,9 +200,13 @@ function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean;
       slug: form.slug || generateSlug(form.title),
       description: form.description,
       short_description: form.short_description,
-      price,
-      original_price: orig,
-      discount_pct: calcDiscount(price, orig),
+      price: price_egp,
+      original_price: original_price_egp,
+      price_egp,
+      original_price_egp,
+      price_usd,
+      original_price_usd,
+      discount_pct: calcDiscount(price_egp, original_price_egp),
       status: form.status,
       is_featured: form.is_featured,
       image_url: finalImageUrl,
@@ -312,12 +328,23 @@ function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean;
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                          <Label className="text-sm font-bold" style={{ color: "#d4d4d8" }}>السعر الحالي ($) *</Label>
-                          <Input type="number" value={form.price} onChange={e => setForm({...form, price: e.target.value})} className="h-12 rounded-xl text-white" style={{ background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.1)" }} />
+                          <Label className="text-sm font-bold text-rose-400">السعر بالجنيه المصري (EGP) *</Label>
+                          <Input type="number" value={form.price_egp} onChange={e => setForm({...form, price_egp: e.target.value, price: e.target.value})} className="h-12 rounded-xl text-white" style={{ background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.1)" }} />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-sm font-bold" style={{ color: "#d4d4d8" }}>السعر الأصلي (للخصم)</Label>
-                          <Input type="number" value={form.original_price} onChange={e => setForm({...form, original_price: e.target.value})} className="h-12 rounded-xl text-white" style={{ background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.1)" }} />
+                          <Label className="text-sm font-bold text-zinc-400">السعر الأصلي قبل الخصم (EGP)</Label>
+                          <Input type="number" value={form.original_price_egp} onChange={e => setForm({...form, original_price_egp: e.target.value, original_price: e.target.value})} className="h-12 rounded-xl text-white" style={{ background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.1)" }} />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-sm font-bold text-emerald-400">السعر بالدولار الأمريكي (USD) *</Label>
+                          <Input type="number" value={form.price_usd} onChange={e => setForm({...form, price_usd: e.target.value})} className="h-12 rounded-xl text-white" style={{ background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.1)" }} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-sm font-bold text-zinc-400">السعر الأصلي قبل الخصم (USD)</Label>
+                          <Input type="number" value={form.original_price_usd} onChange={e => setForm({...form, original_price_usd: e.target.value})} className="h-12 rounded-xl text-white" style={{ background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.1)" }} />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
@@ -358,11 +385,49 @@ function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean;
 
                   {activeTab === "media" && (
                     <div className="space-y-8">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <h3 className="font-alexandria font-bold text-white text-lg">إدارة وسائط المنتج</h3>
-                          <p className="text-zinc-500 text-xs font-cairo">رتب السلايدس الخاصة بك. السلايد الأول هو الغلاف الأساسي للمنتج.</p>
+                      <div className="space-y-3 bg-white/[0.02] border border-white/5 p-6 rounded-[2rem]">
+                        <div className="flex items-center gap-2">
+                          <ImageIcon className="w-5 h-5 text-rose-500" />
+                          <h4 className="font-alexandria font-bold text-white text-sm">صورة غلاف المنتج (تظهر في الصفحة الرئيسية وكروت المتجر)</h4>
                         </div>
+                        <p className="text-zinc-500 text-xs font-cairo">هذه الصورة ستظهر كغلاف للمنتج في الصفحة الرئيسية وتصنيفات المتجر بدلاً من الفيديو.</p>
+                        <div className="flex gap-3">
+                          <Input 
+                            value={form.image_url} 
+                            onChange={e => setForm({...form, image_url: e.target.value})} 
+                            className="h-12 rounded-xl text-white flex-1" 
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.1)" }} 
+                            placeholder="رابط صورة الغلاف..." 
+                          />
+                          <Button
+                            onClick={async () => {
+                              const input = document.createElement("input");
+                              input.type = "file";
+                              input.accept = "image/*";
+                              input.onchange = async (e: any) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const url = await upload(file);
+                                  if (url) {
+                                    setForm((prev: any) => ({ ...prev, image_url: url }));
+                                    toast.success("تم رفع صورة الغلاف بنجاح");
+                                  }
+                                }
+                              };
+                              input.click();
+                            }}
+                            type="button"
+                            className="h-12 px-6 rounded-xl font-cairo font-bold text-xs bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-2"
+                          >
+                            <UploadCloud className="w-4 h-4" />
+                            <span>رفع صورة</span>
+                          </Button>
+                        </div>
+                        {form.image_url && (
+                          <div className="relative w-32 aspect-video rounded-xl overflow-hidden border border-white/10 mt-2">
+                            <Image src={form.image_url} alt="Cover Preview" fill className="object-cover" />
+                          </div>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -732,7 +797,10 @@ export default function AdminProductsPage() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="font-alexandria font-bold text-white">${p.price}</TableCell>
+                    <TableCell className="font-alexandria font-bold text-white">
+                      <div className="text-rose-400">{p.price_egp || p.price} ج.م</div>
+                      <div className="text-emerald-400 text-[10px]">${p.price_usd || 0}</div>
+                    </TableCell>
                     <TableCell className="text-zinc-400 font-bold">{p.sales || 0}</TableCell>
                     <TableCell>
                       <Badge className={cn(

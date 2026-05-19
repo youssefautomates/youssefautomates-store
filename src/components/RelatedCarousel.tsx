@@ -64,7 +64,7 @@ export default function RelatedCarousel({
                   </div>
                 </div>
               ))
-            : items.map((item, index) => {
+            : items.map((item) => {
                 const itemLink =
                   item.type === "course"
                     ? `/courses/${item.slug}`
@@ -87,19 +87,17 @@ export default function RelatedCarousel({
                     : "bg-rose-500/10 text-rose-400 border-rose-500/20";
 
                 return (
-                  <motion.div
+                  <div
                     key={`${item.type}:${item.id}`}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: index * 0.1 }}
-                    className="group relative rounded-2xl border border-white/5 bg-neutral-900/30 hover:bg-neutral-900/50 hover:border-rose-500/30 hover:shadow-[0_0_30px_rgba(214,0,75,0.1)] transition-all duration-500 p-4 flex flex-col h-full"
+                    className="group relative rounded-2xl border border-white/5 bg-[#09090e] hover:border-rose-500/30 hover:shadow-[0_0_20px_rgba(214,0,75,0.15)] transition-all duration-300 p-4 flex flex-col h-full cursor-pointer"
+                    onClick={() => window.location.href = itemLink}
                   >
                     <div className="relative aspect-video w-full rounded-xl overflow-hidden mb-4 bg-black/40">
                       {item.image_url ? (
                         <img
                           src={item.image_url}
                           alt={item.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                          className="w-full h-full object-cover object-center group-hover:scale-102 transition-transform duration-500"
                           loading="lazy"
                         />
                       ) : (
@@ -113,7 +111,7 @@ export default function RelatedCarousel({
                       </div>
 
                       <span
-                        className={`absolute bottom-2 left-2 px-2.5 py-0.5 rounded-full text-xs font-medium border backdrop-blur-sm ${badgeColor}`}
+                        className={`absolute bottom-2 left-2 px-2.5 py-0.5 rounded-full text-[10px] font-medium border backdrop-blur-sm ${badgeColor}`}
                       >
                         {typeBadge}
                       </span>
@@ -132,26 +130,26 @@ export default function RelatedCarousel({
 
                       <div className="flex items-center justify-between pt-3 border-t border-white/5 mt-auto">
                         <div className="flex flex-col">
-                          <span className="text-lg font-bold text-white">
-                            ${Number(item.price).toFixed(2)}
+                          <span className="text-base font-bold text-rose-500">
+                            {item.price === 0 ? "مجاني" : `${item.price} ج.م`}
                           </span>
                           {item.original_price && item.original_price > item.price && (
                             <span className="text-xs text-neutral-500 line-through">
-                              ${Number(item.original_price).toFixed(2)}
+                              {item.original_price} ج.م
                             </span>
                           )}
                         </div>
 
                         <Link
                           href={itemLink}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-rose-600 hover:text-white border border-white/10 hover:border-rose-500 text-neutral-300 text-xs font-medium transition-all duration-300"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-[#D6004B] hover:text-white border border-white/10 hover:border-rose-500 text-neutral-300 text-xs font-medium transition-all duration-300"
                         >
                           <span>عرض</span>
                           <ChevronLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
                         </Link>
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
                 );
               })}
         </div>

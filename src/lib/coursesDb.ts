@@ -13,6 +13,10 @@ export interface LmsCourse {
   banner_url?: string;
   price: number;
   original_price: number;
+  price_egp?: number;
+  original_price_egp?: number;
+  price_usd?: number;
+  original_price_usd?: number;
   is_free: boolean;
   is_featured: boolean;
   status: "draft" | "published" | "hidden";
@@ -28,10 +32,12 @@ export interface LmsCourse {
   certificate_text_color?: string;
   certificate_name_x?: number;
   certificate_name_y?: number;
+  certificate_name_size?: number;
   certificate_course_x?: number;
   certificate_course_y?: number;
   certificate_date_x?: number;
   certificate_date_y?: number;
+  certificate_date_size?: number;
   created_at: string;
 }
 
@@ -60,6 +66,9 @@ export interface LmsLesson {
   attachments?: { name: string; url: string; size: number; type: string }[];
   video_processing_status?: "completed" | "uploading" | "failed";
   upload_progress?: number;
+  video_id?: string;
+  playback_url?: string;
+  thumbnail_url?: string;
 }
 
 export interface LmsEnrollment {
@@ -103,10 +112,12 @@ export interface LmsCertificate {
   certificate_text_color?: string;
   certificate_name_x?: number;
   certificate_name_y?: number;
+  certificate_name_size?: number;
   certificate_course_x?: number;
   certificate_course_y?: number;
   certificate_date_x?: number;
   certificate_date_y?: number;
+  certificate_date_size?: number;
 }
 
 export interface LmsReview {
@@ -421,8 +432,12 @@ export async function upsertCourse(course: Partial<LmsCourse> & { title: string 
     short_description: course.short_description || "",
     image_url: course.image_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800",
     banner_url: course.banner_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1600",
-    price: Number(course.price) || 0,
-    original_price: Number(course.original_price) || 0,
+    price: Number(course.price_egp) || Number(course.price) || 0,
+    original_price: Number(course.original_price_egp) || Number(course.original_price) || 0,
+    price_egp: Number(course.price_egp) || Number(course.price) || 0,
+    original_price_egp: Number(course.original_price_egp) || Number(course.original_price) || 0,
+    price_usd: Number(course.price_usd) || 0,
+    original_price_usd: Number(course.original_price_usd) || 0,
     is_free: course.is_free ?? false,
     is_featured: course.is_featured ?? false,
     status: course.status || "draft",
@@ -438,17 +453,26 @@ export async function upsertCourse(course: Partial<LmsCourse> & { title: string 
     certificate_text_color: course.certificate_text_color || "#000000",
     certificate_name_x: course.certificate_name_x || 50,
     certificate_name_y: course.certificate_name_y || 40,
+    certificate_name_size: Number(course.certificate_name_size) || 24,
     certificate_course_x: course.certificate_course_x || 50,
     certificate_course_y: course.certificate_course_y || 55,
     certificate_date_x: course.certificate_date_x || 50,
     certificate_date_y: course.certificate_date_y || 70,
+    certificate_date_size: Number(course.certificate_date_size) || 14,
     created_at: course.created_at || new Date().toISOString()
   };
 
   try {
     const { data, error } = await supabaseClient.from("courses").upsert(record).select().single();
-    if (!error && data) return data as LmsCourse;
-  } catch (e) {}
+    if (error) {
+      console.error("Supabase upsert error:", error);
+      throw new Error(error.message);
+    }
+    if (data) return data as LmsCourse;
+  } catch (e: any) {
+    console.error("Supabase upsert exception:", e);
+    throw e;
+  }
 
   // Fallback
   const list = localDb.getCourses();
@@ -490,16 +514,28 @@ export async function upsertSection(section: Partial<LmsSection> & { course_id: 
     description: section.description || ""
   };
 
-  try {
-    const { data, error } = await supabaseClient.from("course_modules").upsert({
-      id: record.id,
-      course_id: record.course_id,
-      title: record.title,
-      sort_order: record.sort_order,
-      description: record.description
-    }).select().single();
-    if (!error && data) return data as LmsSection;
-  } catch (e) {}
+  const hasSupabase = !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (hasSupabase) {
+    try {
+      const { data, error } = await supabaseClient.from("course_modules").upsert({
+        id: record.id,
+        course_id: record.course_id,
+        title: record.title,
+        sort_order: record.sort_order,
+        description: record.description
+      }).select().single();
+      
+      if (error) {
+        console.error("Supabase upsertSection error:", error);
+        throw new Error(error.message || "Failed to upsert section in database");
+      }
+      if (data) return data as LmsSection;
+    } catch (e: any) {
+      console.error("Catch upsertSection error:", e);
+      throw e;
+    }
+  }
 
   // Fallback
   const list = localDb.getSections();
@@ -514,10 +550,21 @@ export async function upsertSection(section: Partial<LmsSection> & { course_id: 
 }
 
 export async function deleteSection(id: string): Promise<boolean> {
-  try {
-    const { error } = await supabaseClient.from("course_modules").delete().eq("id", id);
-    if (!error) return true;
-  } catch (e) {}
+  const hasSupabase = !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (hasSupabase) {
+    try {
+      const { error } = await supabaseClient.from("course_modules").delete().eq("id", id);
+      if (error) {
+        console.error("Supabase deleteSection error:", error);
+        throw new Error(error.message || "Failed to delete section from database");
+      }
+      return true;
+    } catch (e: any) {
+      console.error("Catch deleteSection error:", e);
+      throw e;
+    }
+  }
 
   // Fallback
   const list = localDb.getSections().filter(s => s.id !== id);
@@ -548,37 +595,17 @@ export async function upsertLesson(lesson: Partial<LmsLesson> & { section_id: st
     external_link: lesson.external_link,
     attachments: lesson.attachments || [],
     video_processing_status: lesson.video_processing_status || "completed",
-    upload_progress: lesson.upload_progress !== undefined ? lesson.upload_progress : 100
+    upload_progress: lesson.upload_progress !== undefined ? lesson.upload_progress : 100,
+    video_id: lesson.video_id,
+    playback_url: lesson.playback_url,
+    thumbnail_url: lesson.thumbnail_url
   };
 
-  try {
-    const { data, error } = await supabaseClient.from("course_lessons").upsert({
-      id: record.id,
-      module_id: record.section_id,
-      title: record.title,
-      slug: record.slug,
-      video_url: record.video_url,
-      content: record.content,
-      duration_seconds: record.duration_seconds,
-      sort_order: record.sort_order,
-      is_preview: record.is_preview,
-      lecture_type: record.lecture_type,
-      attachment_url: record.attachment_url,
-      attachment_name: record.attachment_name,
-      external_link: record.external_link,
-      attachments: record.attachments,
-      video_processing_status: record.video_processing_status,
-      upload_progress: record.upload_progress
-    }).select().single();
-    
-    if (!error && data) {
-      return {
-        ...data,
-        section_id: data.module_id
-      } as LmsLesson;
-    } else if (error) {
-      console.warn("[upsertLesson] Supabase error with new columns, retrying without them:", error.message);
-      const { data: fallbackData, error: fallbackError } = await supabaseClient.from("course_lessons").upsert({
+  const hasSupabase = !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (hasSupabase) {
+    try {
+      const { data, error } = await supabaseClient.from("course_lessons").upsert({
         id: record.id,
         module_id: record.section_id,
         title: record.title,
@@ -591,21 +618,59 @@ export async function upsertLesson(lesson: Partial<LmsLesson> & { section_id: st
         lecture_type: record.lecture_type,
         attachment_url: record.attachment_url,
         attachment_name: record.attachment_name,
-        external_link: record.external_link
+        external_link: record.external_link,
+        attachments: record.attachments,
+        video_processing_status: record.video_processing_status,
+        upload_progress: record.upload_progress,
+        video_id: record.video_id,
+        playback_url: record.playback_url,
+        thumbnail_url: record.thumbnail_url
       }).select().single();
       
-      if (!fallbackError && fallbackData) {
+      if (!error && data) {
         return {
-          ...fallbackData,
-          section_id: fallbackData.module_id,
-          attachments: record.attachments,
-          video_processing_status: record.video_processing_status,
-          upload_progress: record.upload_progress
+          ...data,
+          section_id: data.module_id
         } as LmsLesson;
+      } else if (error) {
+        console.warn("[upsertLesson] Supabase error with new columns, retrying without them:", error.message);
+        const { data: fallbackData, error: fallbackError } = await supabaseClient.from("course_lessons").upsert({
+          id: record.id,
+          module_id: record.section_id,
+          title: record.title,
+          slug: record.slug,
+          video_url: record.video_url,
+          content: record.content,
+          duration_seconds: record.duration_seconds,
+          sort_order: record.sort_order,
+          is_preview: record.is_preview,
+          lecture_type: record.lecture_type,
+          attachment_url: record.attachment_url,
+          attachment_name: record.attachment_name,
+          external_link: record.external_link
+        }).select().single();
+        
+        if (fallbackError) {
+          console.error("Supabase upsertLesson fallback error:", fallbackError);
+          throw new Error(fallbackError.message || "Failed to upsert lesson in database");
+        }
+        if (fallbackData) {
+          return {
+            ...fallbackData,
+            section_id: fallbackData.module_id,
+            attachments: record.attachments,
+            video_processing_status: record.video_processing_status,
+            upload_progress: record.upload_progress,
+            video_id: record.video_id,
+            playback_url: record.playback_url,
+            thumbnail_url: record.thumbnail_url
+          } as LmsLesson;
+        }
       }
+    } catch (e: any) {
+      console.error("[upsertLesson] Exception during upsert:", e);
+      throw e;
     }
-  } catch (e) {
-    console.error("[upsertLesson] Exception during upsert:", e);
   }
 
   // Fallback
@@ -629,10 +694,21 @@ export async function deleteLesson(id: string): Promise<boolean> {
   const old = localDb.getLessons().find(l => l.id === id);
   const secId = old?.section_id;
 
-  try {
-    const { error } = await supabaseClient.from("course_lessons").delete().eq("id", id);
-    if (!error) return true;
-  } catch (e) {}
+  const hasSupabase = !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (hasSupabase) {
+    try {
+      const { error } = await supabaseClient.from("course_lessons").delete().eq("id", id);
+      if (error) {
+        console.error("Supabase deleteLesson error:", error);
+        throw new Error(error.message || "Failed to delete lesson from database");
+      }
+      return true;
+    } catch (e: any) {
+      console.error("Catch deleteLesson error:", e);
+      throw e;
+    }
+  }
 
   // Fallback
   const list = localDb.getLessons().filter(l => l.id !== id);
@@ -692,6 +768,8 @@ export async function enrollUser(userId: string, courseId: string, details?: { e
     const { data, error } = await supabaseClient.from("enrollments").insert({
       user_id: userId,
       course_id: courseId,
+      user_name: details?.name || "طالب يوسف أوتوميتس",
+      user_email: details?.email || "student@youssefautomates.com",
       status: "active"
     }).select().single();
     if (!error && data) return data as LmsEnrollment;
@@ -827,7 +905,7 @@ export async function issueCertificate(userId: string, courseId: string, student
     id: `cert-${Date.now()}`,
     user_id: userId,
     course_id: courseId,
-    issued_at: new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" }),
+    issued_at: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
     verification_id: verificationId,
     student_name: studentName,
     course_name: courseName
@@ -862,11 +940,13 @@ export async function getUserCertificates(userId: string): Promise<LmsCertificat
           certificate_text_color: c?.certificate_text_color || "#000000",
           certificate_name_x: c?.certificate_name_x || 50,
           certificate_name_y: c?.certificate_name_y || 40,
+          certificate_name_size: c?.certificate_name_size || 24,
           certificate_course_x: c?.certificate_course_x || 50,
           certificate_course_y: c?.certificate_course_y || 55,
           certificate_date_x: c?.certificate_date_x || 50,
           certificate_date_y: c?.certificate_date_y || 70,
-          issued_at: new Date(d.created_at || d.issued_at || Date.now()).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" }),
+          certificate_date_size: c?.certificate_date_size || 14,
+          issued_at: new Date(d.created_at || d.issued_at || Date.now()).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
           verification_id: d.certificate_url || d.id
         });
       }
@@ -885,10 +965,12 @@ export async function getUserCertificates(userId: string): Promise<LmsCertificat
       certificate_text_color: course?.certificate_text_color || "#000000",
       certificate_name_x: course?.certificate_name_x || 50,
       certificate_name_y: course?.certificate_name_y || 40,
+      certificate_name_size: course?.certificate_name_size || 24,
       certificate_course_x: course?.certificate_course_x || 50,
       certificate_course_y: course?.certificate_course_y || 55,
       certificate_date_x: course?.certificate_date_x || 50,
       certificate_date_y: course?.certificate_date_y || 70,
+      certificate_date_size: course?.certificate_date_size || 14,
       verification_id: c.verification_id || c.certificate_url || c.id
     };
   });
@@ -916,11 +998,13 @@ export async function getCertificateByVerificationId(id: string): Promise<LmsCer
         certificate_text_color: course?.certificate_text_color || "#000000",
         certificate_name_x: course?.certificate_name_x || 50,
         certificate_name_y: course?.certificate_name_y || 40,
+        certificate_name_size: course?.certificate_name_size || 24,
         certificate_course_x: course?.certificate_course_x || 50,
         certificate_course_y: course?.certificate_course_y || 55,
         certificate_date_x: course?.certificate_date_x || 50,
         certificate_date_y: course?.certificate_date_y || 70,
-        issued_at: new Date(data.created_at || data.issued_at || Date.now()).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" }),
+        certificate_date_size: course?.certificate_date_size || 14,
+        issued_at: new Date(data.created_at || data.issued_at || Date.now()).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
         verification_id: data.certificate_url || id
       } as LmsCertificate;
     }
@@ -938,10 +1022,12 @@ export async function getCertificateByVerificationId(id: string): Promise<LmsCer
       certificate_text_color: course?.certificate_text_color || "#000000",
       certificate_name_x: course?.certificate_name_x || 50,
       certificate_name_y: course?.certificate_name_y || 40,
+      certificate_name_size: course?.certificate_name_size || 24,
       certificate_course_x: course?.certificate_course_x || 50,
       certificate_course_y: course?.certificate_course_y || 55,
       certificate_date_x: course?.certificate_date_x || 50,
       certificate_date_y: course?.certificate_date_y || 70,
+      certificate_date_size: course?.certificate_date_size || 14,
       verification_id: found.verification_id || found.certificate_url || id
     } as LmsCertificate;
   }

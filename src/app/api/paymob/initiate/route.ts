@@ -8,11 +8,19 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+import { headers } from "next/headers";
+import { resolveUserCurrency, resolveProductPrice, getUSDtoEGPExchangeRate } from "@/lib/pricing";
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     console.log("[BACKEND_REQUEST_BODY] Received:", JSON.stringify(body, null, 2));
     const { amount, email, firstName, lastName, phone, productId, paymentMethod, cardData, couponCode } = body;
+
+    // --- Geolocation Currency Resolver ---
+    const headersList = await headers();
+    const userCurrency = await resolveUserCurrency(headersList);
+    console.log(`[PAYMOB_INITIATE] Server Resolved Currency: ${userCurrency}`);
 
     // --- Env Validation ---
     const secretKey = process.env.PAYMOB_SECRET_KEY;
@@ -37,51 +45,39 @@ export async function POST(req: Request) {
     }
 
     // 1. Fetch Item (Product or Course) Details
-    let dbItem: { title: string; price: number; tags?: string[] } | null = null;
+    let dbItem: any = null;
     let isCourseItem = productId.startsWith("course-");
 
     if (isCourseItem) {
       const { data: course } = await supabase
         .from("courses")
-        .select("title, price, tags")
+        .select("*")
         .eq("id", productId)
         .maybeSingle();
       if (course) {
-        dbItem = {
-          title: course.title,
-          price: course.price,
-          tags: course.tags || []
-        };
+        dbItem = course;
       }
     }
 
     if (!dbItem) {
       const { data: product } = await supabase
         .from("products")
-        .select("title, price, tags")
+        .select("*")
         .eq("id", productId)
         .maybeSingle();
       if (product) {
-        dbItem = {
-          title: product.title,
-          price: product.price,
-          tags: product.tags || []
-        };
+        dbItem = product;
       }
     }
 
     if (!dbItem) {
       const { data: bundle } = await supabase
         .from("bundles")
-        .select("title, price")
+        .select("*")
         .eq("id", productId)
         .maybeSingle();
       if (bundle) {
-        dbItem = {
-          title: bundle.title,
-          price: bundle.price,
-          tags: ["bundle"]
-        };
+        dbItem = bundle;
       }
     }
 
@@ -89,23 +85,26 @@ export async function POST(req: Request) {
     if (!dbItem) {
       const { data: course } = await supabase
         .from("courses")
-        .select("title, price, tags")
+        .select("*")
         .eq("id", productId)
         .maybeSingle();
       if (course) {
-        dbItem = {
-          title: course.title,
-          price: course.price,
-          tags: course.tags || []
-        };
+        dbItem = course;
         isCourseItem = true;
       }
     }
 
     if (!dbItem) throw new Error("المحتوى المطلوب غير متوفر حالياً في قاعدة البيانات");
 
-    // 2. Validate Price and Applied Coupon
-    let expectedPrice = dbItem.price;
+    // 2. Dual Pricing Secure Resolver Layer
+    const resolvedPrice = resolveProductPrice(dbItem, userCurrency);
+    let expectedPriceBase = resolvedPrice.price; 
+    let expectedPriceEGP = userCurrency === "USD" 
+      ? Math.round(expectedPriceBase * getUSDtoEGPExchangeRate())
+      : expectedPriceBase;
+
+    console.log(`[PAYMOB_INITIATE] resolvedPriceBase: ${expectedPriceBase} ${userCurrency} | expectedPriceEGP: ${expectedPriceEGP} EGP`);
+
     if (couponCode) {
       const upperCode = couponCode.trim().toUpperCase();
       // Query the database for the coupon
@@ -139,17 +138,22 @@ export async function POST(req: Request) {
         }
       }
 
-      expectedPrice = Math.round(dbItem.price * (1 - dbCoupon.discount_percent / 100));
-      console.log(`[PAYMOB_INITIATE] Applied database coupon: ${upperCode} | Percent: ${dbCoupon.discount_percent}% | Expected Price: ${expectedPrice}`);
+      // Apply coupon to base price and recalculate final EGP amount
+      const discountedBase = expectedPriceBase * (1 - dbCoupon.discount_percent / 100);
+      expectedPriceEGP = userCurrency === "USD"
+        ? Math.round(discountedBase * getUSDtoEGPExchangeRate())
+        : Math.round(discountedBase);
+
+      console.log(`[PAYMOB_INITIATE] Applied coupon: ${upperCode} (-${dbCoupon.discount_percent}%) | Discounted expectedPriceEGP: ${expectedPriceEGP}`);
     }
 
     // Prevent price spoofing from the client side
     const clientAmount = parseFloat(amount);
-    if (Math.abs(clientAmount - expectedPrice) > 1) {
-      throw new Error(`محاولة تلاعب بالسعر! السعر الفعلي هو ${expectedPrice} ج.م`);
+    if (Math.abs(clientAmount - expectedPriceEGP) > 5) { // 5 EGP threshold for rounding safety
+      throw new Error(`محاولة تلاعب بالسعر! السعر الفعلي هو ${expectedPriceEGP} ج.م`);
     }
 
-    const amountCents = Math.round(expectedPrice * 100);
+    const amountCents = Math.round(expectedPriceEGP * 100);
 
     // 3. Create Order in Supabase locally first
     const dbOrder = await createOrder({
@@ -158,7 +162,7 @@ export async function POST(req: Request) {
       customer_phone: phone,
       product_id: productId,
       product_title: dbItem.title,
-      amount: expectedPrice,
+      amount: expectedPriceEGP,
       currency: "EGP",
       status: "pending",
       payment_id: "PENDING", 

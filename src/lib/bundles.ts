@@ -10,6 +10,10 @@ export interface Bundle {
   short_description?: string;
   price: number;
   original_price: number;
+  price_egp?: number;
+  original_price_egp?: number;
+  price_usd?: number;
+  original_price_usd?: number;
   image_url?: string;
   banner_url?: string;
   is_featured: boolean;
