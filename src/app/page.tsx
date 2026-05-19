@@ -47,6 +47,16 @@ function unpackProduct(p: any) {
   return { ...p, slides };
 }
 
+function stripHtml(html: string) {
+  if (!html) return "";
+  return html
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
 export default function Home() {
   const router = useRouter();
   const { addToCart } = useCart();
@@ -382,12 +392,6 @@ export default function Home() {
                       ) : (
                         <div className="absolute inset-0 bg-grid-lines mask-radial-faded opacity-35"></div>
                       )}
-                      
-                      <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
-                        <Badge className="bg-[#D6004B] text-white border-none font-cairo text-[9px] py-0.5 px-2.5 rounded shadow font-bold">
-                          {course.category}
-                        </Badge>
-                      </div>
 
                       {/* Wishlist Heart Button */}
                       <div className="absolute top-4 right-4 z-30">
@@ -414,6 +418,12 @@ export default function Home() {
                               <BookOpen className="w-3.5 h-3.5 text-[#D6004B]" />
                               <span>{course.lessons_count} محاضرة</span>
                             </div>
+                            {course.category && (
+                              <div className="flex items-center gap-1 border-r border-white/10 pr-3">
+                                <Layers className="w-3.5 h-3.5 text-[#D6004B]" />
+                                <span>{course.category}</span>
+                              </div>
+                            )}
                           </div>
                           <div className="flex items-center gap-1 text-yellow-400">
                             <Star className="w-3.5 h-3.5 fill-current" />
@@ -427,7 +437,7 @@ export default function Home() {
                         </h3>
 
                         <p className="text-zinc-400 text-xs leading-relaxed line-clamp-2">
-                          {course.short_description || course.description}
+                          {stripHtml(course.short_description || course.description)}
                         </p>
                       </div>
 

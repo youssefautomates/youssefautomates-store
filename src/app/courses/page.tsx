@@ -3,12 +3,22 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { Sparkles, BookOpen, Clock, Zap, ArrowLeft, Star, PlayCircle, Loader2 } from "lucide-react";
+import { Sparkles, BookOpen, Clock, Zap, ArrowLeft, Star, PlayCircle, Loader2, Layers } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { getCoursesList, type LmsCourse } from "@/lib/coursesDb";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
+
+function stripHtml(html: string) {
+  if (!html) return "";
+  return html
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
 
 export default function CoursesPage() {
   const [coursesList, setCoursesList] = useState<LmsCourse[]>([]);
@@ -153,13 +163,6 @@ export default function CoursesPage() {
                       ) : (
                         <div className="absolute inset-0 bg-grid-lines mask-radial-faded opacity-35"></div>
                       )}
-                      
-                      {/* Top tags */}
-                      <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
-                        <span className="bg-[#D6004B] text-white font-bold text-[9px] sm:text-[10px] px-2.5 py-0.5 rounded shadow">
-                          {course.category}
-                        </span>
-                      </div>
 
                       <div className="absolute bottom-3 right-4 z-20">
                         <span className="text-[10px] font-bold bg-black/60 backdrop-blur-md border border-white/10 px-2 py-0.5 rounded text-rose-400">
@@ -181,6 +184,12 @@ export default function CoursesPage() {
                               <BookOpen className="w-4 h-4 text-[#D6004B]" />
                               <span>{course.lessons_count} محاضرة</span>
                             </div>
+                            {course.category && (
+                              <div className="flex items-center gap-1.5 border-r border-white/10 pr-3">
+                                <Layers className="w-4 h-4 text-[#D6004B]" />
+                                <span>{course.category}</span>
+                              </div>
+                            )}
                           </div>
                           <div className="flex items-center gap-1 text-yellow-400">
                             <Star className="w-3.5 h-3.5 fill-current" />
@@ -194,7 +203,7 @@ export default function CoursesPage() {
                         </h2>
 
                         <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed line-clamp-2">
-                          {course.short_description || course.description}
+                          {stripHtml(course.short_description || course.description)}
                         </p>
                       </div>
 
