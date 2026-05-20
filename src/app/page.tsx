@@ -308,11 +308,12 @@ export default function Home() {
         </section>
 
         {/* ── Value Props / Social Proof ────────────────────────────────────────── */}
-        <section className="hidden md:block border-y border-white/5 bg-gradient-to-b from-transparent via-white/[0.01] to-transparent py-12 md:py-24 relative overflow-hidden">
+        <section className="border-y border-white/5 bg-gradient-to-b from-transparent via-white/[0.01] to-transparent py-6 md:py-24 relative overflow-hidden">
           <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[250px] h-[250px] bg-[#D6004B]/5 rounded-full blur-[80px] pointer-events-none" />
           <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-[250px] h-[250px] bg-rose-500/5 rounded-full blur-[80px] pointer-events-none" />
 
-          <div className="container mx-auto px-4 md:px-6 max-w-7xl">
+          {/* Desktop Version */}
+          <div className="hidden md:block container mx-auto px-4 md:px-6 max-w-7xl">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
               {[
                 { number: "+2000", label: "تدفق عمل جاهز", subLabel: "أدوات أتمتة مبرمجة وجاهزة", icon: Zap },
@@ -346,6 +347,38 @@ export default function Home() {
                 </motion.div>
               ))}
             </div>
+          </div>
+
+          {/* Mobile Version (Sleek Horizontal Scrollable Badge Row) */}
+          <div className="md:hidden w-full overflow-x-auto no-scrollbar scroll-smooth flex gap-3 px-4 py-1" dir="rtl">
+            <style jsx>{`
+              .no-scrollbar::-webkit-scrollbar {
+                display: none;
+              }
+              .no-scrollbar {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+              }
+            `}</style>
+            {[
+              { number: "+2000", label: "أداة أتمتة", icon: Zap },
+              { number: "100%", label: "تنزيل فوري", icon: Download },
+              { number: "24/7", label: "أتمتة مستمرة", icon: Clock },
+              { number: "آمن وموثق", label: "دفع مشفر", icon: ShieldCheck }
+            ].map((stat, i) => (
+              <div 
+                key={i} 
+                className="flex items-center gap-3 bg-white/[0.02] border border-white/5 px-4 py-3 rounded-2xl shrink-0 backdrop-blur-xl shadow-lg min-w-[150px]"
+              >
+                <div className="w-9 h-9 rounded-xl bg-[#D6004B]/10 border border-[#D6004B]/20 flex items-center justify-center text-[#D6004B] shrink-0">
+                  <stat.icon className="w-4.5 h-4.5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-white text-xs font-black font-alexandria truncate leading-none mb-1">{stat.number}</div>
+                  <div className="text-zinc-400 text-[10px] font-bold font-cairo truncate leading-none">{stat.label}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
