@@ -116,13 +116,16 @@ export async function POST(req: Request) {
 
     const amountCents = Math.round(totalExpectedEGP * 100);
 
+    const cleanPhoneDigits = (phone || "").replace(/\D/g, "");
+    const safePhone = (cleanPhoneDigits.length < 8) ? "+201000000000" : (phone.startsWith("+") ? phone : `+${phone}`);
+
     // 2. Create Orders in Supabase locally first (One per item)
     const dbOrders = [];
     for (const item of verifiedItems) {
       const order = await createOrder({
         customer_name: `${firstName} ${lastName}`,
         customer_email: email,
-        customer_phone: phone || "+201000000000",
+        customer_phone: safePhone,
         product_id: item.id,
         product_title: item.title,
         amount: item.priceEGP,
@@ -135,7 +138,6 @@ export async function POST(req: Request) {
 
     const safeFirstName = (firstName || "Test").replace(/[^a-zA-Z\u0600-\u06FF]/g, "");
     const safeLastName = (lastName || "User").replace(/[^a-zA-Z\u0600-\u06FF]/g, "");
-    const safePhone = phone || "+201000000000";
     const safeEmail = email || "test@example.com";
 
     const billingData = {

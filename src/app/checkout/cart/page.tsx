@@ -46,13 +46,19 @@ const checkoutSchema = z.object({
   fullName: z.string().min(3, { message: "الاسم يجب أن يكون 3 أحرف على الأقل" }),
   email: z.string().email({ message: "البريد الإلكتروني غير صالح" }),
   password: z.string().optional(),
-  phone: z.string().min(6, { message: "يرجى إدخال رقم هاتف صحيح" }),
+  phone: z.string().optional().or(z.literal('')),
 });
 
 type CheckoutValues = z.infer<typeof checkoutSchema>;
 
 export default function CartCheckoutPage() {
   const { items, clearCart } = useCart();
+  const hasCourse = items.some(item => 
+    item.category === "courses" || 
+    item.id.startsWith("course-") || 
+    item.title?.includes("دورة") || 
+    item.title?.includes("كورس")
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"card" | "wallet">("card");
   const [currency, setCurrency] = useState<Currency>("EGP");
@@ -192,7 +198,6 @@ export default function CartCheckoutPage() {
   };
 
   const [user, setUser] = useState<any>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
   const [countryCode, setCountryCode] = useState("+20");
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<CheckoutValues>({
@@ -242,7 +247,6 @@ export default function CartCheckoutPage() {
           }
         }
       }
-      setCheckingAuth(false);
     }
     checkUser();
   }, [setValue]);
@@ -293,7 +297,7 @@ export default function CartCheckoutPage() {
       let activeUser = user;
 
       // If user is not logged in, perform Instant Purchase Authentication
-      if (!activeUser) {
+      if (!activeUser && hasCourse) {
         if (!data.password) {
           toast.error("يرجى إدخال كلمة مرور لإنشاء حسابك وتأمين مشترياتك.");
           setIsLoading(false);
@@ -377,10 +381,10 @@ export default function CartCheckoutPage() {
         clearCart();
         if (paymentMethod === "wallet") {
           toast.success("جاري تحويلك لمحفظتك الإلكترونية...");
-          window.location.href = result.checkoutUrl; 
+          window.location.assign(result.checkoutUrl); 
         } else {
           toast.success("جاري تأكيد عملية الدفع...");
-          window.location.href = result.checkoutUrl; 
+          window.location.assign(result.checkoutUrl); 
         }
       } else if (result.success) {
          clearCart();
@@ -456,7 +460,7 @@ export default function CartCheckoutPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="font-cairo font-bold text-zinc-400 text-sm">البريد الإلكتروني <span className="text-[10px] font-normal text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded ml-2">هام: سيتم إرسال الملفات هنا</span></Label>
+                    <Label className="font-cairo font-bold text-zinc-400 text-sm">البريد الإلكتروني</Label>
                     <div className="relative">
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                       <Input 
@@ -472,7 +476,7 @@ export default function CartCheckoutPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="font-cairo font-bold text-zinc-400 text-sm">رقم الهاتف (الواتساب) <span className="text-[10px] font-normal text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded ml-2">هام: لمتابعة الطلبات وتفعيل الدعم</span></Label>
+                    <Label className="font-cairo font-bold text-zinc-400 text-sm">رقم الهاتف (الواتساب) (اختياري)</Label>
                     <div className="flex gap-2 relative group" dir="ltr">
                       <select
                         value={countryCode}
@@ -509,10 +513,10 @@ export default function CartCheckoutPage() {
                     {errors.phone && <p className="text-xs text-red-400 font-cairo flex items-center gap-1 mt-1"><ShieldAlert className="w-3 h-3" /> {errors.phone.message}</p>}
                   </div>
 
-                  {!user && (
+                  {!user && hasCourse && (
                     <>
                       <div className="space-y-2">
-                        <Label className="font-cairo font-bold text-zinc-400 text-sm">كلمة المرور <span className="text-[10px] font-normal text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded ml-2">لإنشاء حسابك وتفعيل لوحة التحكم فوراً</span></Label>
+                        <Label className="font-cairo font-bold text-zinc-400 text-sm">كلمة المرور الجديدة</Label>
                         <div className="relative">
                           <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                           <Input 

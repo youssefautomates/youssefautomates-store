@@ -7,13 +7,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Sparkles, BookOpen, Clock, ArrowLeft, Star, 
   CheckCircle2, ChevronDown, Award, PlayCircle, ShieldCheck, 
-  Loader2, Play, Users, Check, AlertCircle, HelpCircle, Zap, VolumeX, Volume2, X
+  Loader2, Play, Users, Check, AlertCircle, HelpCircle, Zap, VolumeX, Volume2, X, ShoppingCart
 } from "lucide-react";
 import Link from "next/link";
 import { getCourseBySlug, checkEnrollment, getCoursesList, type LmsCourse, type LmsSection, type LmsLesson } from "@/lib/coursesDb";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { ProductReviews } from "@/components/ProductReviews";
 import { SocialLinks } from "@/components/SocialLinks";
+import { useCart } from "@/context/CartContext";
 
 interface ShowcaseVideo {
   id: string;
@@ -128,6 +129,38 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
   const [recommendedCourses, setRecommendedCourses] = useState<LmsCourse[]>([]);
   const [promoVideoSignedUrl, setPromoVideoSignedUrl] = useState<string>("");
   
+  const [isClient, setIsClient] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+    setIsMobile(window.innerWidth < 768);
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const { addToCart } = useCart();
+
+  const handleAddToCart = () => {
+    if (!course) return;
+    addToCart({
+      id: course.id,
+      title: course.title,
+      price: course.price,
+      original_price: course.original_price,
+      category: "courses",
+      image_url: course.image_url,
+      slug: course.slug,
+      short_description: course.description || "",
+      description: course.description || "",
+      discount_pct: course.original_price > course.price ? Math.round(((course.original_price - course.price) / course.original_price) * 100) : 0,
+      is_featured: false,
+      sales: 0,
+      tags: course.tags || [],
+    } as any);
+  };
+
   // Video Player States
   const [isMuted, setIsMuted] = useState(true);
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -356,19 +389,21 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                         </div>
                       ) : (
                         <div className="relative w-full h-full flex items-center justify-center">
-                          <video 
-                            ref={videoRef}
-                            src={previewVideoUrl} 
-                            muted={isMuted}
-                            autoPlay 
-                            playsInline
-                            loop={!hasInteracted}
-                            controls={hasInteracted}
-                            preload="metadata"
-                            controlsList="nodownload"
-                            onContextMenu={(e) => e.preventDefault()}
-                            className="w-full h-full object-cover"
-                          />
+                          {isClient && !isMobile && (
+                             <video 
+                               ref={videoRef}
+                               src={previewVideoUrl} 
+                               muted={isMuted}
+                               autoPlay 
+                               playsInline
+                               loop={!hasInteracted}
+                               controls={hasInteracted}
+                               preload="metadata"
+                               controlsList="nodownload"
+                               onContextMenu={(e) => e.preventDefault()}
+                               className="w-full h-full object-cover"
+                             />
+                           )}
                           
                           {!hasInteracted && (
                             <div 
@@ -459,6 +494,15 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                         <span>اشترك في الكورس الآن</span>
                         <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
                       </Link>
+                      {course.price > 0 && (
+                        <button
+                          onClick={handleAddToCart}
+                          className="w-full mt-2.5 h-14 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-bold text-base border border-white/10 transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer font-cairo"
+                        >
+                          <ShoppingCart className="w-5 h-5" />
+                          <span>إضافة إلى السلة</span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1044,6 +1088,15 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                   <span>سجل في القسم الآن</span>
                   <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
                 </Link>
+                {course.price > 0 && (
+                  <button
+                    onClick={handleAddToCart}
+                    className="w-full mt-2 h-12 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-bold text-sm border border-white/10 transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer font-cairo"
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                    <span>إضافة إلى السلة</span>
+                  </button>
+                )}
               </div>
             </div>
           </section>
@@ -1153,6 +1206,8 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
           onShowcaseVideoClick={setActiveShowcaseVideo}
           marqueeVideos={marqueeVideos}
           onPreviewLessonClick={setActivePreviewLesson}
+          isMobileOnly={isClient && isMobile}
+          onAddToCart={handleAddToCart}
         />
 
         {/* Global Styles for Marquee */}
@@ -1248,20 +1303,31 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
 
       {/* Floating Bottom Purchase Bar (Mobile/Sticky Mode) */}
       {!isEnrolled && (
-        <div className="fixed bottom-0 inset-x-0 bg-black/85 backdrop-blur-xl border-t border-white/5 py-4 px-6 z-50 flex items-center justify-between lg:hidden transition-all duration-300">
-          <div className="flex flex-col">
+        <div className="fixed bottom-0 inset-x-0 bg-black/85 backdrop-blur-xl border-t border-white/5 py-4 px-6 z-50 flex items-center justify-between lg:hidden transition-all duration-300 gap-3">
+          <div className="flex flex-col shrink-0">
             <span className="text-[10px] text-zinc-400 font-bold font-cairo">انضم للدورة اليوم بـ</span>
             <span className="text-lg font-alexandria font-black text-[#D6004B]">
               {course.price === 0 ? "مجاناً" : `${course.price} ج.م`}
             </span>
           </div>
-          <Link
-            href={course.price === 0 ? `/learn/${course.slug}/${firstLessonSlug}` : `/checkout/${course.id}`}
-            className="h-11 px-6 bg-[#D6004B] hover:bg-[#b0003d] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-[0_4px_12px_rgba(214,0,75,0.2)] font-cairo"
-          >
-            <span>انضم الآن</span>
-            <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
-          </Link>
+          <div className="flex gap-2 flex-grow justify-end items-center">
+            <Link
+              href={course.price === 0 ? `/learn/${course.slug}/${firstLessonSlug}` : `/checkout/${course.id}`}
+              className="h-11 px-5 bg-[#D6004B] hover:bg-[#b0003d] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-[0_4px_12px_rgba(214,0,75,0.2)] font-cairo flex-grow max-w-[200px]"
+            >
+              <span>انضم الآن</span>
+              <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
+            </Link>
+            {course.price > 0 && (
+              <button
+                onClick={handleAddToCart}
+                className="h-11 w-11 shrink-0 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl transition-all flex items-center justify-center active:scale-98 cursor-pointer"
+                title="إضافة إلى السلة"
+              >
+                <ShoppingCart className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -1294,6 +1360,8 @@ interface MobileCourseViewProps {
   mobileVideoRef: React.RefObject<HTMLVideoElement | null>;
   onShowcaseVideoClick: (video: ShowcaseVideo) => void;
   marqueeVideos: any[];
+  isMobileOnly?: boolean;
+  onAddToCart?: () => void;
 }
 
 function MobileCourseView({
@@ -1318,6 +1386,8 @@ function MobileCourseView({
   onShowcaseVideoClick,
   marqueeVideos,
   onPreviewLessonClick,
+  isMobileOnly = false,
+  onAddToCart,
 }: MobileCourseViewProps) {
 
   return (
@@ -1373,19 +1443,21 @@ function MobileCourseView({
               </div>
             ) : (
               <div className="relative w-full h-full flex items-center justify-center">
-                <video 
-                  ref={mobileVideoRef}
-                  src={previewVideoUrl} 
-                  muted={isMuted}
-                  autoPlay 
-                  playsInline
-                  loop={!hasInteracted}
-                  controls={hasInteracted}
-                  preload="metadata"
-                  controlsList="nodownload"
-                  onContextMenu={(e) => e.preventDefault()}
-                  className="w-full h-full object-cover"
-                />
+                {isMobileOnly && (
+                  <video 
+                    ref={mobileVideoRef}
+                    src={previewVideoUrl} 
+                    muted={isMuted}
+                    autoPlay 
+                    playsInline
+                    loop={!hasInteracted}
+                    controls={hasInteracted}
+                    preload="metadata"
+                    controlsList="nodownload"
+                    onContextMenu={(e) => e.preventDefault()}
+                    className="w-full h-full object-cover"
+                  />
+                )}
                 
                 {!hasInteracted && (
                   <div 
@@ -1505,6 +1577,15 @@ function MobileCourseView({
                <span>{course.price === 0 ? "ابدأ التعلم مجاناً الآن" : "اشترك في الكورس الآن"}</span>
                <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
              </Link>
+              {course.price > 0 && onAddToCart && (
+                <button
+                  onClick={onAddToCart}
+                  className="w-full mt-2 h-11 bg-white/5 hover:bg-white/10 text-white rounded-xl font-bold text-xs border border-white/10 transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer font-cairo"
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  <span>إضافة إلى السلة</span>
+                </button>
+              )}
 
              <div className="flex justify-around pt-2 border-t border-white/5 text-[8.5px] text-zinc-400 font-bold font-cairo">
                <div className="flex items-center gap-1">

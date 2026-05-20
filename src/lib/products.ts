@@ -134,7 +134,7 @@ export async function fetchActiveProducts(opts: {
     let query = supabase
       .from("products")
       .select(
-        "id, title, slug, description, short_description, price, original_price, discount_pct, is_featured, image_url, file_url, category, tags, sales, created_at"
+        "id, title, slug, description, short_description, price, original_price, price_egp, original_price_egp, price_usd, original_price_usd, discount_pct, is_featured, image_url, file_url, category, tags, sales, created_at"
       )
       .eq("status", "نشط")
       .order("is_featured", { ascending: false })
