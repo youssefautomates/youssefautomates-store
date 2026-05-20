@@ -725,31 +725,68 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                             </div>
 
                             {/* Certificate Mockup Frame */}
-                            <div className="aspect-[1.414/1] bg-gradient-to-br from-zinc-900 to-zinc-950 border border-white/10 rounded-2xl flex flex-col justify-between p-6 relative overflow-hidden shadow-2xl">
-                              <div className="absolute inset-0 bg-grid-lines mask-radial-faded opacity-10" />
-                              
-                              <div className="flex justify-between items-start z-10">
-                                <div className="w-6 h-6 border-t-2 border-r-2 border-rose-500/20" />
-                                <span className="text-[8px] font-black text-rose-500/50 uppercase tracking-widest font-alexandria">Youssef Automates Academy</span>
-                                <div className="w-6 h-6 border-t-2 border-l-2 border-rose-500/20" />
-                              </div>
+                            <div className="aspect-[1.414/1] bg-[#07070a] border border-white/10 rounded-2xl relative overflow-hidden shadow-2xl flex items-center justify-center w-full" style={{ containerType: 'inline-size' } as React.CSSProperties}>
+                              <style dangerouslySetInnerHTML={{__html: `
+                                @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@700;800;900&family=Alexandria:wght@800;900&family=Alike&display=swap');
+                              `}} />
+                              {course.certificate_bg_url ? (
+                                <>
+                                  <img src={course.certificate_bg_url} alt="Certificate Background" className="absolute inset-0 w-full h-full object-contain animate-fade-in" />
+                                  <div className="absolute inset-0 z-10" style={{ color: course.certificate_text_color || "#000000" }}>
+                                    <div 
+                                      className="absolute whitespace-nowrap transition-all" 
+                                      style={{ 
+                                        left: `${course.certificate_name_x ?? 50}%`, 
+                                        top: `${course.certificate_name_y ?? 47}%`, 
+                                        fontSize: `${(course.certificate_name_size || 29) * 0.2}cqw`,
+                                        transform: 'translate(-50%, -50%)',
+                                        fontFamily: "'Alike', serif",
+                                        fontWeight: 'normal',
+                                      }}
+                                    >
+                                      Mariem Mahmoud Alsayed
+                                    </div>
+                                    <div 
+                                      className="absolute whitespace-nowrap font-mono" 
+                                      style={{ 
+                                        left: `${course.certificate_date_x ?? 15}%`, 
+                                        top: `${course.certificate_date_y ?? 87}%`, 
+                                        fontSize: `${(course.certificate_date_size || 13) * 0.2}cqw`,
+                                        transform: 'translate(-50%, -50%)' 
+                                      }}
+                                    >
+                                      {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                                    </div>
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="absolute inset-0 flex flex-col justify-between p-6 bg-gradient-to-br from-zinc-900 to-zinc-950">
+                                  <div className="absolute inset-0 bg-grid-lines mask-radial-faded opacity-10" />
+                                  
+                                  <div className="flex justify-between items-start z-10">
+                                    <div className="w-6 h-6 border-t-2 border-r-2 border-rose-500/20" />
+                                    <span className="text-[8px] font-black text-rose-500/50 uppercase tracking-widest font-alexandria">Youssef Automates Academy</span>
+                                    <div className="w-6 h-6 border-t-2 border-l-2 border-rose-500/20" />
+                                  </div>
 
-                              <div className="space-y-2 z-10">
-                                <h4 className="text-zinc-400 text-[10px] uppercase font-bold tracking-widest font-alexandria">شهادة إتمام وتخرج رسمية</h4>
-                                <div className="text-sm font-alexandria font-bold text-white border-b border-white/5 pb-2 max-w-xs mx-auto">طالب متفوق ومتميز</div>
-                                <p className="text-zinc-500 text-[9px] max-w-xs mx-auto leading-relaxed">لاجتيازه كافة متطلبات الدورة التدريبية التطبيقية بنجاح.</p>
-                                <div className="text-rose-500 text-xs font-alexandria font-black">{course.title}</div>
-                              </div>
+                                  <div className="space-y-2 z-10">
+                                    <h4 className="text-zinc-400 text-[10px] uppercase font-bold tracking-widest font-alexandria">شهادة إتمام وتخرج رسمية</h4>
+                                    <div className="text-sm font-alexandria font-bold text-white border-b border-white/5 pb-2 max-w-xs mx-auto">طالب متفوق ومتميز</div>
+                                    <p className="text-zinc-500 text-[9px] max-w-xs mx-auto leading-relaxed">لاجتيازه كافة متطلبات الدورة التدريبية التطبيقية بنجاح.</p>
+                                    <div className="text-rose-500 text-xs font-alexandria font-black">{course.title}</div>
+                                  </div>
 
-                              <div className="flex justify-between items-end z-10 text-[8px] text-zinc-500 font-bold border-t border-white/5 pt-3">
-                                <div className="flex flex-col items-start">
-                                  <span>كود التحقق:</span>
-                                  <span className="text-zinc-400 font-mono">YA-CERT-XXXXX</span>
+                                  <div className="flex justify-between items-end z-10 text-[8px] text-zinc-500 font-bold border-t border-white/5 pt-3">
+                                    <div className="flex flex-col items-start">
+                                      <span>كود التحقق:</span>
+                                      <span className="text-zinc-400 font-mono">YA-CERT-XXXXX</span>
+                                    </div>
+                                    <div className="w-10 h-10 bg-white/5 border border-white/10 rounded flex items-center justify-center text-[6px] text-zinc-600">
+                                      QR CODE
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="w-10 h-10 bg-white/5 border border-white/10 rounded flex items-center justify-center text-[6px] text-zinc-600">
-                                  QR CODE
-                                </div>
-                              </div>
+                              )}
                             </div>
                           </div>
                         </motion.div>
@@ -1637,9 +1674,38 @@ function MobileCourseView({
                  </p>
 
                  {course.certificate_bg_url ? (
-                   <div className="relative w-full aspect-[1.414/1] bg-white/5 rounded-xl border border-white/10 overflow-hidden">
-                     <img src={course.certificate_bg_url} alt="Certificate template" className="w-full h-full object-contain" />
-                   </div>
+                    <div className="relative w-full aspect-[1.414/1] bg-[#07070a] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center" style={{ containerType: 'inline-size' } as any}>
+                      <style dangerouslySetInnerHTML={{__html: `
+                        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@700;800;900&family=Alexandria:wght@800;900&family=Alike&display=swap');
+                      `}} />
+                      <img src={course.certificate_bg_url} alt="Certificate Background" className="absolute inset-0 w-full h-full object-contain animate-fade-in" />
+                      <div className="absolute inset-0 z-10" style={{ color: course.certificate_text_color || "#000000" }}>
+                        <div 
+                          className="absolute whitespace-nowrap transition-all" 
+                          style={{ 
+                            left: `${course.certificate_name_x ?? 50}%`, 
+                            top: `${course.certificate_name_y ?? 47}%`, 
+                            fontSize: `${(course.certificate_name_size || 29) * 0.2}cqw`,
+                            transform: 'translate(-50%, -50%)',
+                            fontFamily: "'Alike', serif",
+                            fontWeight: 'normal',
+                          }}
+                        >
+                          Mariem Mahmoud Alsayed
+                        </div>
+                        <div 
+                          className="absolute whitespace-nowrap font-mono" 
+                          style={{ 
+                            left: `${course.certificate_date_x ?? 15}%`, 
+                            top: `${course.certificate_date_y ?? 87}%`, 
+                            fontSize: `${(course.certificate_date_size || 13) * 0.2}cqw`,
+                            transform: 'translate(-50%, -50%)' 
+                          }}
+                        >
+                          {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                        </div>
+                      </div>
+                    </div>
                  ) : (
                    <div className="w-full aspect-[1.414/1] bg-white/5 rounded-xl border border-dashed border-white/10 flex items-center justify-center">
                      <span className="text-zinc-500 font-bold text-xs">لا يوجد صورة لمعاينة الشهادة حالياً</span>
