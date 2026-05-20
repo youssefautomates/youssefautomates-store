@@ -224,7 +224,7 @@ export default function Home() {
       <main className="flex-1 flex flex-col pt-16">
         
         {/* ── 1. HERO SECTION (Cinematic Premium) ────────────────────────────────── */}
-        <section className="relative min-h-[90vh] md:min-h-[95vh] flex items-center justify-center overflow-hidden pt-12 pb-12 md:pt-24 md:pb-24">
+        <section className="relative min-h-0 md:min-h-[85vh] flex items-center justify-center overflow-hidden pt-6 pb-10 md:pt-24 md:pb-24">
           <div className="absolute inset-0 w-full h-full pointer-events-none bg-[#050505]">
             <div className="absolute inset-0 w-full h-full bg-grid-lines mask-radial-faded opacity-60 md:opacity-100"></div>
             <motion.div 
@@ -304,81 +304,6 @@ export default function Home() {
                 </div>
               </motion.div>
             </div>
-          </div>
-        </section>
-
-        {/* ── Value Props / Social Proof ────────────────────────────────────────── */}
-        <section className="border-y border-white/5 bg-gradient-to-b from-transparent via-white/[0.01] to-transparent py-6 md:py-24 relative overflow-hidden">
-          <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[250px] h-[250px] bg-[#D6004B]/5 rounded-full blur-[80px] pointer-events-none" />
-          <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-[250px] h-[250px] bg-rose-500/5 rounded-full blur-[80px] pointer-events-none" />
-
-          {/* Desktop Version */}
-          <div className="hidden md:block container mx-auto px-4 md:px-6 max-w-7xl">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
-              {[
-                { number: "+2000", label: "تدفق عمل جاهز", subLabel: "أدوات أتمتة مبرمجة وجاهزة", icon: Zap },
-                { number: "100%", label: "تنزيل فوري", subLabel: "رابط تحميل مباشر بعد الدفع", icon: Download },
-                { number: "24/7", label: "أتمتة مستمرة", subLabel: "تعمل وتدر عليك الدخل تلقائياً", icon: Clock },
-                { number: "آمن وموثق", subLabel: "حماية كاملة لبياناتك ومدفوعاتك", label: "دفع مشفر", icon: ShieldCheck }
-              ].map((stat, i) => (
-                <motion.div 
-                  key={i}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-50px" }}
-                  transition={{ duration: 0.6, delay: i * 0.1, ease: "easeOut" }}
-                  whileHover={{ y: -8, scale: 1.02, transition: { duration: 0.2, ease: "easeOut" } }}
-                  className="group relative flex flex-col items-center text-center p-5 md:p-8 rounded-2xl md:rounded-3xl bg-white/[0.01] backdrop-blur-xl border border-white/5 hover:border-[#D6004B]/20 hover:bg-white/[0.02] shadow-[0_10px_40px_rgba(0,0,0,0.4)] hover:shadow-[0_20px_50px_rgba(214,0,75,0.08)] transition-colors duration-300 select-none cursor-default overflow-hidden"
-                >
-                  <div className="absolute top-0 right-0 w-20 h-20 md:w-24 md:h-24 bg-gradient-to-br from-[#D6004B]/10 to-transparent rounded-full blur-[30px] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  <div className="relative w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-zinc-400 group-hover:text-[#D6004B] group-hover:bg-[#D6004B]/10 group-hover:border-[#D6004B]/20 shadow-[0_0_20px_rgba(0,0,0,0.2)] group-hover:shadow-[0_0_30px_rgba(214,0,75,0.25)] transition-all duration-500 mb-3 md:mb-6 group-hover:scale-110">
-                    <stat.icon className="w-5 h-5 md:w-6 md:h-6 transform transition-transform duration-500 group-hover:rotate-6" />
-                  </div>
-                  <p className="text-xl md:text-4xl font-alexandria font-black text-white tracking-tight mb-1 md:mb-2 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-rose-200 transition-all duration-300">
-                    {stat.number}
-                  </p>
-                  <p className="text-white font-cairo text-xs md:text-base font-bold mb-0.5 md:mb-1 transition-colors duration-300 group-hover:text-[#D6004B]">
-                    {stat.label}
-                  </p>
-                  <p className="text-zinc-500 font-cairo text-[9px] md:text-xs leading-relaxed group-hover:text-zinc-400 transition-colors duration-300 hidden sm:block">
-                    {stat.subLabel}
-                  </p>
-                  <div className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#D6004B] to-transparent transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
-                </motion.div>
-              ))}
-            </div>
-          </div>
-
-          {/* Mobile Version (Sleek Horizontal Scrollable Badge Row) */}
-          <div className="md:hidden w-full overflow-x-auto no-scrollbar scroll-smooth flex gap-3 px-4 py-1" dir="rtl">
-            <style jsx>{`
-              .no-scrollbar::-webkit-scrollbar {
-                display: none;
-              }
-              .no-scrollbar {
-                -ms-overflow-style: none;
-                scrollbar-width: none;
-              }
-            `}</style>
-            {[
-              { number: "+2000", label: "أداة أتمتة", icon: Zap },
-              { number: "100%", label: "تنزيل فوري", icon: Download },
-              { number: "24/7", label: "أتمتة مستمرة", icon: Clock },
-              { number: "آمن وموثق", label: "دفع مشفر", icon: ShieldCheck }
-            ].map((stat, i) => (
-              <div 
-                key={i} 
-                className="flex items-center gap-3 bg-white/[0.02] border border-white/5 px-4 py-3 rounded-2xl shrink-0 backdrop-blur-xl shadow-lg min-w-[150px]"
-              >
-                <div className="w-9 h-9 rounded-xl bg-[#D6004B]/10 border border-[#D6004B]/20 flex items-center justify-center text-[#D6004B] shrink-0">
-                  <stat.icon className="w-4.5 h-4.5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-white text-xs font-black font-alexandria truncate leading-none mb-1">{stat.number}</div>
-                  <div className="text-zinc-400 text-[10px] font-bold font-cairo truncate leading-none">{stat.label}</div>
-                </div>
-              </div>
-            ))}
           </div>
         </section>
 

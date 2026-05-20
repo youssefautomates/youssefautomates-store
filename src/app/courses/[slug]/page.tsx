@@ -1311,17 +1311,17 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
 
       {/* Floating Bottom Purchase Bar (Mobile/Sticky Mode) */}
       {!isEnrolled && (
-        <div className="fixed bottom-0 inset-x-0 bg-black/85 backdrop-blur-xl border-t border-white/5 py-4 px-6 z-50 flex items-center justify-between lg:hidden transition-all duration-300 gap-3">
-          <div className="flex flex-col shrink-0">
-            <span className="text-[10px] text-zinc-400 font-bold font-cairo">انضم للدورة اليوم بـ</span>
-            <span className="text-lg font-alexandria font-black text-[#D6004B]">
+        <div className="fixed bottom-0 inset-x-0 bg-zinc-950/90 backdrop-blur-2xl border-t border-white/10 py-3.5 px-5 z-50 flex items-center justify-between lg:hidden transition-all duration-300 gap-3 shadow-[0_-8px_30px_rgba(0,0,0,0.7)]">
+          <div className="flex flex-col shrink-0 text-right">
+            <span className="text-[9px] text-zinc-400 font-bold font-cairo">استثمار الانضمام للدورة</span>
+            <span className="text-base font-alexandria font-black text-[#D6004B]">
               {course.price === 0 ? "مجاناً" : `${course.price} ج.م`}
             </span>
           </div>
           <div className="flex gap-2 flex-grow justify-end items-center">
             <Link
               href={course.price === 0 ? `/learn/${course.slug}/${firstLessonSlug}` : `/checkout/${course.id}`}
-              className="h-11 px-5 bg-[#D6004B] hover:bg-[#b0003d] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-[0_4px_12px_rgba(214,0,75,0.2)] font-cairo flex-grow max-w-[200px]"
+              className="h-12 px-5 bg-gradient-to-r from-[#D6004B] via-[#ff1d6b] to-[#D6004B] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-[0_4px_15px_rgba(214,0,75,0.4)] font-cairo flex-grow max-w-[210px] active:scale-95"
             >
               <span>انضم الآن</span>
               <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
@@ -1329,10 +1329,10 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
             {course.price > 0 && (
               <button
                 onClick={handleAddToCart}
-                className="h-11 w-11 shrink-0 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl transition-all flex items-center justify-center active:scale-98 cursor-pointer"
+                className="h-12 w-12 shrink-0 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer"
                 title="إضافة إلى السلة"
               >
-                <ShoppingCart className="w-4 h-4" />
+                <ShoppingCart className="w-4.5 h-4.5 text-zinc-300" />
               </button>
             )}
           </div>
@@ -1399,7 +1399,7 @@ function MobileCourseView({
 }: MobileCourseViewProps) {
 
   return (
-    <div className="block md:hidden space-y-6 px-4">
+    <div className="block md:hidden space-y-6 px-4 pb-24">
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes bounce-subtle {
           0%, 100% { transform: translateY(0); }
@@ -1408,13 +1408,41 @@ function MobileCourseView({
         .animate-bounce-subtle {
           animation: bounce-subtle 3s ease-in-out infinite;
         }
+        @keyframes pulse-glow {
+          0%, 100% { box-shadow: 0 0 15px rgba(214, 0, 75, 0.4); }
+          50% { box-shadow: 0 0 30px rgba(214, 0, 75, 0.7); }
+        }
+        .animate-pulse-glow {
+          animation: pulse-glow 2s infinite;
+        }
       `}} />
 
-      {/* 1. Title */}
-      <div className="text-center pt-2">
-        <h1 className="text-xl font-alexandria font-black text-white leading-tight">
+      {/* Dynamic Urgency / Scarcity Banner */}
+      {!isEnrolled && (
+        <div className="bg-gradient-to-r from-amber-500/20 via-[#D6004B]/20 to-pink-500/20 border border-[#D6004B]/35 rounded-2xl p-3 flex items-center justify-between text-right text-xs text-white gap-2 shadow-[0_0_25px_rgba(214,0,75,0.2)] mt-2">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+            <span className="font-bold text-[10px] sm:text-xs">عرض لفترة محدودة: خصم {course.original_price > 0 ? Math.round(((course.original_price - course.price) / course.original_price) * 100) : 40}% مفعل حالياً!</span>
+          </div>
+          <div className="bg-[#D6004B] text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider animate-pulse shrink-0">
+            سارع بالاشتراك
+          </div>
+        </div>
+      )}
+
+      {/* 1. Title & Marketing Badges */}
+      <div className="text-center pt-2 space-y-3">
+        <h1 className="text-xl sm:text-2xl font-alexandria font-black text-white leading-tight">
           {course.title}
         </h1>
+        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+          <span className="bg-[#D6004B]/10 border border-[#D6004B]/20 text-[#D6004B] text-[9px] font-black px-2 py-0.5 rounded-full font-cairo">الأكثر مبيعاً 🔥</span>
+          <span className="bg-white/5 border border-white/10 text-zinc-300 text-[9px] font-black px-2 py-0.5 rounded-full font-cairo">تفعيل تلقائي وفوري ⚡</span>
+          <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full font-cairo">ضمان استرداد 🛡️</span>
+        </div>
       </div>
 
       {/* 2. Video Player */}
@@ -1544,39 +1572,39 @@ function MobileCourseView({
       </div>
 
       {/* 4. Professional CTA */}
-      <div className="bg-gradient-to-br from-[#0c0c14] to-[#050508] border border-white/5 rounded-2xl p-4 shadow-2xl relative overflow-hidden">
-         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#D6004B] to-transparent animate-pulse" />
+      <div className="bg-gradient-to-br from-[#0e0e1a] to-[#07070d] border border-white/10 rounded-2xl p-5 shadow-[0_15px_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
+         <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-transparent via-[#D6004B] to-transparent animate-pulse" />
          
          {isEnrolled ? (
-           <div className="space-y-3 text-center">
-             <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-xl text-[10px] font-bold justify-center">
-               <CheckCircle2 className="w-4 h-4" />
+           <div className="space-y-3.5 text-center">
+             <div className="flex items-center gap-2.5 text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-2.5 rounded-xl text-xs font-bold justify-center">
+               <CheckCircle2 className="w-5 h-5" />
                <span>حسابك مفعل ومسجل في القسم</span>
              </div>
              <Link
                href={`/learn/${course.slug}/${firstLessonSlug}`}
-               className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-[0_8px_20px_rgba(16,185,129,0.2)] transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer font-cairo"
+               className="w-full h-13 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm shadow-[0_8px_20px_rgba(16,185,129,0.2)] transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer font-cairo"
              >
                <span>ادخل مشغل الدروس الفنية</span>
-               <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
+               <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
              </Link>
            </div>
          ) : (
-           <div className="space-y-4">
+           <div className="space-y-5">
              <div className="flex items-center justify-between">
-               <span className="text-[8.5px] text-zinc-500 font-bold font-alexandria uppercase tracking-wider">سعر الدورة الاستماري</span>
+               <span className="text-[10px] text-zinc-400 font-bold font-alexandria uppercase tracking-wider">سعر الاستثمار الحالي</span>
                {course.original_price > 0 && (
-                 <span className="text-[10px] text-zinc-500 line-through font-alexandria">بدلاً من {course.original_price} ج.م</span>
+                 <span className="text-xs text-zinc-500 line-through font-alexandria">بدلاً من {course.original_price} ج.م</span>
                )}
              </div>
              
              <div className="flex items-baseline justify-between gap-2">
-               <div className="flex items-baseline gap-1.5">
-                 <span className="text-xl font-alexandria font-black text-white">
+               <div className="flex items-baseline gap-2">
+                 <span className="text-2xl sm:text-3xl font-alexandria font-black text-white">
                    {course.price === 0 ? "مجاني" : `${course.price} ج.م`}
                  </span>
                  {course.original_price > 0 && (
-                   <span className="text-[8.5px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
+                   <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
                      وفر {Math.round(((course.original_price - course.price) / course.original_price) * 100)}%
                    </span>
                  )}
