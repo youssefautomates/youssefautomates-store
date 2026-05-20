@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Star, ShieldCheck, MessageSquareQuote, User } from "lucide-react";
-import { motion } from "framer-motion";
-import Image from "next/image";
+import { Star, ShieldCheck, MessageSquareQuote, CheckCircle2 } from "lucide-react";
 
 interface Review {
   id: string;
@@ -48,59 +46,109 @@ export function ProductReviews({ productId }: { productId: string }) {
 
   if (loading || reviews.length === 0) return null;
 
+  // Duplicate reviews for seamless infinite marquee
+  const baseCount = reviews.length;
+  const repeatTimes = Math.max(3, Math.ceil(15 / (baseCount * 3)) * 3);
+  const duplicatedReviews: Review[] = [];
+  for (let i = 0; i < repeatTimes; i++) {
+    duplicatedReviews.push(...reviews);
+  }
+
   return (
-    <section className="container mx-auto px-4 mt-16 mb-8">
-      <div className="flex items-center gap-3 mb-10">
-        <div className="w-12 h-12 bg-rose-600/10 rounded-2xl flex items-center justify-center">
-          <MessageSquareQuote className="w-6 h-6 text-rose-500" />
+    <section className="mt-16 mb-8 overflow-hidden relative select-none">
+      <div className="container mx-auto px-4 mb-10">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-rose-600/10 rounded-2xl flex items-center justify-center">
+            <MessageSquareQuote className="w-6 h-6 text-rose-500" />
+          </div>
+          <h2 className="text-3xl font-alexandria font-black text-white tracking-tighter">آراء العملاء</h2>
         </div>
-        <h2 className="text-3xl font-alexandria font-black text-white tracking-tighter">آراء العملاء</h2>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {reviews.map((review, idx) => (
-          <motion.div 
-            key={review.id}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: idx * 0.1 }}
-            className="bg-[#0c0c12] p-8 rounded-[2rem] border border-white/5 hover:border-rose-500/30 transition-all group flex flex-col"
-          >
-            <div className="flex items-start justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-zinc-800 rounded-full overflow-hidden flex items-center justify-center shrink-0 border-2 border-white/5 group-hover:border-rose-500/50 transition-colors relative">
-                  {review.avatarUrl && !review.avatarUrl.includes("pravatar") ? (
-                    <img src={review.avatarUrl} alt={review.firstName} className="w-full h-full object-cover" />
-                  ) : (
-                    <img src={getAvatarUrl(review.firstName, review.gender)} alt={review.firstName} className="w-full h-full object-cover" />
-                  )}
-                </div>
-                <div>
-                  <h4 className="text-white font-alexandria font-bold text-lg">
-                    {review.firstName} {review.lastName ? review.lastName.charAt(0) + "." : ""}
-                  </h4>
-                  {review.isVerified && (
-                    <div className="flex items-center gap-1 mt-1 bg-emerald-500/10 w-fit px-2 py-0.5 rounded-full border border-emerald-500/20">
-                      <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                      <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">مشترٍ موثوق</span>
+      {/* Infinite Marquee */}
+      <div className="relative w-full overflow-hidden" dir="ltr">
+        
+        {/* CSS Keyframes for seamless right-to-left scroll */}
+        <style jsx global>{`
+          @keyframes product-reviews-scroll {
+            0% {
+              transform: translate3d(0, 0, 0);
+            }
+            100% {
+              transform: translate3d(-33.333%, 0, 0);
+            }
+          }
+          .animate-product-reviews-marquee {
+            display: flex;
+            gap: 1.5rem;
+            width: max-content;
+            animation: product-reviews-scroll 40s linear infinite;
+          }
+          .animate-product-reviews-marquee:hover {
+            animation-play-state: paused;
+          }
+        `}</style>
+
+        {/* Fade edges */}
+        <div className="absolute left-0 top-0 bottom-0 w-20 md:w-32 bg-gradient-to-r from-[#050507] to-transparent z-10 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-20 md:w-32 bg-gradient-to-l from-[#050507] to-transparent z-10 pointer-events-none" />
+
+        <div className="animate-product-reviews-marquee">
+          {duplicatedReviews.map((review, idx) => {
+            const avatarSrc = review.avatarUrl && !review.avatarUrl.includes("pravatar")
+              ? review.avatarUrl
+              : getAvatarUrl(review.firstName, review.gender);
+
+            return (
+              <div
+                key={idx}
+                className="w-[300px] h-[220px] md:w-[360px] md:h-[250px] flex-shrink-0 bg-[#08080c]/60 border border-white/5 p-5 md:p-6 rounded-3xl relative group hover:border-rose-500/30 transition-all duration-500 shadow-2xl flex flex-col justify-between"
+                dir="rtl"
+              >
+                <div className="space-y-3">
+                  {/* User Info Header */}
+                  <div className="flex items-center gap-3 md:gap-4">
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-zinc-800 overflow-hidden shadow-lg border border-white/10 shrink-0 relative">
+                      <img 
+                        src={avatarSrc} 
+                        alt={review.firstName} 
+                        className="w-full h-full object-cover" 
+                      />
                     </div>
-                  )}
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-alexandria font-bold text-white text-xs md:text-sm truncate">
+                        {review.firstName} {review.lastName ? review.lastName.charAt(0) + "." : ""}
+                      </h4>
+                    </div>
+                    {review.isVerified && (
+                      <div className="shrink-0">
+                        <div className="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
+                          <CheckCircle2 className="w-2.5 h-2.5" />
+                          <span className="text-[8px] md:text-[9px] font-black font-cairo">موثق</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Rating Stars */}
+                  <div className="flex text-yellow-500 gap-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className={`w-3 h-3 md:w-3.5 md:h-3.5 ${i < review.rating ? 'fill-current' : 'text-zinc-800 fill-transparent'}`} />
+                    ))}
+                  </div>
+
+                  {/* Review Text */}
+                  <p className="text-zinc-400 font-cairo text-xs md:text-sm leading-relaxed whitespace-normal pl-2 line-clamp-3 md:line-clamp-4">
+                    &ldquo;{review.text}&rdquo;
+                  </p>
                 </div>
+                
+                {/* Subtle Ambient Hover Glow */}
+                <div className="absolute inset-0 bg-gradient-to-br from-rose-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 rounded-3xl pointer-events-none" />
               </div>
-            </div>
-
-            <div className="flex gap-1 mb-4 text-yellow-400">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'fill-current' : 'text-zinc-800 fill-transparent'}`} />
-              ))}
-            </div>
-
-            <p className="text-zinc-400 font-cairo text-base leading-relaxed flex-1 italic">
-              "{review.text}"
-            </p>
-          </motion.div>
-        ))}
+            );
+          })}
+        </div>
       </div>
     </section>
   );

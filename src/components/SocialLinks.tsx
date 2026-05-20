@@ -58,7 +58,7 @@ export function SocialLinks() {
     },
     {
       name: "WhatsApp",
-      url: process.env.NEXT_PUBLIC_WHATSAPP_URL || "https://wa.me/201000000000",
+      url: "https://wa.me/+201107099196",
       label: "تواصل معنا عبر واتساب",
       hoverClass: "hover:text-[#25D366] hover:bg-[#25D366]/5 hover:border-emerald-500/30 hover:shadow-[0_0_25px_rgba(37,211,102,0.35)]",
       icon: (
