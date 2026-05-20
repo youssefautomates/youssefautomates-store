@@ -402,7 +402,21 @@ export async function getCourseBySlug(slug: string): Promise<{ course: LmsCourse
           populated.push({ ...sec, lessons: lessons || [] });
         }
       }
-      return { course: course as LmsCourse, sections: populated };
+
+      // ── Auto-compute real stats from actual curriculum ──────────────────
+      const allLessonsFlat: any[] = populated.flatMap(sec => sec.lessons || []);
+      const computedLessonsCount = allLessonsFlat.length;
+      const totalSeconds = allLessonsFlat.reduce((acc: number, l: any) => acc + (Number(l.duration_seconds) || 0), 0);
+      const computedDurationHours = totalSeconds > 0 ? Number((totalSeconds / 3600).toFixed(1)) : (course.duration_hours || 0);
+
+      const enrichedCourse: LmsCourse = {
+        ...(course as LmsCourse),
+        lessons_count: computedLessonsCount || course.lessons_count || 0,
+        duration_hours: computedDurationHours,
+      };
+      // ────────────────────────────────────────────────────────────────────
+
+      return { course: enrichedCourse, sections: populated };
     }
   } catch (e) {}
 
@@ -419,7 +433,20 @@ export async function getCourseBySlug(slug: string): Promise<{ course: LmsCourse
     return { ...sec, lessons };
   });
 
-  return { course: found, sections: populated };
+  // ── Auto-compute real stats from fallback curriculum ──────────────────
+  const allLessonsFlat = populated.flatMap(sec => sec.lessons);
+  const computedLessonsCount = allLessonsFlat.length;
+  const totalSeconds = allLessonsFlat.reduce((acc, l) => acc + (Number(l.duration_seconds) || 0), 0);
+  const computedDurationHours = totalSeconds > 0 ? Number((totalSeconds / 3600).toFixed(1)) : (found.duration_hours || 0);
+
+  const enrichedCourse: LmsCourse = {
+    ...found,
+    lessons_count: computedLessonsCount || found.lessons_count || 0,
+    duration_hours: computedDurationHours,
+  };
+  // ────────────────────────────────────────────────────────────────────
+
+  return { course: enrichedCourse, sections: populated };
 }
 
 // 3. Upsert Course

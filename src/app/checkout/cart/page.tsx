@@ -21,32 +21,10 @@ import { supabaseClient } from "@/lib/supabaseClient";
 
 import { resolveUserCurrency, resolveProductPrice, formatPrice, getUSDtoEGPExchangeRate, type Currency } from "@/lib/pricing";
 
-const COUNTRY_CODES = [
-  { code: "+20", name: "مصر (Egypt)", flag: "🇪🇬" },
-  { code: "+966", name: "السعودية (Saudi Arabia)", flag: "🇸🇦" },
-  { code: "+971", name: "الإمارات (UAE)", flag: "🇦🇪" },
-  { code: "+965", name: "الكويت (Kuwait)", flag: "🇰🇼" },
-  { code: "+974", name: "قطر (Qatar)", flag: "🇶🇦" },
-  { code: "+968", name: "عمان (Oman)", flag: "🇴🇲" },
-  { code: "+973", name: "البحرين (Bahrain)", flag: "🇧🇭" },
-  { code: "+962", name: "الأردن (Jordan)", flag: "🇯🇴" },
-  { code: "+964", name: "العراق (Iraq)", flag: "🇮🇶" },
-  { code: "+212", name: "المغرب (Morocco)", flag: "🇲🇦" },
-  { code: "+213", name: "الجزائر (Algeria)", flag: "🇩🇿" },
-  { code: "+216", name: "تونس (Tunisia)", flag: "🇹🇳" },
-  { code: "+218", name: "ليبيا (Libya)", flag: "🇱🇾" },
-  { code: "+249", name: "السودان (Sudan)", flag: "🇸🇩" },
-  { code: "+963", name: "سوريا (Syria)", flag: "🇸🇾" },
-  { code: "+961", name: "لبنان (Lebanon)", flag: "🇱🇧" },
-  { code: "+970", name: "فلسطين (Palestine)", flag: "🇵🇸" },
-  { code: "+967", name: "اليمن (Yemen)", flag: "🇪🇬" }
-];
-
 const checkoutSchema = z.object({
   fullName: z.string().min(3, { message: "الاسم يجب أن يكون 3 أحرف على الأقل" }),
   email: z.string().email({ message: "البريد الإلكتروني غير صالح" }),
   password: z.string().optional(),
-  phone: z.string().optional().or(z.literal('')),
 });
 
 type CheckoutValues = z.infer<typeof checkoutSchema>;
@@ -60,7 +38,8 @@ export default function CartCheckoutPage() {
     item.title?.includes("كورس")
   );
   const [isLoading, setIsLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "wallet">("card");
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "wallet" | "instapay">("card");
+  const [showInstapayModal, setShowInstapayModal] = useState(false);
   const [currency, setCurrency] = useState<Currency>("EGP");
   
   // Card Fields State
@@ -198,7 +177,6 @@ export default function CartCheckoutPage() {
   };
 
   const [user, setUser] = useState<any>(null);
-  const [countryCode, setCountryCode] = useState("+20");
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<CheckoutValues>({
     resolver: zodResolver(checkoutSchema),
@@ -206,27 +184,8 @@ export default function CartCheckoutPage() {
       fullName: "",
       email: "",
       password: "",
-      phone: "",
     },
   });
-
-  // Auto-detect visitor country calling code
-  useEffect(() => {
-    async function detectCountryCode() {
-      try {
-        const response = await fetch("https://ipapi.co/json/");
-        const data = await response.json();
-        if (data && data.country_calling_code) {
-          let prefix = data.country_calling_code;
-          if (!prefix.startsWith("+")) prefix = "+" + prefix;
-          setCountryCode(prefix);
-        }
-      } catch (err) {
-        console.error("Failed to auto-detect country calling code:", err);
-      }
-    }
-    detectCountryCode();
-  }, []);
 
   useEffect(() => {
     async function checkUser() {
@@ -235,17 +194,6 @@ export default function CartCheckoutPage() {
         setUser(session.user);
         setValue("fullName", session.user.user_metadata?.full_name || "");
         setValue("email", session.user.email || "");
-
-        const storedPhone = session.user.user_metadata?.phone || "";
-        if (storedPhone) {
-          const matchingCode = COUNTRY_CODES.find(c => storedPhone.startsWith(c.code));
-          if (matchingCode) {
-            setCountryCode(matchingCode.code);
-            setValue("phone", storedPhone.slice(matchingCode.code.length));
-          } else {
-            setValue("phone", storedPhone);
-          }
-        }
       }
     }
     checkUser();
@@ -304,8 +252,6 @@ export default function CartCheckoutPage() {
           return;
         }
 
-        const fullPhone = `${countryCode}${data.phone}`;
-
         // Try to sign up
         const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
           email: data.email,
@@ -313,7 +259,7 @@ export default function CartCheckoutPage() {
           options: {
             data: {
               full_name: data.fullName,
-              phone: fullPhone,
+              phone: "",
             }
           }
         });
@@ -342,8 +288,6 @@ export default function CartCheckoutPage() {
         }
       }
 
-      const fullPhone = `${countryCode}${data.phone}`;
-
       const finalPriceEGP = currency === "USD"
         ? Math.round(resolvedCartTotal * getUSDtoEGPExchangeRate())
         : resolvedCartTotal;
@@ -359,7 +303,7 @@ export default function CartCheckoutPage() {
         email: data.email,
         firstName: data.fullName.split(" ")[0],
         lastName: data.fullName.split(" ").slice(1).join(" ") || "Customer",
-        phone: fullPhone,
+        phone: "",
         paymentMethod: paymentMethod, 
         cardData: paymentMethod === "card" ? {
           cardNumber,
@@ -475,44 +419,6 @@ export default function CartCheckoutPage() {
                     {errors.email && <p className="text-xs text-red-400 font-cairo flex items-center gap-1 mt-1"><ShieldAlert className="w-3 h-3" /> {errors.email.message}</p>}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="font-cairo font-bold text-zinc-400 text-sm">رقم الهاتف (الواتساب) (اختياري)</Label>
-                    <div className="flex gap-2 relative group" dir="ltr">
-                      <select
-                        value={countryCode}
-                        onChange={(e) => setCountryCode(e.target.value)}
-                        className="h-12 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 px-3 text-sm font-medium focus:outline-none focus:border-white/20 focus:bg-white/10 transition-all text-white max-w-[100px] appearance-none cursor-pointer text-center select-none"
-                      >
-                        {COUNTRY_CODES.map((c) => (
-                          <option key={c.code} value={c.code} className="bg-[#0a0a0f] text-white">
-                            {c.flag} {c.code}
-                          </option>
-                        ))}
-                        {!COUNTRY_CODES.some(c => c.code === countryCode) && (
-                          <option value={countryCode} className="bg-[#0a0a0f] text-white">
-                            🌐 {countryCode}
-                          </option>
-                        )}
-                      </select>
-
-                      <div className="relative flex-1">
-                        <Input 
-                          placeholder="100000000" 
-                          type="tel"
-                          dir="ltr"
-                          className={cn("h-12 rounded-xl bg-white/5 border-white/5 text-white text-sm font-cairo hover:bg-white/[0.07] focus:bg-white/10 focus:border-white/20 focus:ring-1 focus:ring-white/20 transition-all pl-4", errors.phone && "border-red-500/50 focus:ring-red-500")}
-                          disabled={isLoading}
-                          {...register("phone")}
-                          onChange={(e) => {
-                            e.target.value = e.target.value.replace(/\D/g, "");
-                            register("phone").onChange(e);
-                          }}
-                        />
-                      </div>
-                    </div>
-                    {errors.phone && <p className="text-xs text-red-400 font-cairo flex items-center gap-1 mt-1"><ShieldAlert className="w-3 h-3" /> {errors.phone.message}</p>}
-                  </div>
-
                   {!user && hasCourse && (
                     <>
                       <div className="space-y-2">
@@ -543,7 +449,7 @@ export default function CartCheckoutPage() {
                   {/* Payment Method Selector */}
                   <div className="pt-4 mt-4">
                     <Label className="font-cairo font-bold text-zinc-400 text-sm mb-3 block">طريقة الدفع</Label>
-                    <div className={cn("grid gap-3", currency === "EGP" ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1")}>
+                    <div className={cn("grid gap-3", currency === "EGP" ? "grid-cols-1 md:grid-cols-3" : "grid-cols-1")}>
                       
                       <div 
                         onClick={() => setPaymentMethod("card")}
@@ -583,6 +489,23 @@ export default function CartCheckoutPage() {
                           <div className="font-cairo">
                             <p className={cn("font-bold", paymentMethod === "wallet" ? "text-white" : "text-zinc-300")}>المحافظ الإلكترونية</p>
                             <p className="text-xs text-zinc-500">فودافون كاش والأخرى</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {currency === "EGP" && (
+                        <div 
+                          onClick={() => setShowInstapayModal(true)}
+                          className="cursor-pointer border rounded-2xl p-3.5 flex items-center gap-3 transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] border-white/5 bg-white/5 hover:border-purple-500/30 hover:bg-purple-500/5 hover:shadow-[inset_0_0_20px_rgba(147,51,234,0.05)]"
+                        >
+                          <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center border-zinc-500">
+                          </div>
+                          <div className="w-6 h-6 rounded flex items-center justify-center bg-purple-900/30 shrink-0">
+                            <span className="text-[8px] font-black font-sans text-purple-400">IPN</span>
+                          </div>
+                          <div className="font-cairo">
+                            <p className="font-bold text-zinc-300">Instapay تحويل فوري</p>
+                            <p className="text-xs text-zinc-500">تحويل بنكي فوري عبر إنستاباي</p>
                           </div>
                         </div>
                       )}
@@ -775,6 +698,86 @@ export default function CartCheckoutPage() {
           </div>
         </div>
       </main>
+
+      {/* Instapay Modal */}
+      {showInstapayModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowInstapayModal(false)} />
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="relative bg-[#0a0a12] border border-white/10 rounded-3xl p-6 md:p-8 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl z-10"
+          >
+            <button onClick={() => setShowInstapayModal(false)} className="absolute top-4 left-4 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-all">
+              <span className="text-lg">&times;</span>
+            </button>
+
+            <div className="text-center space-y-5">
+              <div>
+                <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mx-auto mb-3">
+                  <span className="text-xl font-black font-sans text-purple-400">IPN</span>
+                </div>
+                <h3 className="text-xl font-alexandria font-bold text-white">الدفع عبر Instapay</h3>
+                <p className="text-sm text-zinc-400 font-cairo mt-1">قم بتحويل المبلغ ثم أرسل لقطة الشاشة</p>
+              </div>
+
+              <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-4">
+                <p className="text-sm text-purple-300 font-cairo mb-1">المبلغ المطلوب تحويله</p>
+                <p className="text-3xl font-alexandria font-black text-white">{resolvedCartTotal} <span className="text-lg text-zinc-400">ج.م</span></p>
+              </div>
+
+              <div className="bg-white rounded-2xl p-4 mx-auto max-w-[220px]">
+                <img src="/instapay-qr.png" alt="Instapay QR Code" className="w-full h-auto" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              </div>
+
+              <div className="space-y-3 text-right">
+                <div className="bg-white/5 border border-white/5 rounded-xl p-3 flex items-center justify-between">
+                  <button onClick={() => { navigator.clipboard.writeText('youssef.m2003@instapay'); toast.success('تم نسخ العنوان'); }} className="text-xs text-purple-400 font-bold hover:text-purple-300 transition-colors cursor-pointer">نسخ</button>
+                  <div className="text-right">
+                    <p className="text-[10px] text-zinc-500 font-cairo">Payment Address</p>
+                    <p className="text-sm text-white font-mono font-bold" dir="ltr">youssef.m2003@instapay</p>
+                  </div>
+                </div>
+                <div className="bg-white/5 border border-white/5 rounded-xl p-3 flex items-center justify-between">
+                  <button onClick={() => { navigator.clipboard.writeText('01016748891'); toast.success('تم نسخ الرقم'); }} className="text-xs text-purple-400 font-bold hover:text-purple-300 transition-colors cursor-pointer">نسخ</button>
+                  <div className="text-right">
+                    <p className="text-[10px] text-zinc-500 font-cairo">رقم الهاتف</p>
+                    <p className="text-sm text-white font-mono font-bold" dir="ltr">01016748891</p>
+                  </div>
+                </div>
+              </div>
+
+              <a 
+                href="https://ipn.eg/S/youssefmohamed2003/instapay/MJ1vR8" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-full h-12 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-[0_4px_14px_rgba(147,51,234,0.3)] font-cairo"
+              >
+                ادفع مباشرة عبر Instapay
+                <ChevronRight className="w-4 h-4 rtl:rotate-180" />
+              </a>
+
+              <div className="space-y-2">
+                <label className="w-full h-24 border-2 border-dashed border-white/10 hover:border-purple-500/30 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-white/[0.02]">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-zinc-500 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  <span className="text-xs text-zinc-500 font-cairo">ارفع لقطة شاشة التحويل</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { if (e.target.files?.[0]) toast.success('تم رفع الصورة بنجاح'); }} />
+                </label>
+              </div>
+
+              <a 
+                href={`https://wa.me/201016748891?text=${encodeURIComponent(hasCourse ? `مرحباً، لقد قمت بدفع قيمة اشتراك دورة ${items.map(i => i.title).join(' و ')} أريد الانضمام للكورس الآن.` : `مرحباً، لقد قمت بدفع قيمة منتج ${items.map(i => i.title).join(' و ')} أريد الحصول عليه الآن.`)}`}
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-[0_4px_14px_rgba(16,185,129,0.3)] font-cairo"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                أرسل إثبات الدفع عبر واتساب
+              </a>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       <div className="opacity-40 hover:opacity-100 transition-opacity pb-8">
         <Footer />

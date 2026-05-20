@@ -495,19 +495,21 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                           </span>
                         )}
                       </div>
+
                       <Link
                         href={course.price === 0 ? `/learn/${course.slug}/${firstLessonSlug}` : `/checkout/${course.id}`}
-                        className="w-full h-14 bg-[#D6004B] hover:bg-[#b0003d] text-white rounded-2xl font-bold text-base shadow-[0_10px_30px_rgba(214,0,75,0.3)] transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer font-cairo"
+                        className="w-full h-14 bg-gradient-to-r from-[#D6004B] via-[#ff1d6b] to-[#D6004B] text-white rounded-2xl font-black text-lg shadow-[0_10px_30px_rgba(214,0,75,0.4)] transition-all flex items-center justify-center gap-2.5 active:scale-98 cursor-pointer font-cairo animate-pulse-glow"
                       >
-                        <span>اشترك في الكورس الآن</span>
+                        <span>{course.price === 0 ? "احصل على الدورة مجاناً" : "احصل على الدورة"}</span>
                         <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
                       </Link>
+
                       {course.price > 0 && (
                         <button
                           onClick={handleAddToCart}
-                          className="w-full mt-2.5 h-14 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-bold text-base border border-white/10 transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer font-cairo"
+                          className="w-full mt-2.5 h-14 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-black text-base border border-white/10 transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer font-cairo hover:border-[#D6004B]/30"
                         >
-                          <ShoppingCart className="w-5 h-5" />
+                          <ShoppingCart className="w-5 h-5 text-zinc-300" />
                           <span>إضافة إلى السلة</span>
                         </button>
                       )}
@@ -521,14 +523,21 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                     <Clock className="w-5 h-5 text-orange-500 shrink-0" />
                     <div className="flex flex-col">
                       <span className="text-[10px] text-zinc-500 font-bold">المدة الكلية</span>
-                      <span className="text-xs sm:text-sm text-white font-bold">{course.duration_hours} ساعة</span>
+                      <span className="text-xs sm:text-sm text-white font-bold">
+                        {course.duration_hours >= 1
+                          ? `${course.duration_hours} ساعة`
+                          : course.duration_hours > 0
+                          ? `${Math.round(course.duration_hours * 60)} دقيقة`
+                          : `${totalLessons > 0 ? '—' : '0 ساعة'}`
+                        }
+                      </span>
                     </div>
                   </div>
                   <div className="bg-white/[0.02] border border-white/5 p-3.5 rounded-2xl flex items-center gap-3">
                     <BookOpen className="w-5 h-5 text-[#D6004B] shrink-0" />
                     <div className="flex flex-col">
                       <span className="text-[10px] text-zinc-500 font-bold">المحاضرات</span>
-                      <span className="text-xs sm:text-sm text-white font-bold">{totalLessons} محاضرة</span>
+                      <span className="text-xs sm:text-sm text-white font-bold">{totalLessons > 0 ? `${totalLessons} محاضرة` : `${course.lessons_count} محاضرة`}</span>
                     </div>
                   </div>
                   <div className="bg-white/[0.02] border border-white/5 p-3.5 rounded-2xl flex items-center gap-3">
@@ -969,7 +978,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                         href={course.price === 0 ? `/learn/${course.slug}/${firstLessonSlug}` : `/checkout/${course.id}`}
                         className="w-full h-14 bg-[#D6004B] hover:bg-[#b0003d] text-white rounded-2xl font-bold text-base shadow-[0_10px_30px_rgba(214,0,75,0.3)] transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer font-cairo"
                       >
-                        <span>{course.price === 0 ? "ابدأ التعلم مجاناً الآن" : "اشترك في الكورس الآن"}</span>
+                        <span>{course.price === 0 ? "احصل على الدورة مجاناً" : "احصل على الدورة"}</span>
                         <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
                       </Link>
 
@@ -1321,9 +1330,9 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
           <div className="flex gap-2 flex-grow justify-end items-center">
             <Link
               href={course.price === 0 ? `/learn/${course.slug}/${firstLessonSlug}` : `/checkout/${course.id}`}
-              className="h-12 px-5 bg-gradient-to-r from-[#D6004B] via-[#ff1d6b] to-[#D6004B] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-[0_4px_15px_rgba(214,0,75,0.4)] font-cairo flex-grow max-w-[210px] active:scale-95"
+              className="h-12 px-5 bg-gradient-to-r from-[#D6004B] via-[#ff1d6b] to-[#D6004B] text-white rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-1 transition-all shadow-[0_4px_20px_rgba(214,0,75,0.45)] font-cairo flex-grow max-w-[240px] active:scale-95 animate-pulse-glow"
             >
-              <span>انضم الآن</span>
+              <span>{course.price === 0 ? "ابدأ مجاناً 🎁" : (course.original_price > 0 && course.original_price > course.price) ? `اشترك الآن - خصم ${Math.round(((course.original_price - course.price) / course.original_price) * 100)}%` : "اشترك الآن"}</span>
               <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
             </Link>
             {course.price > 0 && (
@@ -1552,12 +1561,19 @@ function MobileCourseView({
          <div className="bg-white/[0.02] border border-white/5 rounded-xl p-2 flex flex-col items-center justify-center text-center">
            <Clock className="w-3.5 h-3.5 text-orange-500 mb-1" />
            <span className="text-[7.5px] text-zinc-500 font-bold">المدة</span>
-           <span className="text-[9.5px] text-white font-bold">{course.duration_hours} س</span>
+           <span className="text-[9.5px] text-white font-bold">
+             {course.duration_hours >= 1
+               ? `${course.duration_hours} س`
+               : course.duration_hours > 0
+               ? `${Math.round(course.duration_hours * 60)} د`
+               : (totalLessons > 0 ? '—' : '0 س')
+             }
+           </span>
          </div>
          <div className="bg-white/[0.02] border border-white/5 rounded-xl p-2 flex flex-col items-center justify-center text-center">
            <BookOpen className="w-3.5 h-3.5 text-[#D6004B] mb-1" />
            <span className="text-[7.5px] text-zinc-500 font-bold">المحاضرات</span>
-           <span className="text-[9.5px] text-white font-bold">{totalLessons}</span>
+           <span className="text-[9.5px] text-white font-bold">{totalLessons > 0 ? totalLessons : course.lessons_count}</span>
          </div>
          <div className="bg-white/[0.02] border border-white/5 rounded-xl p-2 flex flex-col items-center justify-center text-center">
            <Star className="w-3.5 h-3.5 text-yellow-400 fill-current mb-1" />
@@ -1614,9 +1630,9 @@ function MobileCourseView({
 
              <Link
                href={course.price === 0 ? `/learn/${course.slug}/${firstLessonSlug}` : `/checkout/${course.id}`}
-               className="w-full h-11 bg-[#D6004B] hover:bg-[#b0003d] text-white rounded-xl font-bold text-xs shadow-[0_10px_25px_rgba(214,0,75,0.35)] transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer font-cairo animate-bounce-subtle"
+               className="w-full h-14 bg-gradient-to-r from-[#D6004B] via-[#ff1d6b] to-[#D6004B] text-white rounded-xl font-black text-base sm:text-lg shadow-[0_10px_30px_rgba(214,0,75,0.4)] transition-all flex items-center justify-center gap-2.5 active:scale-98 cursor-pointer font-cairo animate-pulse-glow"
              >
-               <span>{course.price === 0 ? "ابدأ التعلم مجاناً الآن" : "اشترك في الكورس الآن"}</span>
+               <span>{course.price === 0 ? "احصل على الدورة مجاناً" : "احصل على الدورة"}</span>
                <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
              </Link>
               {course.price > 0 && onAddToCart && (
@@ -1997,9 +2013,9 @@ function MobileCourseView({
            
            <Link
              href={course.price === 0 ? `/learn/${course.slug}/${firstLessonSlug}` : `/checkout/${course.id}`}
-             className="w-full h-11 bg-[#D6004B] hover:bg-[#b0003d] text-white rounded-xl font-bold text-xs shadow-[0_8px_20px_rgba(214,0,75,0.3)] transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer font-cairo"
+             className="w-full h-13 bg-gradient-to-r from-[#D6004B] via-[#ff1d6b] to-[#D6004B] text-white rounded-xl font-black text-sm sm:text-base shadow-[0_10px_25px_rgba(214,0,75,0.35)] transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer font-cairo animate-pulse-glow"
            >
-             <span>سجل في الكورس الآن</span>
+              <span>{course.price === 0 ? "احصل على الدورة مجاناً" : "احصل على الدورة"}</span>
              <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
            </Link>
         </div>
