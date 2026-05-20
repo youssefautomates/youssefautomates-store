@@ -639,8 +639,9 @@ export default function SecureVideoPlayer({
               src={iframeSrc}
               loading="lazy"
               className="w-full h-full border-none absolute inset-0 z-10"
-              allow="autoplay; encrypted-media; picture-in-picture"
+              allow="autoplay; encrypted-media"
               allowFullScreen
+              referrerPolicy="origin"
             />
           </div>
         )}

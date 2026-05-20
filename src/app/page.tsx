@@ -68,6 +68,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({ count: 1200, averageRating: 5.0 });
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [allReviews, setAllReviews] = useState<any[]>([]);
 
   // Active Category Tabs
   const [activeCourseCategory, setActiveCourseCategory] = useState("الكل");
@@ -102,6 +103,16 @@ export default function Home() {
         setCoursesList(data.filter(c => c.status === "published"));
       }
     });
+
+    // Fetch reviews
+    fetch("/api/admin/reviews")
+      .then(res => res.json())
+      .then(data => {
+        if (!cancelled && Array.isArray(data)) {
+          setAllReviews(data);
+        }
+      })
+      .catch(() => {});
 
     // Fetch stats
     fetch("/api/stats")
@@ -378,7 +389,11 @@ export default function Home() {
             {/* Courses Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
               {filteredCourses.map((course) => {
-                const reviewsCount = (course.title.length * 7) % 80 + 35;
+                const courseReviews = allReviews.filter((r: any) => r.productId === course.id && !r.isHidden);
+                const reviewsCount = courseReviews.length;
+                const averageRating = reviewsCount > 0 
+                  ? (courseReviews.reduce((sum: number, r: any) => sum + Number(r.rating), 0) / reviewsCount).toFixed(1)
+                  : "5.0";
                 return (
                   <div
                     key={course.slug}
@@ -397,29 +412,29 @@ export default function Home() {
                       <div className="absolute top-4 right-4 z-30">
                         <WishlistButton itemId={course.id} itemType="course" size={16} />
                       </div>
-
-                      <div className="absolute bottom-3 right-4 z-20">
-                        <span className="text-[9px] font-black tracking-wide bg-black/60 backdrop-blur-md border border-white/10 px-2 py-0.5 rounded text-rose-400">
-                          {course.level}
-                        </span>
-                      </div>
                     </div>
 
                     {/* Content area */}
                     <div className="p-5 flex-1 flex flex-col justify-between">
                       <div className="space-y-3">
                         <div className="flex items-center justify-between text-[11px] text-zinc-400 font-bold border-b border-white/5 pb-3">
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2.5">
                             <div className="flex items-center gap-1">
                               <Clock className="w-3.5 h-3.5 text-[#FF7A00]" />
                               <span>{course.duration_hours} ساعة</span>
                             </div>
-                            <div className="flex items-center gap-1 border-r border-white/10 pr-3">
+                            <div className="flex items-center gap-1 border-r border-white/10 pr-2">
                               <BookOpen className="w-3.5 h-3.5 text-[#D6004B]" />
                               <span>{course.lessons_count} محاضرة</span>
                             </div>
+                            {course.level && (
+                              <div className="flex items-center gap-1 border-r border-white/10 pr-2">
+                                <Zap className="w-3.5 h-3.5 text-[#D6004B]" />
+                                <span>{course.level}</span>
+                              </div>
+                            )}
                             {course.category && (
-                              <div className="flex items-center gap-1 border-r border-white/10 pr-3">
+                              <div className="flex items-center gap-1 border-r border-white/10 pr-2">
                                 <Layers className="w-3.5 h-3.5 text-[#D6004B]" />
                                 <span>{course.category}</span>
                               </div>
@@ -427,7 +442,7 @@ export default function Home() {
                           </div>
                           <div className="flex items-center gap-1 text-yellow-400">
                             <Star className="w-3.5 h-3.5 fill-current" />
-                            <span className="text-white text-xs">5.0</span>
+                            <span className="text-white text-xs">{averageRating}</span>
                             <span className="text-zinc-500 font-normal text-[9px]">({reviewsCount})</span>
                           </div>
                         </div>

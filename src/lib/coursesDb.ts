@@ -38,6 +38,8 @@ export interface LmsCourse {
   certificate_date_x?: number;
   certificate_date_y?: number;
   certificate_date_size?: number;
+  showcase_videos?: any[];
+  promo_video_id?: string;
   created_at: string;
 }
 
@@ -459,6 +461,8 @@ export async function upsertCourse(course: Partial<LmsCourse> & { title: string 
     certificate_date_x: course.certificate_date_x || 50,
     certificate_date_y: course.certificate_date_y || 70,
     certificate_date_size: Number(course.certificate_date_size) || 14,
+    showcase_videos: course.showcase_videos || [],
+    promo_video_id: course.promo_video_id,
     created_at: course.created_at || new Date().toISOString()
   };
 

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { 
   Plus, Edit, Trash2, BookOpen, Clock, 
   Video, Save, FileText, Link as LinkIcon, Download, 
-  AlertCircle, Loader2, GripVertical, ChevronDown, ChevronUp, Image as ImageIcon, CheckCircle, Users, Award
+  AlertCircle, Loader2, GripVertical, ChevronDown, ChevronUp, Image as ImageIcon, CheckCircle, Users, Award, Play
 } from "lucide-react";
 import { 
   getCoursesList, upsertCourse, deleteCourse, getCourseBySlug, 
@@ -145,6 +145,108 @@ function SortableLesson({ lesson, onEdit, onDelete }: any) {
         </button>
         <button onClick={onDelete} className="p-1.5 rounded hover:bg-red-500/10 text-red-500 transition-colors cursor-pointer">
           <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ShowcaseAdminItem({ 
+  vid, 
+  idx, 
+  onDelete, 
+  onChangeTitle,
+  onChangeThumbnail
+}: { 
+  vid: any; 
+  idx: number; 
+  onDelete: (id: string) => void; 
+  onChangeTitle: (val: string) => void;
+  onChangeThumbnail: (val: string) => void;
+}) {
+  const [signedUrl, setSignedUrl] = useState<string>("");
+  const [isUploading, setIsUploading] = useState(false);
+
+  useEffect(() => {
+    const videoId = vid.videoId || vid.id;
+    if (videoId) {
+      fetch(`/api/video/showcase?videoId=${videoId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.url) setSignedUrl(data.url);
+        })
+        .catch(() => {});
+    }
+  }, [vid.id, vid.videoId]);
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const url = await uploadFile(file, "course-images", "courses");
+      onChangeThumbnail(url);
+      toast.success("تم رفع الغلاف بنجاح! 🖼️");
+    } catch (err: any) {
+      toast.error(err.message || "خطأ في الرفع");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const embedUrl = signedUrl || vid.playbackUrl;
+
+  return (
+    <div className="bg-white/[0.01] border border-white/5 rounded-xl overflow-hidden p-2 flex flex-col justify-between group relative">
+      <div className="aspect-[9/16] bg-zinc-950 rounded-lg overflow-hidden relative border border-white/5 mb-2">
+        {vid.thumbnailUrl ? (
+          <img src={vid.thumbnailUrl} alt="Cover preview" className="w-full h-full object-cover" />
+        ) : embedUrl ? (
+          <iframe 
+            src={embedUrl}
+            className="w-full h-full pointer-events-none border-0"
+            allowFullScreen
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full bg-zinc-900 animate-pulse flex items-center justify-center text-[10px] text-zinc-500 font-cairo">جاري التحميل...</div>
+        )}
+        {isUploading && (
+          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-1.5 z-10">
+            <Loader2 className="w-4 h-4 animate-spin text-rose-500" />
+            <span className="text-[9px] text-zinc-400 font-cairo">جاري رفع الغلاف...</span>
+          </div>
+        )}
+      </div>
+      <div className="space-y-1.5 font-cairo">
+        <input 
+          type="text" 
+          value={vid.title || ""} 
+          onChange={(e) => onChangeTitle(e.target.value)}
+          placeholder="عنوان للفيديو..."
+          className="w-full bg-white/5 border border-white/5 rounded-lg py-1 px-1.5 text-[10px] text-white focus:border-rose-500/50 outline-none" 
+        />
+        
+        <div className="flex gap-1">
+          <input 
+            type="text" 
+            value={vid.thumbnailUrl || ""} 
+            onChange={(e) => onChangeThumbnail(e.target.value)}
+            placeholder="رابط غلاف الفيديو..."
+            className="w-full bg-white/5 border border-white/5 rounded-lg py-1 px-1.5 text-[9px] text-white focus:border-rose-500/50 outline-none" 
+          />
+          <label className="p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg flex items-center justify-center cursor-pointer transition-colors shrink-0">
+            <ImageIcon className="w-3 h-3" />
+            <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} disabled={isUploading} />
+          </label>
+        </div>
+
+        <button 
+          type="button"
+          onClick={() => onDelete(vid.id)} 
+          className="w-full py-1 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-lg text-[9px] font-bold transition-all cursor-pointer"
+        >
+          حذف الفيديو
         </button>
       </div>
     </div>
@@ -471,6 +573,15 @@ export default function AdminCoursesPage() {
   const [studentsData, setStudentsData] = useState<LmsEnrollment[]>([]);
   const [testStudentName, setTestStudentName] = useState("يوسف أحمد");
 
+  // Showcase Videos State
+  const [showcaseUploading, setShowcaseUploading] = useState(false);
+  const [showcaseProgress, setShowcaseProgress] = useState<number | null>(null);
+  const [showcaseStatus, setShowcaseStatus] = useState<string | null>(null);
+
+  // Promo Video State
+  const [promoUploading, setPromoUploading] = useState(false);
+  const [promoProgress, setPromoProgress] = useState<number | null>(null);
+
   // Form State
   const [courseForm, setCourseForm] = useState<Partial<LmsCourse>>({
     title: "", slug: "", short_description: "", description: "",
@@ -481,7 +592,9 @@ export default function AdminCoursesPage() {
     certificate_bg_url: "", certificate_text_color: "#000000",
     certificate_name_x: 50, certificate_name_y: 40, certificate_name_size: 24,
     certificate_course_x: 50, certificate_course_y: 55,
-    certificate_date_x: 50, certificate_date_y: 70, certificate_date_size: 14
+    certificate_date_x: 50, certificate_date_y: 70, certificate_date_size: 14,
+    showcase_videos: [],
+    promo_video_id: ""
   });
 
   const [categories, setCategories] = useState<string[]>([]);
@@ -524,7 +637,8 @@ export default function AdminCoursesPage() {
       is_free: false, is_featured: false, status: "draft", level: "مبتدئ", category: "الأتمتة",
       tags: [], requirements: [], what_will_learn: [], who_is_for: [],
       certificate_bg_url: "", certificate_text_color: "#000000",
-      certificate_name_x: 50, certificate_name_y: 40, certificate_name_size: 24, certificate_course_x: 50, certificate_course_y: 55, certificate_date_x: 50, certificate_date_y: 70, certificate_date_size: 14
+      certificate_name_x: 50, certificate_name_y: 40, certificate_name_size: 24, certificate_course_x: 50, certificate_course_y: 55, certificate_date_x: 50, certificate_date_y: 70, certificate_date_size: 14,
+      showcase_videos: []
     });
     setView("form");
   };
@@ -548,7 +662,9 @@ export default function AdminCoursesPage() {
       certificate_course_y: course.certificate_course_y || 55,
       certificate_date_x: course.certificate_date_x || 50,
       certificate_date_y: course.certificate_date_y || 70,
-      certificate_date_size: course.certificate_date_size || 14
+      certificate_date_size: course.certificate_date_size || 14,
+      showcase_videos: course.showcase_videos || [],
+      promo_video_id: course.promo_video_id || ""
     });
     
     // Load curriculum & students
@@ -576,6 +692,240 @@ export default function AdminCoursesPage() {
     } catch (err) { 
       console.error(err);
       toast.error("حدث خطأ أثناء حفظ الكورس"); 
+    }
+  };
+
+  const handleShowcaseVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const currentVideos = courseForm.showcase_videos || [];
+    if (currentVideos.length + files.length > 10) {
+      toast.error(`لا يمكن رفع أكثر من 10 فيديوهات كحد أقصى. لديك ${currentVideos.length} فيديو حالياً وقمت باختيار ${files.length} فيديو.`);
+      return;
+    }
+
+    setShowcaseUploading(true);
+
+    try {
+      const configRes = await fetch("/api/admin/bunny/config");
+      if (!configRes.ok) throw new Error("فشل تحميل إعدادات Bunny Stream");
+      const { libraryId, apiKey } = await configRes.json();
+
+      // Track progress of each file
+      const loadedBytes = new Array(files.length).fill(0);
+      const totalBytes = files.reduce((acc, f) => acc + f.size, 0);
+
+      const updateProgress = () => {
+        const sumLoaded = loadedBytes.reduce((acc, b) => acc + b, 0);
+        const percentage = Math.round((sumLoaded / totalBytes) * 100);
+        setShowcaseProgress(percentage);
+      };
+
+      // Upload with a concurrency limit of 3 to speed up and prevent connection choking
+      const concurrencyLimit = 3;
+      let activeIndex = 0;
+      let completedCount = 0;
+
+      const uploadNext = async (): Promise<void> => {
+        if (activeIndex >= files.length) return;
+        
+        const index = activeIndex++;
+        const file = files[index];
+
+        try {
+          setShowcaseStatus(`جاري رفع ${files.length} فيديوهات (متبقي ${files.length - completedCount})...`);
+
+          const createRes = await fetch("/api/admin/bunny/video", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title: `showcase-${selectedCourse?.id || 'course'}-${Date.now()}` })
+          });
+          if (!createRes.ok) {
+            const errData = await createRes.json().catch(() => ({}));
+            throw new Error(errData.error || `فشل إنشاء حاوية الفيديو لـ ${file.name}`);
+          }
+          const { videoId } = await createRes.json();
+
+          const xhr = new XMLHttpRequest();
+          xhr.upload.addEventListener("progress", (event) => {
+            if (event.lengthComputable) {
+              loadedBytes[index] = event.loaded;
+              updateProgress();
+            }
+          });
+
+          const uploadPromise = new Promise<void>((resolve, reject) => {
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) resolve();
+              else reject(new Error(`فشل رفع ملف ${file.name}`));
+            };
+            xhr.onerror = () => reject(new Error(`خطأ اتصال أثناء رفع ${file.name}`));
+          });
+
+          xhr.open("PUT", `https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}`);
+          xhr.setRequestHeader("AccessKey", apiKey);
+          xhr.send(file);
+
+          await uploadPromise;
+
+          const newVideo = {
+            id: videoId,
+            videoId: videoId,
+            playbackUrl: `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}`,
+            thumbnailUrl: `https://iframe.mediadelivery.net/play/${libraryId}/${videoId}/thumbnail.jpg`,
+            title: file.name.substring(0, file.name.lastIndexOf('.')) || file.name,
+            order: 1
+          };
+
+          setCourseForm(prev => {
+            const vids = prev.showcase_videos || [];
+            return {
+              ...prev,
+              showcase_videos: [...vids, { ...newVideo, order: vids.length + 1 }]
+            };
+          });
+
+          completedCount++;
+          toast.success(`تم رفع ${file.name} بنجاح!`);
+        } catch (err: any) {
+          console.error(err);
+          toast.error(err.message || `فشل رفع ${file.name}`);
+          loadedBytes[index] = file.size; // mark progress complete so percentage updates
+          updateProgress();
+        }
+
+        await uploadNext();
+      };
+
+      const promises: Promise<void>[] = [];
+      for (let i = 0; i < Math.min(concurrencyLimit, files.length); i++) {
+        promises.push(uploadNext());
+      }
+      await Promise.all(promises);
+
+      toast.success("🚀 تم الانتهاء من رفع الفيديوهات المحددة! يرجى حفظ الكورس لتثبيت التغييرات.");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "حدث خطأ أثناء الرفع.");
+    } finally {
+      setShowcaseUploading(false);
+      setShowcaseProgress(null);
+      setShowcaseStatus(null);
+      e.target.value = "";
+    }
+  };
+
+  const handleDeleteShowcaseVideo = async (videoId: string) => {
+    if (!confirm("هل أنت متأكد من حذف هذا الفيديو؟")) return;
+    try {
+      await fetch(`/api/admin/bunny/video?videoId=${videoId}`, { method: "DELETE" });
+      setCourseForm(prev => ({
+        ...prev,
+        showcase_videos: (prev.showcase_videos || []).filter((v: any) => v.id !== videoId)
+      }));
+      toast.success("تم حذف الفيديو.");
+    } catch (e) {
+      toast.error("فشل حذف الفيديو.");
+    }
+  };
+
+  const handleMoveShowcaseVideo = (index: number, direction: 'up' | 'down') => {
+    const list = [...(courseForm.showcase_videos || [])];
+    if (direction === 'up' && index > 0) {
+      const temp = list[index];
+      list[index] = list[index - 1];
+      list[index - 1] = temp;
+    } else if (direction === 'down' && index < list.length - 1) {
+      const temp = list[index];
+      list[index] = list[index + 1];
+      list[index + 1] = temp;
+    }
+    setCourseForm({ ...courseForm, showcase_videos: list });
+  };
+
+  const handlePromoVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setPromoUploading(true);
+    setPromoProgress(0);
+
+    try {
+      const configRes = await fetch("/api/admin/bunny/config");
+      if (!configRes.ok) {
+        throw new Error("فشل تحميل إعدادات Bunny Stream.");
+      }
+      const { libraryId, apiKey } = await configRes.json();
+
+      const createRes = await fetch("/api/admin/bunny/video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: `promo-${selectedCourse?.id || 'course'}-${Date.now()}` })
+      });
+      if (!createRes.ok) {
+        throw new Error("فشل إنشاء حاوية الفيديو التعريفي.");
+      }
+      const { videoId } = await createRes.json();
+
+      const xhr = new XMLHttpRequest();
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          const percentage = Math.round((event.loaded / event.total) * 100);
+          setPromoProgress(percentage);
+        }
+      });
+
+      const uploadPromise = new Promise<void>((resolve, reject) => {
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else reject(new Error("فشل رفع ملف الفيديو إلى Bunny Stream."));
+        };
+        xhr.onerror = () => reject(new Error("حدث خطأ في الاتصال أثناء الرفع."));
+      });
+
+      xhr.open("PUT", `https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}`);
+      xhr.setRequestHeader("AccessKey", apiKey);
+      xhr.send(file);
+
+      await uploadPromise;
+
+      setCourseForm(prev => ({
+        ...prev,
+        promo_video_id: videoId
+      }));
+
+      toast.success("تم رفع الفيديو التعريفي بنجاح! 🚀 لا تنسى حفظ التغييرات.");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "خطأ أثناء رفع الفيديو.");
+    } finally {
+      setPromoUploading(false);
+      setPromoProgress(null);
+      e.target.value = "";
+    }
+  };
+
+  const handlePromoVideoDelete = async () => {
+    const videoId = courseForm.promo_video_id;
+    if (!videoId) return;
+    if (!confirm("هل أنت متأكد من حذف الفيديو التعريفي للكورس نهائياً؟")) return;
+
+    try {
+      const res = await fetch(`/api/admin/bunny/video?videoId=${videoId}`, {
+        method: "DELETE"
+      });
+      if (!res.ok) {
+        throw new Error("فشل حذف الفيديو من Bunny Stream.");
+      }
+      
+      setCourseForm(prev => ({
+        ...prev,
+        promo_video_id: ""
+      }));
+      toast.success("تم حذف الفيديو التعريفي بنجاح.");
+    } catch (err: any) {
+      toast.error(err.message || "خطأ أثناء حذف الفيديو.");
     }
   };
 
@@ -907,6 +1257,37 @@ export default function AdminCoursesPage() {
                   </label>
                 </div>
               </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-zinc-400">فيديو الكورس التعريفي (Promo Video ID / URL)</label>
+                <div className="flex gap-2">
+                  <input 
+                    value={courseForm.promo_video_id || ""} 
+                    onChange={e => setCourseForm({ ...courseForm, promo_video_id: e.target.value })} 
+                    placeholder="رمز الفيديو (Video ID) من Bunny Stream..."
+                    className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm flex-1 text-zinc-300" 
+                  />
+                  {courseForm.promo_video_id && (
+                    <button
+                      type="button"
+                      onClick={handlePromoVideoDelete}
+                      className="h-[46px] px-4 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white border border-red-500/20 rounded-xl font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
+                    >
+                      حذف
+                    </button>
+                  )}
+                  <label className="h-[46px] px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer">
+                    {promoUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
+                    <span>{promoUploading ? `جاري الرفع ${promoProgress}%` : "رفع فيديو"}</span>
+                    <input type="file" accept="video/*" className="hidden" onChange={handlePromoVideoUpload} disabled={promoUploading} />
+                  </label>
+                </div>
+                {promoProgress !== null && (
+                  <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
+                    <div className="bg-rose-600 h-full transition-all duration-300" style={{ width: `${promoProgress}%` }} />
+                  </div>
+                )}
+              </div>
               
               <div className="flex flex-col gap-4 py-2 justify-center">
                 <div className="flex items-center gap-3 select-none">
@@ -1161,6 +1542,84 @@ export default function AdminCoursesPage() {
                 </h3>
                 <p className="text-zinc-400 text-xs md:text-sm leading-relaxed">
                   امنح طلابك شهادات إكمال رسمية وموثقة بكود QR ديناميكي بمجرد إتمامهم متطلبات الدورة! يرجى حفظ بيانات الكورس الأساسية أولاً لتفعيل لوحة التحكم في تموضع الأسماء والتواريخ ولون النص فوق قالب شهادتك الخاصة.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Section 3.5: Showcase Videos Builder */}
+          {selectedCourse ? (
+            <div className="bg-[#0a0a0f] border border-white/5 rounded-3xl p-6 md:p-8 shadow-2xl space-y-6 mt-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+                <h2 className="text-xl font-alexandria font-bold text-white flex items-center gap-2">
+                  <Video className="w-5 h-5 text-rose-500" />
+                  فيديوهات تجارب ونتائج الطلاب (Showcase Videos)
+                </h2>
+                <div className="flex items-center gap-2">
+                  <label className="h-10 px-5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold flex items-center gap-2 text-xs cursor-pointer transition-all select-none">
+                    <Plus className="w-4 h-4" /> <span>رفع فيديو (حد أقصى 10)</span>
+                    <input type="file" accept="video/*" multiple className="hidden" onChange={handleShowcaseVideoUpload} disabled={showcaseUploading} />
+                  </label>
+                  <button type="button" onClick={() => handleSaveCourse()} className="h-10 px-5 bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-xl font-bold flex items-center gap-2 text-xs transition-all cursor-pointer">
+                    <Save className="w-4 h-4" /> <span>حفظ التغييرات</span>
+                  </button>
+                </div>
+              </div>
+
+              {showcaseUploading && (
+                <div className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span className="text-zinc-400">حالة الرفع: {showcaseStatus}</span>
+                    <span className="text-rose-400">{showcaseProgress}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-full bg-rose-600 transition-all duration-300" style={{ width: `${showcaseProgress || 0}%` }} />
+                  </div>
+                </div>
+              )}
+
+              {(!courseForm.showcase_videos || courseForm.showcase_videos.length === 0) ? (
+                <div className="text-center py-12 border border-dashed border-white/10 rounded-2xl">
+                  <AlertCircle className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
+                  <p className="text-zinc-500 font-bold text-sm">لا توجد فيديوهات نتائج مرفوعة حتى الآن. ارفع فيديوهات عمودية (9:16) لتظهر على صفحة الكورس.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-2.5">
+                  {courseForm.showcase_videos.map((vid: any, idx: number) => (
+                    <ShowcaseAdminItem
+                      key={vid.id || idx}
+                      vid={vid}
+                      idx={idx}
+                      onDelete={handleDeleteShowcaseVideo}
+                      onChangeTitle={(val) => {
+                        setCourseForm(prev => {
+                          const list = [...(prev.showcase_videos || [])];
+                          list[idx] = { ...list[idx], title: val };
+                          return { ...prev, showcase_videos: list };
+                        });
+                      }}
+                      onChangeThumbnail={(val) => {
+                        setCourseForm(prev => {
+                          const list = [...(prev.showcase_videos || [])];
+                          list[idx] = { ...list[idx], thumbnailUrl: val };
+                          return { ...prev, showcase_videos: list };
+                        });
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-[#0a0a0f] border border-white/5 rounded-3xl p-8 text-center relative overflow-hidden shadow-2xl space-y-6 mt-8">
+              <div className="absolute w-80 h-80 bg-rose-500/5 rounded-full blur-[80px] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+              <div className="mx-auto w-20 h-20 rounded-full bg-rose-600/10 border border-rose-500/20 flex items-center justify-center text-rose-500">
+                <Video className="w-10 h-10" />
+              </div>
+              <div className="space-y-2 max-w-lg mx-auto">
+                <h3 className="font-alexandria font-bold text-white text-lg md:text-xl">فيديوهات تجارب ونتائج الطلاب (Student Showcase Videos)</h3>
+                <p className="text-zinc-400 text-xs md:text-sm leading-relaxed">
+                  ارفع فيديوهات عمودية (تيك توك / ريلز) تعبر عن تجارب ونتائج طلابك لتشجيع المشترين الجدد! يرجى حفظ الكورس أولاً للبدء.
                 </p>
               </div>
             </div>
