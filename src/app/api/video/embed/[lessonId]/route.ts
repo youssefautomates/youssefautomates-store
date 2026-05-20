@@ -7,17 +7,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ less
   const resolvedParams = await params;
   const lessonId = resolvedParams.lessonId;
 
-  // 1. Get access token from cookie
-  const cookieStore = req.cookies;
-  const accessToken = cookieStore.get("sb-access-token")?.value;
-  // Get deviceId from cookie or headers
-  const deviceId = req.headers.get("x-device-id") || cookieStore.get("device_id")?.value || "unknown_device";
-
-  if (!accessToken) {
-    return new Response("غير مصرح بالوصول - يجب تسجيل الدخول أولاً", { status: 401 });
-  }
-
-  // 2. Validate token and get user using Supabase
+  // 1. Initialize Supabase service client to bypass RLS and read lesson properties
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
@@ -26,20 +16,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ less
   }
 
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
-
-  if (authError || !user) {
-    return new Response("جلسة عمل غير صالحة أو منتهية الصلاحية", { status: 401 });
-  }
-
-  // Check session validity (also checks suspension)
-  const isSessionValid = await checkSessionIsValid(user.id, deviceId);
-  if (!isSessionValid) {
-    return new Response("جلسة العمل ملغاة بسبب الدخول المتعدد أو إيقاف الحساب", { status: 403 });
-  }
 
   try {
-    // 3. Find the lesson details
+    // 2. Find the lesson details first to check if it's marked as preview
     const { data: lesson, error: lessonError } = await supabaseAdmin
       .from("course_lessons")
       .select("id, module_id, video_id, video_url, is_preview")
@@ -50,18 +29,35 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ less
       return new Response("المحاضرة المطلوبة غير موجودة", { status: 404 });
     }
 
-    if (!lesson.video_id) {
-      // If it doesn't have a Bunny video_id but has a raw video_url, redirect directly to it
-      if (lesson.video_url) {
-        return NextResponse.redirect(lesson.video_url);
+    let isAuthorized = false;
+
+    // 3. Check authorization. Preview lessons do not require authentication or enrollment.
+    if (lesson.is_preview) {
+      isAuthorized = true;
+    } else {
+      // Get access token from cookie
+      const cookieStore = req.cookies;
+      const accessToken = cookieStore.get("sb-access-token")?.value;
+      // Get deviceId from cookie or headers
+      const deviceId = req.headers.get("x-device-id") || cookieStore.get("device_id")?.value || "unknown_device";
+
+      if (!accessToken) {
+        return new Response("غير مصرح بالوصول - يجب تسجيل الدخول أولاً", { status: 401 });
       }
-      return new Response("فيديو المحاضرة غير متوفر حالياً", { status: 404 });
-    }
 
-    // 4. Check enrollment if not preview
-    let isAuthorized = !!lesson.is_preview;
+      // Validate token and get user using Supabase
+      const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
 
-    if (!isAuthorized) {
+      if (authError || !user) {
+        return new Response("جلسة عمل غير صالحة أو منتهية الصلاحية", { status: 401 });
+      }
+
+      // Check session validity (also checks suspension)
+      const isSessionValid = await checkSessionIsValid(user.id, deviceId);
+      if (!isSessionValid) {
+        return new Response("جلسة العمل ملغاة بسبب الدخول المتعدد أو إيقاف الحساب", { status: 403 });
+      }
+
       // Get course_id by checking course_modules
       const { data: moduleData, error: moduleError } = await supabaseAdmin
         .from("course_modules")
@@ -87,7 +83,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ less
       return new Response("يجب الاشتراك في هذا الكورس أولاً لمشاهدة الفيديو", { status: 403 });
     }
 
-    // 5. Generate secure signed Bunny embed URL
+    if (!lesson.video_id) {
+      // If it doesn't have a Bunny video_id but has a raw video_url, redirect directly to it
+      if (lesson.video_url) {
+        return NextResponse.redirect(lesson.video_url);
+      }
+      return new Response("فيديو المحاضرة غير متوفر حالياً", { status: 404 });
+    }
+
+    // 4. Generate secure signed Bunny embed URL
     const signedEmbedUrl = generateSignedEmbedUrl(lesson.video_id, 120); // 2 hours expiry
 
     // Parse incoming query params (e.g. time=X) and append to signed Bunny embed url

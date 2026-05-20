@@ -148,6 +148,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
   const [openModuleIndex, setOpenModuleIndex] = useState<number | null>(0);
 
   const [activeShowcaseVideo, setActiveShowcaseVideo] = useState<ShowcaseVideo | null>(null);
+  const [activePreviewLesson, setActivePreviewLesson] = useState<LmsLesson | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -677,10 +678,21 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                                             {mod.lessons.map((lesson, lIdx) => (
                                               <div 
                                                 key={lesson.id} 
-                                                className="flex items-center justify-between gap-3 text-xs sm:text-sm text-zinc-400 hover:text-white transition-colors py-1.5 border-b border-white/[0.02] last:border-b-0"
+                                                onClick={() => {
+                                                  if (lesson.is_preview) {
+                                                    setActivePreviewLesson(lesson);
+                                                  }
+                                                }}
+                                                className={`flex items-center justify-between gap-3 text-xs sm:text-sm py-2 border-b border-white/[0.02] last:border-b-0 transition-all duration-200 ${
+                                                  lesson.is_preview 
+                                                    ? "cursor-pointer text-zinc-300 hover:text-white hover:bg-emerald-500/[0.02] px-2.5 -mx-2.5 rounded-xl border-l-2 border-l-transparent hover:border-l-emerald-500" 
+                                                    : "text-zinc-400"
+                                                }`}
                                               >
                                                 <span className="flex items-center gap-2.5 text-right">
-                                                  <PlayCircle className="w-4 h-4 text-zinc-600 shrink-0" />
+                                                  <PlayCircle className={`w-4 h-4 shrink-0 transition-colors ${
+                                                    lesson.is_preview ? "text-emerald-400" : "text-zinc-600"
+                                                  }`} />
                                                   <span>{lesson.title}</span>
                                                 </span>
                                                 <div className="flex items-center gap-2.5">
@@ -688,7 +700,8 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                                                     {lesson.lecture_type === "video" ? "فيديو مباشر" : lesson.lecture_type === "pdf" ? "ملف PDF" : "رابط خارجي"}
                                                   </span>
                                                   {lesson.is_preview && (
-                                                    <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-black shrink-0">
+                                                    <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-black shrink-0 flex items-center gap-1 shadow-sm shadow-emerald-500/5 hover:bg-emerald-500/20 transition-all">
+                                                      <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
                                                       معاينة مجانية
                                                     </span>
                                                   )}
@@ -1151,6 +1164,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
           mobileVideoRef={mobileVideoRef}
           onShowcaseVideoClick={setActiveShowcaseVideo}
           marqueeVideos={marqueeVideos}
+          onPreviewLessonClick={setActivePreviewLesson}
         />
 
         {/* Global Styles for Marquee */}
@@ -1198,6 +1212,49 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
               </motion.div>
             </motion.div>
           )}
+        
+
+          {activePreviewLesson && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/90 backdrop-blur-md z-[9999] flex items-center justify-center p-4 sm:p-6"
+              onClick={() => setActivePreviewLesson(null)}
+            >
+              <motion.div 
+                initial={{ scale: 0.95, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 20 }}
+                className="relative w-full max-w-4xl aspect-video bg-[#07070a] border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between"
+                onClick={e => e.stopPropagation()}
+              >
+                {/* Header title */}
+                <div className="absolute top-0 inset-x-0 h-16 bg-gradient-to-b from-black/80 to-transparent px-6 flex items-center justify-between text-white z-[10000] pointer-events-none select-none">
+                  <span className="font-alexandria font-bold text-xs sm:text-sm text-white/90 drop-shadow-md truncate max-w-md pointer-events-auto">
+                    معاينة مجانية: {activePreviewLesson.title}
+                  </span>
+                  <button 
+                    onClick={() => setActivePreviewLesson(null)}
+                    className="p-2 bg-black/80 hover:bg-black/95 text-white rounded-full transition-colors cursor-pointer border border-white/10 pointer-events-auto shadow-lg"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Video Iframe Container */}
+                <div className="w-full h-full bg-black relative">
+                  <iframe 
+                    src={`/api/video/embed/${activePreviewLesson.id}?autoplay=true&muted=false`}
+                    className="w-full h-full border-0 absolute inset-0 z-10"
+                    allow="autoplay; encrypted-media"
+                    allowFullScreen
+                    referrerPolicy="origin"
+                  />
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
 
@@ -1228,6 +1285,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
 }
 
 interface MobileCourseViewProps {
+  onPreviewLessonClick?: (lesson: LmsLesson) => void;
   course: LmsCourse;
   sections: (LmsSection & { lessons: LmsLesson[] })[];
   isEnrolled: boolean;
@@ -1271,6 +1329,7 @@ function MobileCourseView({
   mobileVideoRef,
   onShowcaseVideoClick,
   marqueeVideos,
+  onPreviewLessonClick,
 }: MobileCourseViewProps) {
 
   return (
@@ -1623,28 +1682,45 @@ function MobileCourseView({
                                >
                                  <div className="py-2 px-4 divide-y divide-white/5">
                                    {mod.lessons.map((lesson) => {
-                                     const lMinutes = Math.floor((lesson.duration_seconds || 0) / 60);
-                                     const lSeconds = (lesson.duration_seconds || 0) % 60;
-                                     
-                                     return (
-                                       <div 
-                                         key={lesson.id}
-                                         className="py-2.5 flex items-center justify-between gap-4 text-xs"
-                                       >
-                                         <div className="flex items-start gap-2.5 text-right">
-                                           <PlayCircle className="w-4 h-4 text-[#D6004B] shrink-0 mt-0.5" />
-                                           <div className="flex flex-col">
-                                             <span className="text-zinc-200 font-medium leading-relaxed">{lesson.title}</span>
-                                           </div>
-                                         </div>
-                                         <div className="flex items-center gap-2 shrink-0">
-                                           <span className="text-[9px] text-zinc-500 font-mono">
-                                             {lMinutes}:{lSeconds < 10 ? `0${lSeconds}` : lSeconds} د
-                                           </span>
-                                         </div>
-                                       </div>
-                                     );
-                                   })}
+                                      const lMinutes = Math.floor((lesson.duration_seconds || 0) / 60);
+                                      const lSeconds = (lesson.duration_seconds || 0) % 60;
+                                      
+                                      return (
+                                        <div 
+                                          key={lesson.id}
+                                          onClick={() => {
+                                            if (lesson.is_preview) {
+                                              onPreviewLessonClick?.(lesson);
+                                            }
+                                          }}
+                                          className={`py-2.5 flex items-center justify-between gap-4 text-xs transition-all duration-200 ${
+                                            lesson.is_preview ? "cursor-pointer hover:bg-emerald-500/[0.02] px-2 -mx-2 rounded-xl" : ""
+                                          }`}
+                                        >
+                                          <div className="flex items-start gap-2.5 text-right min-w-0 flex-1">
+                                            <PlayCircle className={`w-4 h-4 shrink-0 mt-0.5 ${
+                                              lesson.is_preview ? "text-emerald-400" : "text-[#D6004B]"
+                                            }`} />
+                                            <div className="flex flex-col min-w-0">
+                                              <span className={`font-medium leading-relaxed truncate ${
+                                                lesson.is_preview ? "text-white font-bold" : "text-zinc-200"
+                                              }`}>{lesson.title}</span>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-2 shrink-0">
+                                            {lesson.is_preview && (
+                                              <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-black shrink-0 flex items-center gap-1 shadow-sm shadow-emerald-500/5 hover:bg-emerald-500/20 transition-all">
+                                                <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+                                                معاينة
+                                              </span>
+                                            )}
+                                            <span className="text-[9px] text-zinc-500 font-mono">
+                                              {lMinutes}:{lSeconds < 10 ? `0${lSeconds}` : lSeconds} د
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
                                  </div>
                                </motion.div>
                              )}
