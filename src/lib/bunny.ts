@@ -1,10 +1,9 @@
 import crypto from "crypto";
+import https from "https";
 
 const libraryId = process.env.BUNNY_LIBRARY_ID || "";
 const apiKey = process.env.BUNNY_API_KEY || "";
 const tokenKey = process.env.BUNNY_STREAM_TOKEN_KEY || "";
-
-const BASE_URL = "https://video.bunnycdn.com";
 
 export interface BunnyVideoStatus {
   guid: string;
@@ -17,6 +16,56 @@ export interface BunnyVideoStatus {
 }
 
 /**
+ * Robust helper to send HTTPS requests directly to Bunny Stream API,
+ * bypassing Next.js global fetch interception and DNS issues.
+ */
+function bunnyRequest(
+  path: string,
+  method: string,
+  body?: any
+): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: "video.bunnycdn.com",
+      path: path,
+      method: method,
+      headers: {
+        "AccessKey": apiKey,
+        "Accept": "application/json",
+        ...(body ? { "Content-Type": "application/json" } : {}),
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = "";
+      res.on("data", (chunk) => {
+        data += chunk;
+      });
+      res.on("end", () => {
+        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            resolve(data ? JSON.parse(data) : {});
+          } catch (e) {
+            resolve(data);
+          }
+        } else {
+          reject(new Error(`Bunny API error: ${res.statusCode} - ${data}`));
+        }
+      });
+    });
+
+    req.on("error", (err) => {
+      reject(err);
+    });
+
+    if (body) {
+      req.write(JSON.stringify(body));
+    }
+    req.end();
+  });
+}
+
+/**
  * Creates a video placeholder on Bunny Stream and returns its unique GUID (video_id).
  */
 export async function createVideoPlaceholder(title: string): Promise<string> {
@@ -24,22 +73,8 @@ export async function createVideoPlaceholder(title: string): Promise<string> {
     throw new Error("Bunny library credentials are not configured in environment variables.");
   }
 
-  const url = `${BASE_URL}/library/${libraryId}/videos`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      AccessKey: apiKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ title }),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Failed to create video placeholder on Bunny Stream: ${errorText}`);
-  }
-
-  const data = await res.json();
+  const path = `/library/${libraryId}/videos`;
+  const data = await bunnyRequest(path, "POST", { title });
   return data.guid;
 }
 
@@ -49,17 +84,14 @@ export async function createVideoPlaceholder(title: string): Promise<string> {
 export async function deleteVideoFromBunny(videoId: string): Promise<void> {
   if (!libraryId || !apiKey) return;
 
-  const url = `${BASE_URL}/library/${libraryId}/videos/${videoId}`;
-  const res = await fetch(url, {
-    method: "DELETE",
-    headers: {
-      AccessKey: apiKey,
-    },
-  });
-
-  if (!res.ok && res.status !== 404) {
-    const errorText = await res.text();
-    console.error(`[BUNNY_STREAM_DELETE_ERROR] Failed to delete video ${videoId}: ${errorText}`);
+  const path = `/library/${libraryId}/videos/${videoId}`;
+  try {
+    await bunnyRequest(path, "DELETE");
+  } catch (err: any) {
+    // Ignore 404 errors as the video might already be deleted
+    if (!err.message.includes("404")) {
+      console.error(`[BUNNY_STREAM_DELETE_ERROR] Failed to delete video ${videoId}:`, err);
+    }
   }
 }
 
@@ -71,20 +103,8 @@ export async function getVideoStatusFromBunny(videoId: string): Promise<BunnyVid
     throw new Error("Bunny library credentials are not configured.");
   }
 
-  const url = `${BASE_URL}/library/${libraryId}/videos/${videoId}`;
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      AccessKey: apiKey,
-    },
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Failed to fetch Bunny video status: ${errorText}`);
-  }
-
-  const data = await res.json();
+  const path = `/library/${libraryId}/videos/${videoId}`;
+  const data = await bunnyRequest(path, "GET");
   
   // Construct standard thumbnail url from Bunny
   // Default format: https://video.bunnycdn.com/play/{libraryId}/{videoId}/thumbnail.jpg
