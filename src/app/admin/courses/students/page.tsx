@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { 
   Users, Search, BookOpen, Clock, Award, CheckCircle2, 
   ShieldAlert, Edit, Trash2, X, ShieldCheck, Loader2, RefreshCw, 
-  Laptop, Globe, Key, AlertCircle, Ban, ArrowLeftRight, Plus
+  Laptop, Globe, Key, AlertCircle, Ban, ArrowLeftRight, Plus, Sparkles
 } from "lucide-react";
 import { 
   getEnrollmentsForAdmin, 
