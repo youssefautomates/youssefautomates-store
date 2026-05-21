@@ -220,8 +220,15 @@ export default function DashboardPage() {
 
       // Fetch dynamic study statistics and gamification info
       try {
-        const stats = await getStudentStudyHours(activeUser.id);
-        setStudyStats(stats);
+        const statsRes = await fetch('/api/dashboard/stats');
+        if (statsRes.ok) {
+          const liveStats = await statsRes.json();
+          setStudyStats({
+            totalSeconds: liveStats.studyHours * 3600,
+            completedCount: liveStats.completedLessons,
+            streak: liveStats.streak
+          });
+        }
       } catch (e) {
         console.error("Failed to load study stats:", e);
       }

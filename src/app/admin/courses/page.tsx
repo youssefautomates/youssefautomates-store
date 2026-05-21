@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { RichTextEditor } from "@/components/RichTextEditor";
+import { useUploadStore } from "@/store/useUploadStore";
 import {
   DndContext,
   closestCenter,
@@ -102,6 +103,9 @@ function SortableSection({ section, index, onEdit, onDelete, onAddLesson, lesson
 function SortableLesson({ lesson, onEdit, onDelete }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: lesson.id });
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 10 : 1 };
+  
+  const uploadStore = useUploadStore();
+  const uploadTask = uploadStore.uploads[lesson.id];
 
   return (
     <div ref={setNodeRef} style={style} className={cn("p-3.5 rounded-xl bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-white/10 flex items-center justify-between gap-4 transition-all group flex-wrap", isDragging && "opacity-50 border-emerald-500")}>
@@ -118,9 +122,20 @@ function SortableLesson({ lesson, onEdit, onDelete }: any) {
         <div className="text-right">
           <div className="flex items-center gap-2 flex-wrap">
             <h4 className="font-bold text-xs sm:text-sm text-white group-hover:text-rose-400 transition-colors">{lesson.title}</h4>
-            {lesson.is_preview && (
+            {uploadTask ? (
+              <span className={cn(
+                "text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border",
+                (uploadTask.status === 'Uploading' || uploadTask.status === 'Encoding') && "bg-amber-950 text-amber-400 border-amber-900/30",
+                uploadTask.status === 'Ready' && "bg-emerald-950 text-emerald-400 border-emerald-900/30",
+                uploadTask.status === 'Failed' && "bg-rose-950 text-rose-400 border-rose-900/30",
+              )}>
+                {(uploadTask.status === 'Uploading' || uploadTask.status === 'Encoding') && `🔄 جاري الرفع... ${uploadTask.progress}%`}
+                {uploadTask.status === 'Ready' && (uploadTask.savedToDb ? `✅ تم الحفظ تلقائياً` : `✅ تم الرفع`)}
+                {uploadTask.status === 'Failed' && `❌ فشل - إعادة المحاولة`}
+              </span>
+            ) : lesson.is_preview ? (
               <span className="bg-emerald-950 text-emerald-400 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-emerald-900/30">متاح مجاناً Preview</span>
-            )}
+            ) : null}
           </div>
           {lesson.video_url && lesson.lecture_type === "video" && (
             <span className="text-[10px] text-zinc-500 block mt-0.5 font-mono max-w-[200px] truncate">{lesson.video_url}</span>
@@ -282,14 +297,18 @@ export default function AdminCoursesPage() {
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   
   // Video direct secure upload states
-  const [videoUploadProgress, setVideoUploadProgress] = useState<number | null>(null);
   const [videoFileSize, setVideoFileSize] = useState<string | null>(null);
   const [videoFileName, setVideoFileName] = useState<string | null>(null);
   const [autoThumbnailUrl, setAutoThumbnailUrl] = useState<string | null>(null);
 
-  // Bunny Stream specific upload states
-  const [bunnyUploadStatus, setBunnyUploadStatus] = useState<"Uploading" | "Encoding" | "Ready" | "Failed" | null>(null);
-  const [bunnyEncodeProgress, setBunnyEncodeProgress] = useState<number | null>(null);
+  // Global upload store
+  const uploadStore = useUploadStore();
+  
+  // Derived state for the currently editing lesson
+  const currentUploadTask = editingLesson?.id ? uploadStore.uploads[editingLesson.id] : null;
+  const bunnyUploadStatus = currentUploadTask?.status || null;
+  const videoUploadProgress = currentUploadTask?.progress !== undefined ? currentUploadTask.progress : null;
+  const bunnyEncodeProgress = currentUploadTask?.progress || 0;
 
   // Attachment upload states
   const [attachmentUploading, setAttachmentUploading] = useState(false);
@@ -298,78 +317,25 @@ export default function AdminCoursesPage() {
   // Clear upload states upon opening/closing lesson modal
   useEffect(() => {
     if (showLessonModal) {
-      setVideoUploadProgress(null);
       setVideoFileSize(null);
       setVideoFileName(null);
       setAutoThumbnailUrl(editingLesson?.thumbnail_url || editingLesson?.attachment_url || null);
       setAttachmentUploading(false);
       setAttachmentProgress(null);
-      setBunnyUploadStatus(editingLesson?.video_id ? "Ready" : null);
-      setBunnyEncodeProgress(editingLesson?.video_id ? 100 : null);
-    } else {
-      if ((window as any).bunnyPollingInterval) {
-        clearInterval((window as any).bunnyPollingInterval);
-        (window as any).bunnyPollingInterval = null;
-      }
     }
   }, [showLessonModal, editingLesson]);
-
-  const startStatusPolling = (videoId: string, libraryId: string) => {
-    if ((window as any).bunnyPollingInterval) {
-      clearInterval((window as any).bunnyPollingInterval);
-    }
-    
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/admin/bunny/video?videoId=${videoId}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        
-        if (data.status === 3) {
-          clearInterval(interval);
-          (window as any).bunnyPollingInterval = null;
-          setBunnyUploadStatus("Ready");
-          setBunnyEncodeProgress(100);
-          
-          const playUrl = `https://iframe.mediadelivery.net/play/${libraryId}/${videoId}/playlist.m3u8`;
-          const thumbUrl = data.thumbnailUrl || `https://iframe.mediadelivery.net/play/${libraryId}/${videoId}/thumbnail.jpg`;
-          
-          setEditingLesson(prev => ({
-            ...prev,
-            video_url: playUrl,
-            video_id: videoId,
-            playback_url: playUrl,
-            thumbnail_url: thumbUrl,
-            duration_seconds: data.length || prev?.duration_seconds || 0
-          }));
-          
-          toast.success("اكتمل معالجة وتجهيز الفيديو بنجاح! 🚀");
-        } else if (data.status === 2) {
-          clearInterval(interval);
-          (window as any).bunnyPollingInterval = null;
-          setBunnyUploadStatus("Failed");
-          toast.error("فشل تشفير الفيديو على Bunny Stream.");
-        } else {
-          setBunnyUploadStatus("Encoding");
-          setBunnyEncodeProgress(data.encodeProgress || 0);
-        }
-      } catch (err) {
-        console.error("Error polling video status:", err);
-      }
-    }, 4000);
-    
-    (window as any).bunnyPollingInterval = interval;
-  };
 
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!editingLesson || !editingLesson.id) {
+      toast.error("حدث خطأ: معرف الدرس غير متوفر");
+      return;
+    }
 
     setVideoFileName(file.name);
     const sizeInMB = (file.size / (1024 * 1024)).toFixed(1);
     setVideoFileSize(`${sizeInMB} MB`);
-    setVideoUploadProgress(0);
-    setBunnyUploadStatus("Uploading");
 
     try {
       // 1. Auto read video duration in client-side JS
@@ -378,73 +344,22 @@ export default function AdminCoursesPage() {
       tempVideo.src = URL.createObjectURL(file);
       tempVideo.onloadedmetadata = () => {
         const durationSec = Math.round(tempVideo.duration);
-        setEditingLesson(prev => ({
-          ...prev,
-          duration_seconds: durationSec
-        }));
+        setEditingLesson(prev => ({ ...prev, duration_seconds: durationSec }));
         URL.revokeObjectURL(tempVideo.src);
       };
 
-      // 2. Fetch configurations
-      const configRes = await fetch("/api/admin/bunny/config");
-      if (!configRes.ok) {
-        throw new Error("فشل تحميل إعدادات Bunny Stream. تأكد من إعداد متغيرات البيئة.");
-      }
-      const { libraryId, apiKey } = await configRes.json();
-
-      // 3. Create a video placeholder via API
-      const createRes = await fetch("/api/admin/bunny/video", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: file.name })
+      // 2. Delegate to background store
+      uploadStore.startBackgroundUpload(editingLesson.id, file, {
+        courseId: selectedCourse?.id || "",
+        sectionId: editingLesson.section_id || activeSectionForLesson || "",
+        title: editingLesson.title || file.name,
+        isNewLesson: !!editingLesson.id?.startsWith("les-")
       });
-      if (!createRes.ok) {
-        throw new Error("فشل إنشاء حاوية الفيديو في Bunny Stream.");
-      }
-      const { videoId } = await createRes.json();
-
-      // 4. Perform direct browser-to-Bunny upload using XHR for real-time progress
-      const xhr = new XMLHttpRequest();
-      xhr.upload.addEventListener("progress", (event) => {
-        if (event.lengthComputable) {
-          const percentage = Math.round((event.loaded / event.total) * 100);
-          setVideoUploadProgress(percentage);
-        }
-      });
-
-      const uploadPromise = new Promise<void>((resolve, reject) => {
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve();
-          } else {
-            reject(new Error(`فشل رفع الفيديو إلى Bunny Stream. رمز الاستجابة: ${xhr.status}`));
-          }
-        };
-        xhr.onerror = () => reject(new Error("حدث خطأ في الاتصال أثناء الرفع."));
-      });
-
-      xhr.open("PUT", `https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}`);
-      xhr.setRequestHeader("AccessKey", apiKey);
-      xhr.send(file);
-
-      await uploadPromise;
-
-      // 5. Start polling status
-      setBunnyUploadStatus("Encoding");
-      setBunnyEncodeProgress(0);
-      
-      setEditingLesson(prev => ({
-        ...prev,
-        video_id: videoId
-      }));
-
-      startStatusPolling(videoId, libraryId);
+      toast.success("بدأ رفع الفيديو في الخلفية. يمكنك حفظ المحاضرة والمتابعة.");
     } catch (err: any) {
-      toast.error(err.message || "خطأ أثناء رفع الفيديو.");
-      setVideoUploadProgress(null);
+      toast.error(err.message || "خطأ أثناء بدء الرفع.");
       setVideoFileName(null);
       setVideoFileSize(null);
-      setBunnyUploadStatus(null);
     }
   };
 
@@ -477,11 +392,9 @@ export default function AdminCoursesPage() {
         thumbnail_url: "",
         attachment_url: ""
       }));
-      setVideoUploadProgress(null);
       setVideoFileName(null);
       setVideoFileSize(null);
       setAutoThumbnailUrl(null);
-      setBunnyUploadStatus(null);
       toast.success("تم حذف ملف الفيديو بنجاح! 🗑️");
     } catch (err: any) {
       toast.error(err.message || "فشل حذف الفيديو.");
@@ -685,10 +598,16 @@ export default function AdminCoursesPage() {
     if (!courseForm.title) return toast.error("يرجى إدخال عنوان الكورس");
     try {
       const saved = await upsertCourse(courseForm as any);
-      setSelectedCourse(null);
-      toast.success("تم حفظ بيانات الدورة بنجاح!");
+      // Update selectedCourse so curriculum builder becomes available immediately
+      setSelectedCourse(saved);
+      // Reload the curriculum sections for the saved course
+      const { sections } = await getCourseBySlug(saved.slug);
+      setCurriculumSections(sections);
+      const expandAll = sections.reduce((acc, sec) => ({...acc, [sec.id]: true}), {});
+      setExpandedSections(expandAll);
+      toast.success("تم حفظ بيانات الدورة بنجاح! يمكنك الآن إضافة الوحدات والدروس.");
       loadCourses();
-      setView("list");
+      // Stay in form view so user can continue building curriculum
     } catch (err) { 
       console.error(err);
       toast.error("حدث خطأ أثناء حفظ الكورس"); 
@@ -736,16 +655,22 @@ export default function AdminCoursesPage() {
         try {
           setShowcaseStatus(`جاري رفع ${files.length} فيديوهات (متبقي ${files.length - completedCount})...`);
 
-          const createRes = await fetch("/api/admin/bunny/video", {
+          // Create placeholder DIRECTLY from browser → Bunny API
+          const createRes = await fetch(`https://video.bunnycdn.com/library/${libraryId}/videos`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "AccessKey": apiKey,
+              "Accept": "application/json",
+              "Content-Type": "application/json"
+            },
             body: JSON.stringify({ title: `showcase-${selectedCourse?.id || 'course'}-${Date.now()}` })
           });
           if (!createRes.ok) {
-            const errData = await createRes.json().catch(() => ({}));
-            throw new Error(errData.error || `فشل إنشاء حاوية الفيديو لـ ${file.name}`);
+            const errText = await createRes.text();
+            throw new Error(`فشل إنشاء حاوية الفيديو لـ ${file.name} (${createRes.status})`);
           }
-          const { videoId } = await createRes.json();
+          const createData = await createRes.json();
+          const videoId = createData.guid;
 
           const xhr = new XMLHttpRequest();
           xhr.upload.addEventListener("progress", (event) => {
@@ -858,15 +783,22 @@ export default function AdminCoursesPage() {
       }
       const { libraryId, apiKey } = await configRes.json();
 
-      const createRes = await fetch("/api/admin/bunny/video", {
+      // Create a video placeholder DIRECTLY from browser → Bunny API
+      const createRes = await fetch(`https://video.bunnycdn.com/library/${libraryId}/videos`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "AccessKey": apiKey,
+          "Accept": "application/json",
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({ title: `promo-${selectedCourse?.id || 'course'}-${Date.now()}` })
       });
       if (!createRes.ok) {
-        throw new Error("فشل إنشاء حاوية الفيديو التعريفي.");
+        const errText = await createRes.text();
+        throw new Error(`فشل إنشاء حاوية الفيديو التعريفي (${createRes.status}): ${errText.slice(0,200)}`);
       }
-      const { videoId } = await createRes.json();
+      const createData = await createRes.json();
+      const videoId = createData.guid;
 
       const xhr = new XMLHttpRequest();
       xhr.upload.addEventListener("progress", (event) => {
@@ -994,9 +926,14 @@ export default function AdminCoursesPage() {
     if (!editingLesson?.title || !selectedCourse) return toast.error("يرجى إدخال عنوان الدرس");
     const sectionId = editingLesson.section_id || activeSectionForLesson;
     if (!sectionId) return;
+    
+    // Retrieve active upload task to get the video ID if it's currently uploading
+    const uploadTask = editingLesson?.id ? uploadStore.uploads[editingLesson.id] : null;
+    const finalVideoId = editingLesson.video_id || uploadTask?.videoId || "";
+
     setSavingLesson(true);
     try {
-      const savedLesson = await upsertLesson({ ...editingLesson, section_id: sectionId, title: editingLesson.title } as any);
+      const savedLesson = await upsertLesson({ ...editingLesson, video_id: finalVideoId, section_id: sectionId, title: editingLesson.title } as any);
       
       setCurriculumSections(prev => {
         return prev.map(sec => {
@@ -1364,7 +1301,7 @@ export default function AdminCoursesPage() {
                               toggleExpand={(id: string) => setExpandedSections(prev => ({ ...prev, [id]: !prev[id] }))}
                               onEdit={(s: any) => { setEditingSectionId(s.id); setEditingSectionTitle(s.title); setEditingSectionDescription(s.description || ""); setShowSectionModal(true); }}
                               onDelete={handleDeleteSection}
-                              onAddLesson={(sId: string) => { setActiveSectionForLesson(sId); setEditingLesson({ title: "", video_url: "", duration_seconds: 300, is_preview: false, lecture_type: "video" }); setShowLessonModal(true); }}
+                              onAddLesson={(sId: string) => { setActiveSectionForLesson(sId); setEditingLesson({ id: `les-${Date.now()}`, title: "", video_url: "", duration_seconds: 300, is_preview: false, lecture_type: "video" }); setShowLessonModal(true); }}
                               onEditLesson={(les: any) => { setEditingLesson(les); setShowLessonModal(true); }}
                               onDeleteLesson={handleDeleteLesson}
                               onLessonDragEnd={onLessonDragEnd}
@@ -2055,17 +1992,20 @@ export default function AdminCoursesPage() {
               </div>
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-white/5 pt-4">
-              <button disabled={savingLesson} onClick={() => { setShowLessonModal(false); setEditingLesson(null); }} className="h-10 px-4 bg-white/5 hover:bg-white/10 rounded-xl font-bold text-xs cursor-pointer disabled:opacity-50 text-white">إلغاء</button>
+              <button disabled={savingLesson} onClick={() => { 
+                if (bunnyUploadStatus === 'Uploading' || bunnyUploadStatus === 'Encoding') {
+                  toast.success("يتم الرفع في الخلفية ✓");
+                }
+                setShowLessonModal(false); 
+                setEditingLesson(null); 
+              }} className="h-10 px-4 bg-white/5 hover:bg-white/10 rounded-xl font-bold text-xs cursor-pointer disabled:opacity-50 text-white">إلغاء</button>
               <button 
-                disabled={savingLesson || !editingLesson.title || bunnyUploadStatus === "Uploading" || bunnyUploadStatus === "Encoding"} 
+                disabled={savingLesson || !editingLesson.title} 
                 onClick={handleSaveLesson} 
                 className="h-10 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {savingLesson ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                <span>
-                  {bunnyUploadStatus === "Uploading" ? "جاري الرفع..." : 
-                   bunnyUploadStatus === "Encoding" ? "جاري المعالجة..." : "حفظ المحاضرة"}
-                </span>
+                <span>حفظ المحاضرة</span>
               </button>
             </div>
           </div>

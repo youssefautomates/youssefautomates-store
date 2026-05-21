@@ -11,6 +11,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { BackgroundUploadWidget } from "@/components/BackgroundUploadWidget";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -61,6 +62,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-[#050505] text-white selection:bg-rose-500/30">
+      <BackgroundUploadWidget />
       {/* Sidebar */}
       <aside className="fixed right-0 top-0 h-screen w-80 bg-[#09090b] border-l border-white/5 z-50 hidden lg:flex flex-col shadow-2xl">
         <div className="p-8 flex items-center gap-4 border-b border-white/5">

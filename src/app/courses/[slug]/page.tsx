@@ -371,53 +371,25 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                 <div className="aspect-video bg-[#0a0a0f] border border-white/5 rounded-3xl overflow-hidden relative shadow-2xl group">
                   {previewVideoUrl ? (
                     <div className="absolute inset-0 z-10 flex items-center justify-center bg-black">
-                      {!hasInteracted ? (
-                         <div 
-                           className="relative w-full h-full cursor-pointer group"
-                           onClick={() => setHasInteracted(true)}
-                         >
-                           {course.image_url ? (
-                             <img src={course.image_url} alt="Cover" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                           ) : (
-                             <div className="absolute inset-0 bg-grid-lines mask-radial-faded opacity-30 flex items-center justify-center">
-                               <BookOpen className="w-16 h-16 text-zinc-700" />
-                             </div>
-                           )}
-                           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] transition-all group-hover:bg-black/20" style={{ zIndex: 20 }}>
-                              <motion.div 
-                                animate={{ scale: [1, 1.1, 1] }}
-                                transition={{ duration: 2, repeat: Infinity }}
-                                className="w-20 h-20 bg-[#D6004B]/90 backdrop-blur-2xl border border-white/20 rounded-full flex items-center justify-center mb-6 shadow-2xl animate-pulse"
-                              >
-                                 <Play className="w-8 h-8 text-white fill-current ml-1" />
-                              </motion.div>
-                              <span className="font-alexandria font-black text-xl text-white tracking-widest bg-black/50 px-8 py-3 rounded-2xl border border-white/10 shadow-[0_15px_40px_rgba(0,0,0,0.4)]">
-                                 تشغيل الفيديو
-                              </span>
-                           </div>
-                         </div>
-                      ) : (
-                        <div className="relative w-full h-full bg-black">
-                          {isEmbed ? (
-                            <iframe 
-                              src={getEmbedUrl(previewVideoUrl, true)}
-                              className="w-full h-full border-none"
-                              allow="autoplay; encrypted-media"
-                              allowFullScreen
-                              referrerPolicy="origin"
-                            />
-                          ) : (
-                             <video 
-                               ref={videoRef}
-                               src={previewVideoUrl} 
-                               autoPlay 
-                               playsInline
-                               controls
-                               className="w-full h-full object-contain"
-                             />
-                          )}
-                        </div>
-                      )}
+                      <div className="relative w-full h-full bg-black">
+                        {isEmbed ? (
+                          <iframe 
+                            src={getEmbedUrl(previewVideoUrl, false)}
+                            className="w-full h-full border-none"
+                            allow="autoplay; encrypted-media"
+                            allowFullScreen
+                            referrerPolicy="origin"
+                          />
+                        ) : (
+                           <video 
+                             ref={videoRef}
+                             src={previewVideoUrl} 
+                             playsInline
+                             controls
+                             className="w-full h-full object-contain"
+                           />
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <>

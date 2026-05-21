@@ -230,6 +230,30 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ courseS
     if (matchedCert) setActiveCert(matchedCert);
   };
 
+  // Session watch tracking timer
+  useEffect(() => {
+    if (!currentLesson || !course || !user) return;
+    
+    let seconds = 0;
+    const interval = setInterval(() => {
+      seconds++;
+      if (seconds % 30 === 0) {
+        // Send a ping every 30 seconds for live watch tracking
+        fetch(`/api/lessons/${currentLesson.id}/complete`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            course_id: course.id,
+            watch_time_seconds: 30,
+            is_completed: false
+          })
+        }).catch(console.error);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [currentLesson?.id, course?.id, user?.id]);
+
   // Toggle lesson complete
   const handleToggleComplete = async (lessonId: string) => {
     if (!user || !course) return;
@@ -242,6 +266,17 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ courseS
         course.id,
         studentName
       );
+
+      // Ping API for streak and completion update
+      fetch(`/api/lessons/${lessonId}/complete`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          course_id: course.id,
+          watch_time_seconds: 0,
+          is_completed: completed
+        })
+      }).catch(console.error);
 
       if (completed) {
         toast.success("تهانينا! تم وضع علامة إكمال للدرس بنجاح 🎉");

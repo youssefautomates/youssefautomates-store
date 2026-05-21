@@ -88,7 +88,68 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ less
       if (lesson.video_url) {
         return NextResponse.redirect(lesson.video_url);
       }
-      return new Response("فيديو المحاضرة غير متوفر حالياً", { status: 404 });
+      // Return a proper HTML page so the iframe displays a friendly error
+      const errorHtml = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>فيديو المحاضرة</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    background: #0a0a0f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Cairo', 'Segoe UI', sans-serif;
+    color: #fff;
+  }
+  .container {
+    text-align: center;
+    padding: 2rem;
+  }
+  .icon {
+    width: 80px;
+    height: 80px;
+    background: rgba(214,0,75,0.1);
+    border: 2px solid rgba(214,0,75,0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    font-size: 2rem;
+  }
+  h2 { font-size: 1.25rem; font-weight: 800; margin-bottom: 0.75rem; }
+  p { font-size: 0.875rem; color: #71717a; line-height: 1.6; max-width: 300px; margin: 0 auto; }
+  .badge {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 0.35rem 1rem;
+    background: rgba(214,0,75,0.1);
+    border: 1px solid rgba(214,0,75,0.3);
+    border-radius: 999px;
+    font-size: 0.75rem;
+    color: #D6004B;
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">🎬</div>
+    <h2>الفيديو قيد الإعداد</h2>
+    <p>لم يتم رفع فيديو لهذه المحاضرة بعد. يرجى المتابعة وسيكون الفيديو متاحاً قريباً.</p>
+    <span class="badge">سيتم إضافة الفيديو قريباً</span>
+  </div>
+</body>
+</html>`;
+      return new Response(errorHtml, {
+        status: 200,
+        headers: { "Content-Type": "text/html; charset=utf-8" }
+      });
     }
 
     // 4. Generate secure signed Bunny embed URL

@@ -29,6 +29,7 @@ function bunnyRequest(
 ): Promise<any> {
   return new Promise((resolve, reject) => {
     const attempt = (remaining: number) => {
+      const bodyString = body ? JSON.stringify(body) : undefined;
       const options = {
         hostname: "video.bunnycdn.com",
         path: path,
@@ -37,7 +38,10 @@ function bunnyRequest(
         headers: {
           "AccessKey": apiKey,
           "Accept": "application/json",
-          ...(body ? { "Content-Type": "application/json" } : {}),
+          ...(bodyString ? {
+            "Content-Type": "application/json",
+            "Content-Length": Buffer.byteLength(bodyString)
+          } : {}),
         }
       };
 
@@ -86,8 +90,8 @@ function bunnyRequest(
         }
       });
 
-      if (body) {
-        req.write(JSON.stringify(body));
+      if (bodyString) {
+        req.write(bodyString);
       }
       req.end();
     };
@@ -101,12 +105,23 @@ function bunnyRequest(
  */
 export async function createVideoPlaceholder(title: string): Promise<string> {
   if (!libraryId || !apiKey) {
-    throw new Error("Bunny library credentials are not configured in environment variables.");
+    throw new Error("إعدادات Bunny Stream مفقودة. تأكد من وجود BUNNY_LIBRARY_ID و BUNNY_API_KEY في ملف .env.local");
   }
 
   const path = `/library/${libraryId}/videos`;
-  const data = await bunnyRequest(path, "POST", { title });
-  return data.guid;
+  console.log(`[BUNNY_CREATE_VIDEO] POST https://video.bunnycdn.com${path} | title="${title}"`);
+  
+  try {
+    const data = await bunnyRequest(path, "POST", { title });
+    console.log(`[BUNNY_CREATE_VIDEO] Success: guid=${data.guid}`);
+    if (!data.guid) {
+      throw new Error(`استجابة Bunny API لا تحتوي على guid. الاستجابة: ${JSON.stringify(data)}`);
+    }
+    return data.guid;
+  } catch (err: any) {
+    console.error(`[BUNNY_CREATE_VIDEO] Failed:`, err.message);
+    throw err;
+  }
 }
 
 /**
@@ -168,7 +183,7 @@ export function generateSignedEmbedUrl(videoId: string, expirationMinutes = 120)
     .update(tokenKey + videoId + expiration.toString())
     .digest("hex");
 
-  return `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}?token=${signature}&expires=${expiration}`;
+  return `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}?token=${signature}&expires=${expiration}&preload=true&responsive=true&autoplay=false`;
 }
 
 /**

@@ -29,6 +29,9 @@ interface StudentRow extends LmsEnrollment {
   completedCount: number;
   totalCount: number;
   isFinished: boolean;
+  totalWatchSeconds?: number;
+  lastActivityDate?: string | null;
+  streak?: number;
 }
 
 export default function AdminStudentsPage() {
@@ -51,7 +54,7 @@ export default function AdminStudentsPage() {
 
   // CRM Action Modal States
   const [selectedStudent, setSelectedStudent] = useState<StudentRow | null>(null);
-  const [modalTab, setModalTab] = useState<"profile" | "devices" | "security">("profile");
+  const [modalTab, setModalTab] = useState<"profile" | "devices" | "security" | "progress">("profile");
   
   // Profile Tab States
   const [editName, setEditName] = useState("");
@@ -112,13 +115,30 @@ export default function AdminStudentsPage() {
       const c = lmsCourses.find(course => course.id === e.course_id);
       const courseTitle = c?.title || "دورة تعليمية غير معروفة";
       const { percent, completedCount, totalCount, isFinished } = await getCourseProgressPercent(e.user_id, e.course_id);
+      
+      let totalWatchSeconds = 0;
+      let lastActivityDate = null;
+      let streak = 0;
+      try {
+        const pRes = await fetch(`/api/students/${e.user_id}/progress`);
+        if (pRes.ok) {
+          const pData = await pRes.json();
+          totalWatchSeconds = pData.totalWatchSeconds;
+          lastActivityDate = pData.lastActivityDate;
+          streak = pData.streak;
+        }
+      } catch (err) {}
+
       populated.push({
         ...e,
         courseTitle,
         percent,
         completedCount,
         totalCount,
-        isFinished
+        isFinished,
+        totalWatchSeconds,
+        lastActivityDate,
+        streak
       });
     }
 
@@ -349,7 +369,7 @@ export default function AdminStudentsPage() {
                 <th className="p-5 text-right">اسم الطالب</th>
                 <th className="p-5 text-right">المسار التعليمي المشترك به</th>
                 <th className="p-5 text-center">نسبة التقدم وإكمال المنهج</th>
-                <th className="p-5 text-right">تاريخ الاشتراك</th>
+                <th className="p-5 text-right">الوقت الكلي وآخر نشاط</th>
                 <th className="p-5 text-right">حالة الحساب</th>
                 <th className="p-5 text-center">خيارات التحكم</th>
               </tr>
@@ -421,9 +441,13 @@ export default function AdminStudentsPage() {
                       </div>
                     </td>
 
-                    {/* Date */}
-                    <td className="p-5 text-zinc-400 font-mono">
-                      {new Date(row.enrolled_at).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })}
+                    {/* Date & Watch Time */}
+                    <td className="p-5 text-zinc-400 font-mono text-xs">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-white font-cairo">{(row.totalWatchSeconds ? row.totalWatchSeconds / 3600 : 0).toFixed(1)} ساعة</span>
+                        <span className="text-[9px] text-zinc-500">نشط: {row.lastActivityDate || "-"}</span>
+                        <span className="text-[9px] text-zinc-600">تسجيل: {new Date(row.enrolled_at).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })}</span>
+                      </div>
                     </td>
 
                     {/* Account status */}
@@ -498,12 +522,20 @@ export default function AdminStudentsPage() {
                 onClick={() => setModalTab("profile")}
                 className={cn(
                   "px-4 py-2 text-xs font-bold font-alexandria border-b-2 transition-all cursor-pointer",
-                  modalTab === "profile" 
-                    ? "border-[#D6004B] text-white" 
-                    : "border-transparent text-zinc-500 hover:text-white"
+                  modalTab === "profile" ? "border-rose-500 text-rose-500" : "border-transparent text-zinc-500 hover:text-zinc-300"
                 )}
               >
-                البيانات الشخصية
+                بيانات الطالب
+              </button>
+              <button 
+                onClick={() => setModalTab("progress")}
+                className={cn(
+                  "px-4 py-2 text-xs font-bold font-alexandria border-b-2 transition-all cursor-pointer flex items-center gap-1.5",
+                  modalTab === "progress" ? "border-rose-500 text-rose-500" : "border-transparent text-zinc-500 hover:text-zinc-300"
+                )}
+              >
+                <Clock className="w-4 h-4" />
+                <span>إحصائيات التقدم</span>
               </button>
               <button 
                 onClick={() => setModalTab("devices")}
@@ -593,6 +625,42 @@ export default function AdminStudentsPage() {
                   </button>
                 </div>
               </form>
+            )}
+
+            {/* TAB 1.5: Progress Stats */}
+            {modalTab === "progress" && selectedStudent && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white/5 border border-white/5 p-4 rounded-xl flex flex-col items-center justify-center text-center">
+                    <Clock className="w-6 h-6 text-rose-500 mb-2" />
+                    <span className="text-xs text-zinc-400 mb-1 font-bold">وقت التعلم الكلي</span>
+                    <span className="text-xl text-white font-black font-mono">
+                      {(selectedStudent.totalWatchSeconds ? selectedStudent.totalWatchSeconds / 3600 : 0).toFixed(1)} <span className="text-sm font-cairo">ساعة</span>
+                    </span>
+                  </div>
+                  <div className="bg-white/5 border border-white/5 p-4 rounded-xl flex flex-col items-center justify-center text-center">
+                    <Sparkles className="w-6 h-6 text-emerald-500 mb-2" />
+                    <span className="text-xs text-zinc-400 mb-1 font-bold">سلسلة التعلم الحالية</span>
+                    <span className="text-xl text-white font-black font-mono">
+                      {selectedStudent.streak || 0} <span className="text-sm font-cairo">أيام</span>
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="bg-white/5 border border-white/5 p-4 rounded-xl mt-4">
+                  <h4 className="text-white text-xs font-bold mb-3 font-alexandria">تفاصيل الدورة الحالية: {selectedStudent.courseTitle}</h4>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-zinc-400">الدروس المكتملة</span>
+                    <span className="text-xs text-white font-bold">{selectedStudent.completedCount} من {selectedStudent.totalCount}</span>
+                  </div>
+                  <div className="w-full bg-black h-2 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-rose-500 to-orange-400"
+                      style={{ width: `${selectedStudent.percent}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* TAB 2: Active Device Sessions */}

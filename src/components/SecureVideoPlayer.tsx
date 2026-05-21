@@ -624,7 +624,6 @@ export default function SecureVideoPlayer({
           <div className={`absolute inset-0 w-full h-full transition-all duration-500 z-0 ${isBlurred ? "blur-[30px] scale-[1.02] pointer-events-none" : ""}`}>
             <iframe
               src={iframeSrc}
-              loading="lazy"
               className="w-full h-full border-none absolute inset-0 z-10"
               allow="autoplay; encrypted-media"
               allowFullScreen
