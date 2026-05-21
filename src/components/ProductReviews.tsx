@@ -30,11 +30,17 @@ const getAvatarUrl = (firstName: string, gender?: string) => {
   return `https://api.dicebear.com/9.x/adventurer/svg?seed=${chosen}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc`;
 };
 
-export function ProductReviews({ productId }: { productId: string }) {
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(true);
+export function ProductReviews({ productId, initialReviews }: { productId: string, initialReviews?: Review[] }) {
+  const [reviews, setReviews] = useState<Review[]>(initialReviews || []);
+  const [loading, setLoading] = useState(!initialReviews || initialReviews.length === 0);
 
   useEffect(() => {
+    if (initialReviews && initialReviews.length > 0) {
+      setReviews(initialReviews);
+      setLoading(false);
+      return;
+    }
+
     fetch(`/api/admin/reviews?productId=${productId}`)
       .then(res => res.json())
       .then(data => {
@@ -42,7 +48,7 @@ export function ProductReviews({ productId }: { productId: string }) {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [productId]);
+  }, [productId, initialReviews]);
 
   if (loading || reviews.length === 0) return null;
 

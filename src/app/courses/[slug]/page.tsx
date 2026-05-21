@@ -874,7 +874,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                           </div>
 
                           {/* Render verified product reviews component */}
-                          <ProductReviews productId={course.id} />
+                          <ProductReviews productId={course.id} initialReviews={allReviews} />
                         </motion.div>
                       )}
 
@@ -1184,6 +1184,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
           totalLessons={totalLessons}
           averageRating={averageRating}
           reviewsCount={reviewsCount}
+          allReviews={allReviews}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           openModuleIndex={openModuleIndex}
@@ -1339,6 +1340,7 @@ interface MobileCourseViewProps {
   totalLessons: number;
   averageRating: number | string;
   reviewsCount: number;
+  allReviews: any[];
   activeTab: string;
   setActiveTab: (tab: any) => void;
   openModuleIndex: number | null;
@@ -1364,6 +1366,7 @@ function MobileCourseView({
   totalLessons,
   averageRating,
   reviewsCount,
+  allReviews,
   activeTab,
   setActiveTab,
   openModuleIndex,
@@ -1908,7 +1911,7 @@ function MobileCourseView({
                    </div>
                  </div>
 
-                 <ProductReviews productId={course.id} />
+                 <ProductReviews productId={course.id} initialReviews={allReviews} />
                </motion.div>
              )}
 
