@@ -24,13 +24,23 @@ import { toast } from "sonner";
 import { useCart } from "@/context/CartContext";
 import { Product } from "@/lib/products";
 import { ProductReviews } from "@/components/ProductReviews";
+import { resolveUserCurrency, resolveProductPrice, formatPrice, type Currency } from "@/lib/pricing";
 
 export default function BundlePage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params);
+  const [currency, setCurrency] = useState<Currency>("EGP");
+
+  useEffect(() => {
+    resolveUserCurrency().then(setCurrency);
+  }, []);
+
   const [bundle, setBundle] = useState<HydratedBundle | null>(null);
+  const [allReviews, setAllReviews] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { addToCart } = useCart();
+
+  const bundlePricing = bundle ? resolveProductPrice(bundle as any, currency) : null;
 
   useEffect(() => {
     async function loadBundle() {
@@ -43,6 +53,20 @@ export default function BundlePage({ params }: { params: Promise<{ slug: string 
           return;
         }
         setBundle(data);
+        if (data) {
+          // Pre-fetch reviews concurrently to ensure instant display on load
+          try {
+            const reviewsRes = await fetch(`/api/admin/reviews?productId=${data.id}`);
+            if (reviewsRes.ok) {
+              const rData = await reviewsRes.json();
+              if (Array.isArray(rData)) {
+                setAllReviews(rData);
+              }
+            }
+          } catch (e) {
+            console.error("Failed to load reviews for bundle:", e);
+          }
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -174,8 +198,10 @@ export default function BundlePage({ params }: { params: Promise<{ slug: string 
                     const title = isCourse ? item.course?.title : item.product?.title;
                     const desc = isCourse ? item.course?.short_description : (item.product?.short_description || item.product?.description);
                     const image = isCourse ? item.course?.image_url : item.product?.image_url;
-                    const price = isCourse ? item.course?.price : item.product?.price;
-                    const originalPrice = isCourse ? item.course?.original_price : item.product?.original_price;
+                    const resolvedItem = isCourse ? item.course : item.product;
+                    const itemPricing = resolvedItem ? resolveProductPrice(resolvedItem, currency) : null;
+                    const price = itemPricing?.price ?? 0;
+                    const originalPrice = itemPricing?.original_price ?? 0;
                     const slug = isCourse ? item.course?.slug : item.product?.slug;
 
                     const typeBadge = isCourse ? "دورة تعليمية" : "منتج رقمي";
@@ -238,13 +264,13 @@ export default function BundlePage({ params }: { params: Promise<{ slug: string 
 
                         <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end shrink-0 border-t border-white/5 md:border-none pt-4 md:pt-0">
                           <div className="flex flex-col text-right md:text-left">
-                            {originalPrice && originalPrice > 0 && (
+                            {originalPrice > 0 && (
                               <span className="text-[10px] text-zinc-600 line-through">
-                                {originalPrice} ج.م
+                                {formatPrice(originalPrice, currency)}
                               </span>
                             )}
                             <span className="text-xs font-black text-zinc-400 font-mono">
-                              {price} ج.م (مشمول مجاناً)
+                              {price === 0 ? "مجاني" : formatPrice(price, currency)} (مشمول مجاناً)
                             </span>
                           </div>
                           
@@ -315,19 +341,20 @@ export default function BundlePage({ params }: { params: Promise<{ slug: string 
 
                   <div className="flex items-center justify-between py-3 md:py-6 border-y border-white/5">
                     <div className="flex flex-col">
-                      {bundle.original_price && bundle.original_price > 0 && (
+                      {bundlePricing && bundlePricing.original_price > 0 && (
                         <span className="text-zinc-600 font-alexandria text-xs sm:text-base md:text-xl line-through decoration-rose-500/30 mb-0">
-                          {bundle.original_price} ج.م
+                          {formatPrice(bundlePricing.original_price, currency)}
                         </span>
                       )}
                       <div className="flex items-baseline gap-1.5 md:gap-3">
-                        <span className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-alexandria font-black text-white tracking-tighter">{bundle.price}</span>
-                        <span className="text-sm sm:text-lg md:text-xl font-alexandria font-black text-rose-500 uppercase">ج.م</span>
+                        <span className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-alexandria font-black text-white tracking-tighter">
+                          {bundlePricing ? (bundlePricing.price === 0 ? "مجاني" : formatPrice(bundlePricing.price, currency)) : ""}
+                        </span>
                       </div>
                     </div>
-                    {bundle.discount_pct && bundle.discount_pct > 0 ? (
+                    {bundlePricing && bundlePricing.discount_pct > 0 ? (
                       <div className="bg-rose-600 text-white font-alexandria font-black px-2.5 py-1 md:px-4 md:py-2 rounded-lg md:rounded-xl text-xs md:text-sm shadow-lg shadow-rose-600/20">
-                        خصم {bundle.discount_pct}%
+                        خصم {bundlePricing.discount_pct}%
                       </div>
                     ) : null}
                   </div>
@@ -346,8 +373,8 @@ export default function BundlePage({ params }: { params: Promise<{ slug: string 
                         addToCart({
                           id: bundle.id,
                           title: bundle.title,
-                          price: bundle.price,
-                          original_price: bundle.original_price,
+                          price: bundlePricing?.price ?? bundle.price,
+                          original_price: bundlePricing?.original_price ?? bundle.original_price,
                           image_url: bundle.image_url || "",
                           slug: bundle.slug,
                           category: "حزم العروض",
@@ -396,7 +423,7 @@ export default function BundlePage({ params }: { params: Promise<{ slug: string 
           </div>
 
           {/* Reviews Section */}
-          <ProductReviews productId={bundle.id} />
+          <ProductReviews productId={bundle.id} initialReviews={allReviews} />
 
           {/* Related engine Carousel */}
           <div className="mt-20 border-t border-white/5 pt-16">
@@ -410,17 +437,17 @@ export default function BundlePage({ params }: { params: Promise<{ slug: string 
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-2xl border-t border-white/10 p-3 z-50 flex items-center justify-between gap-3 pb-safe shadow-[0_-20px_50px_rgba(0,0,0,0.8)] supports-[backdrop-filter]:bg-black/60">
         <div className="flex flex-col pl-2">
           <span className="text-lg font-alexandria font-black text-white leading-none tracking-tighter">
-            {bundle.price} <span className="text-[10px] text-rose-500 font-black">ج.م</span>
+            {bundlePricing ? (bundlePricing.price === 0 ? "مجاني" : formatPrice(bundlePricing.price, currency)) : ""}
           </span>
-          {bundle.original_price && <span className="text-[9px] text-zinc-400 line-through mt-0.5">بدلاً من {bundle.original_price} ج.م</span>}
+          {bundlePricing && bundlePricing.original_price > 0 && <span className="text-[9px] text-zinc-400 line-through mt-0.5">بدلاً من {formatPrice(bundlePricing.original_price, currency)}</span>}
         </div>
         <div className="flex gap-2 flex-1">
           <button
             onClick={() => addToCart({
               id: bundle.id,
               title: bundle.title,
-              price: bundle.price,
-              original_price: bundle.original_price,
+              price: bundlePricing?.price ?? bundle.price,
+              original_price: bundlePricing?.original_price ?? bundle.original_price,
               image_url: bundle.image_url || "",
               slug: bundle.slug,
               category: "حزم العروض",

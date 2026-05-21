@@ -150,7 +150,7 @@ export async function POST(req: Request) {
     // Prevent price spoofing from the client side
     const clientAmount = parseFloat(amount);
     if (Math.abs(clientAmount - expectedPriceEGP) > 5) { // 5 EGP threshold for rounding safety
-      throw new Error(`محاولة تلاعب بالسعر! السعر الفعلي هو ${expectedPriceEGP} ج.م`);
+      throw new Error(`محاولة تلاعب بالسعر! السعر الفعلي هو ${expectedPriceEGP} EGP`);
     }
 
     const amountCents = Math.round(expectedPriceEGP * 100);

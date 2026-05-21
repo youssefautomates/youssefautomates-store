@@ -723,7 +723,7 @@ export default function CartCheckoutPage() {
 
               <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-4">
                 <p className="text-sm text-purple-300 font-cairo mb-1">المبلغ المطلوب تحويله</p>
-                <p className="text-3xl font-alexandria font-black text-white">{resolvedCartTotal} <span className="text-lg text-zinc-400">ج.م</span></p>
+                <p className="text-3xl font-alexandria font-black text-white">{formatPrice(resolvedCartTotal, currency)}</p>
               </div>
 
               <div className="bg-white rounded-2xl p-4 mx-auto max-w-[220px]">

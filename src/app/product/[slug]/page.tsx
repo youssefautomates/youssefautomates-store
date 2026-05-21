@@ -20,6 +20,7 @@ import RelatedCarousel from "@/components/RelatedCarousel";
 import { supabase } from "@/lib/supabase";
 import { type Product, calcDiscount } from "@/lib/products";
 import { useCart } from "@/context/CartContext";
+import { resolveUserCurrency, resolveProductPrice, formatPrice, type Currency } from "@/lib/pricing";
 
 // ── Helper: Unpack Tags ───────────────────────────────────────────────
 function unpackProduct(p: Product) {
@@ -53,6 +54,12 @@ function unpackProduct(p: Product) {
 
 export default function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params);
+  const [currency, setCurrency] = useState<Currency>("EGP");
+
+  useEffect(() => {
+    resolveUserCurrency().then(setCurrency);
+  }, []);
+
   const [product, setProduct] = useState<(Product & { slides: { type: "image" | "video"; url: string }[]; file_type: string }) | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeMedia, setActiveMedia] = useState<{ type: 'image' | 'video', url: string } | null>(null);
@@ -63,6 +70,8 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
   const router = useRouter();
   
   const { addToCart } = useCart();
+
+  const productPricing = product ? resolveProductPrice(product as any, currency) : null;
 
   useEffect(() => {
     const handleResize = () => {
@@ -200,7 +209,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
     );
   }
 
-  const discountPct = calcDiscount(product.price, product.original_price);
+  const discountPct = productPricing ? calcDiscount(productPricing.price, productPricing.original_price) : null;
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-cairo selection:bg-rose-500/30" style={{ isolation: 'isolate' }}>
@@ -413,14 +422,15 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                 <div className="relative z-10 space-y-4">
                   <div className="flex items-center justify-between py-2 border-b border-white/5">
                     <div className="flex flex-col">
-                      {product.original_price && (
+                      {productPricing && productPricing.original_price > 0 && (
                         <span className="text-zinc-550 font-alexandria text-xs sm:text-base line-through decoration-rose-500/30 mb-0">
-                          {product.original_price} <span className="text-[10px]">ج.م</span>
+                          {formatPrice(productPricing.original_price, currency)}
                         </span>
                       )}
                       <div className="flex items-baseline gap-1.5">
-                        <span className="text-2xl sm:text-3xl font-alexandria font-black text-white tracking-tighter">{product.price}</span>
-                        <span className="text-sm font-alexandria font-black text-rose-500 uppercase">ج.م</span>
+                        <span className="text-2xl sm:text-3xl font-alexandria font-black text-white tracking-tighter">
+                          {productPricing ? (productPricing.price === 0 ? "مجاني" : formatPrice(productPricing.price, currency)) : ""}
+                        </span>
                       </div>
                     </div>
                     {discountPct && (
@@ -440,7 +450,11 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                     </Link>
 
                     <button
-                      onClick={() => addToCart(product)}
+                      onClick={() => addToCart({
+                        ...product,
+                        price: productPricing?.price ?? product.price,
+                        original_price: productPricing?.original_price ?? product.original_price,
+                      } as any)}
                       className="w-full h-12 inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white font-alexandria font-black text-xs sm:text-sm rounded-xl border border-white/10 transition-all active:scale-95"
                     >
                       <ShoppingCart className="w-4 h-4" />
@@ -785,14 +799,15 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
 
                     <div className="flex items-center justify-between py-3 md:py-6 border-y border-white/5">
                       <div className="flex flex-col">
-                        {product.original_price && (
+                        {productPricing && productPricing.original_price > 0 && (
                           <span className="text-zinc-600 font-alexandria text-xs sm:text-base md:text-xl line-through decoration-rose-500/30 mb-0">
-                            {product.original_price} <span className="text-[9px] md:text-xs">ج.م</span>
+                            {formatPrice(productPricing.original_price, currency)}
                           </span>
                         )}
                         <div className="flex items-baseline gap-1.5 md:gap-3">
-                          <span className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-alexandria font-black text-white tracking-tighter">{product.price}</span>
-                          <span className="text-sm sm:text-lg md:text-xl font-alexandria font-black text-rose-500 uppercase">ج.م</span>
+                          <span className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-alexandria font-black text-white tracking-tighter">
+                            {productPricing ? (productPricing.price === 0 ? "مجاني" : formatPrice(productPricing.price, currency)) : ""}
+                          </span>
                         </div>
                       </div>
                       {discountPct && (
@@ -812,7 +827,11 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                       </Link>
 
                       <button
-                        onClick={() => addToCart(product)}
+                        onClick={() => addToCart({
+                          ...product,
+                          price: productPricing?.price ?? product.price,
+                          original_price: productPricing?.original_price ?? product.original_price,
+                        } as any)}
                         className="w-full h-10 sm:h-14 md:h-16 inline-flex items-center justify-center gap-2 md:gap-3 bg-white/5 hover:bg-white/10 text-white font-alexandria font-black text-xs sm:text-base md:text-lg rounded-xl md:rounded-[1.5rem] border border-white/10 transition-all active:scale-95"
                       >
                         <ShoppingCart className="w-3.5 h-3.5 md:w-5 md:h-5" />
@@ -867,13 +886,17 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
         <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-2xl border-t border-white/10 p-3 z-50 flex items-center justify-between gap-3 pb-safe shadow-[0_-20px_50px_rgba(0,0,0,0.8)] supports-[backdrop-filter]:bg-black/60">
           <div className="flex flex-col pl-2">
             <span className="text-lg font-alexandria font-black text-white leading-none tracking-tighter">
-              {product.price} <span className="text-[10px] text-rose-500 font-black">ج.م</span>
+              {productPricing ? (productPricing.price === 0 ? "مجاني" : formatPrice(productPricing.price, currency)) : ""}
             </span>
-            {product.original_price && <span className="text-[9px] text-zinc-400 line-through mt-0.5">بدلاً من {product.original_price}</span>}
+            {productPricing && productPricing.original_price > 0 && <span className="text-[9px] text-zinc-400 line-through mt-0.5">بدلاً من {formatPrice(productPricing.original_price, currency)}</span>}
           </div>
           <div className="flex gap-2 flex-1">
             <button
-              onClick={() => addToCart(product)}
+              onClick={() => addToCart({
+                ...product,
+                price: productPricing?.price ?? product.price,
+                original_price: productPricing?.original_price ?? product.original_price,
+              } as any)}
               className="h-11 w-11 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl flex items-center justify-center active:scale-90 shrink-0 transition-colors"
             >
               <ShoppingCart className="w-4 h-4" />

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Package, DownloadCloud, Eye, RefreshCw, Loader2, ArrowUpRight } from "lucide-react";
 import { motion } from "framer-motion";
+import { formatPrice } from "@/lib/pricing";
 
 interface Product {
   id: string;
@@ -115,7 +116,7 @@ export default function DigitalProductsPerformance() {
                         </div>
                       </td>
                       <td className="py-4 text-center font-bold text-emerald-400">{activationRate}</td>
-                      <td className="py-4 text-center font-bold text-rose-500">{revenue.toLocaleString()} ج.م</td>
+                      <td className="py-4 text-center font-bold text-rose-500">{formatPrice(revenue, 'EGP')}</td>
                       <td className="py-4 text-center font-bold text-white">{p.sales || 0} وحدة</td>
                       <td className="py-4 text-center">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${

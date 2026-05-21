@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Sparkles, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import WishlistButton from "./WishlistButton";
+import { resolveUserCurrency, resolveProductPrice, formatPrice, type Currency } from "@/lib/pricing";
 
 interface RelatedCarouselProps {
   sourceType: "course" | "digital_product" | "bundle";
@@ -20,6 +21,11 @@ export default function RelatedCarousel({
 }: RelatedCarouselProps) {
   const [items, setItems] = useState<RelatedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currency, setCurrency] = useState<Currency>("EGP");
+
+  useEffect(() => {
+    resolveUserCurrency().then(setCurrency);
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -130,14 +136,21 @@ export default function RelatedCarousel({
 
                       <div className="flex items-center justify-between pt-3 border-t border-white/5 mt-auto">
                         <div className="flex flex-col">
-                          <span className="text-base font-bold text-rose-500">
-                            {item.price === 0 ? "مجاني" : `${item.price} ج.م`}
-                          </span>
-                          {item.original_price && item.original_price > item.price && (
-                            <span className="text-xs text-neutral-500 line-through">
-                              {item.original_price} ج.م
-                            </span>
-                          )}
+                          {(() => {
+                            const pricing = resolveProductPrice(item, currency);
+                            return (
+                              <>
+                                <span className="text-base font-bold text-rose-500">
+                                  {pricing.price === 0 ? "مجاني" : formatPrice(pricing.price, currency)}
+                                </span>
+                                {pricing.original_price && pricing.original_price > pricing.price ? (
+                                  <span className="text-xs text-neutral-500 line-through">
+                                    {formatPrice(pricing.original_price, currency)}
+                                  </span>
+                                ) : null}
+                              </>
+                            );
+                          })()}
                         </div>
 
                         <Link

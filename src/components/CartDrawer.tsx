@@ -6,9 +6,16 @@ import { X, ShoppingCart, Trash2, ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useState, useEffect } from "react";
+import { resolveUserCurrency, formatPrice, type Currency } from "@/lib/pricing";
 
 export function CartDrawer() {
   const { isCartOpen, setIsCartOpen, items, removeFromCart, cartTotal } = useCart();
+  const [currency, setCurrency] = useState<Currency>("EGP");
+
+  useEffect(() => {
+    resolveUserCurrency().then(setCurrency);
+  }, []);
 
   return (
     <AnimatePresence>
@@ -72,7 +79,7 @@ export function CartDrawer() {
                         </button>
                       </div>
                       <div className="flex items-center justify-between mt-2">
-                        <span className="text-lg font-alexandria font-black text-rose-400">{item.price} <span className="text-xs font-cairo">ج.م</span></span>
+                        <span className="text-lg font-alexandria font-black text-rose-400">{formatPrice(item.price, currency)}</span>
                       </div>
                     </div>
                   </div>
@@ -85,7 +92,7 @@ export function CartDrawer() {
               <div className="p-6 border-t border-white/10 bg-white/[0.02]">
                 <div className="flex items-center justify-between mb-6">
                   <span className="text-zinc-400 font-bold">الإجمالي:</span>
-                  <span className="text-2xl font-alexandria font-black text-white">{cartTotal} <span className="text-sm font-cairo text-zinc-500">ج.م</span></span>
+                  <span className="text-2xl font-alexandria font-black text-white">{formatPrice(cartTotal, currency)}</span>
                 </div>
                 <Link
                   href="/checkout/cart"

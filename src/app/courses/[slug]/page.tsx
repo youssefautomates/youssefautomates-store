@@ -15,6 +15,7 @@ import { supabaseClient } from "@/lib/supabaseClient";
 import { ProductReviews } from "@/components/ProductReviews";
 import { SocialLinks } from "@/components/SocialLinks";
 import { useCart } from "@/context/CartContext";
+import { resolveUserCurrency, resolveProductPrice, formatPrice, type Currency } from "@/lib/pricing";
 
 interface ShowcaseVideo {
   id: string;
@@ -121,6 +122,14 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
   const { slug } = use(params);
 
   const [course, setCourse] = useState<LmsCourse | null>(null);
+  const [currency, setCurrency] = useState<Currency>("EGP");
+
+  useEffect(() => {
+    resolveUserCurrency().then(setCurrency);
+  }, []);
+
+  const coursePricing = course ? resolveProductPrice(course as any, currency) : null;
+
   const [sections, setSections] = useState<(LmsSection & { lessons: LmsLesson[] })[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEnrolled, setIsEnrolled] = useState(false);
@@ -144,20 +153,12 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
 
   const handleAddToCart = () => {
     if (!course) return;
+    const coursePricing = resolveProductPrice(course as any, currency);
     addToCart({
-      id: course.id,
-      title: course.title,
-      price: course.price,
-      original_price: course.original_price,
+      ...course,
+      price: coursePricing.price,
+      original_price: coursePricing.original_price,
       category: "courses",
-      image_url: course.image_url,
-      slug: course.slug,
-      short_description: course.description || "",
-      description: course.description || "",
-      discount_pct: course.original_price > course.price ? Math.round(((course.original_price - course.price) / course.original_price) * 100) : 0,
-      is_featured: false,
-      sales: 0,
-      tags: course.tags || [],
     } as any);
   };
 
@@ -186,26 +187,29 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
       setCourse(c);
       setSections(s);
 
-      if (c.promo_video_id) {
-        fetch(`/api/video/showcase?videoId=${c.promo_video_id}`)
-          .then(res => res.json())
-          .then(data => {
-            if (data.url) setPromoVideoSignedUrl(data.url);
-          })
-          .catch(() => {});
-      }
-
       const firstSlug = s[0]?.lessons[0]?.slug || "introduction";
       setFirstLessonSlug(firstSlug);
 
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (session) {
-        const enrolled = await checkEnrollment(session.user.id, c.id);
-        setIsEnrolled(enrolled);
-      }
+      // Fetch all secondary page details in parallel to optimize load performance and prevent content flickering/delays
+      const promoVideoPromise = c.promo_video_id
+        ? fetch(`/api/video/showcase?videoId=${c.promo_video_id}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.url) setPromoVideoSignedUrl(data.url);
+            })
+            .catch(() => {})
+        : Promise.resolve();
 
-      // Fetch reviews
-      fetch(`/api/admin/reviews?productId=${c.id}`)
+      const enrollmentPromise = supabaseClient.auth.getSession()
+        .then(async ({ data: { session } }) => {
+          if (session) {
+            const enrolled = await checkEnrollment(session.user.id, c.id);
+            setIsEnrolled(enrolled);
+          }
+        })
+        .catch(() => {});
+
+      const reviewsPromise = fetch(`/api/admin/reviews?productId=${c.id}`)
         .then(res => res.json())
         .then(data => {
           if (Array.isArray(data)) {
@@ -214,8 +218,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
         })
         .catch(() => {});
 
-      // Fetch recommendations (courses in the same category)
-      getCoursesList({ status: "published" })
+      const recommendationsPromise = getCoursesList({ status: "published" })
         .then(all => {
           let related = all.filter(item => item.category === c.category && item.id !== c.id);
           if (related.length === 0) {
@@ -224,6 +227,13 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
           setRecommendedCourses(related.slice(0, 3));
         })
         .catch(() => {});
+
+      await Promise.all([
+        promoVideoPromise,
+        enrollmentPromise,
+        reviewsPromise,
+        recommendationsPromise
+      ]);
 
       setIsLoading(false);
     }
@@ -456,17 +466,17 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                     <div className="space-y-5">
                       <div className="flex items-baseline justify-between">
                         <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest font-alexandria">استثمار الانضمام للقسم</span>
-                        {course.original_price > 0 && (
-                          <span className="text-xs text-zinc-500 line-through font-alexandria">بدلاً من {course.original_price} ج.م</span>
+                        {coursePricing && coursePricing.original_price > 0 && (
+                          <span className="text-xs text-zinc-500 line-through font-alexandria">بدلاً من {formatPrice(coursePricing.original_price, currency)}</span>
                         )}
                       </div>
                       <div className="flex items-baseline gap-2">
                         <span className="text-3xl font-alexandria font-black text-white">
-                          {course.price === 0 ? "مجاني" : `${course.price} ج.م`}
+                          {coursePricing ? (coursePricing.price === 0 ? "مجاني" : formatPrice(coursePricing.price, currency)) : ""}
                         </span>
-                        {course.original_price > 0 && (
+                        {coursePricing && coursePricing.original_price > 0 && (
                           <span className="text-xs text-emerald-400 font-bold ml-1 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
-                            وفر {Math.round(((course.original_price - course.price) / course.original_price) * 100)}%
+                            وفر {Math.round(((coursePricing.original_price - coursePricing.price) / coursePricing.original_price) * 100)}%
                           </span>
                         )}
                       </div>
@@ -941,10 +951,10 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                   <div className="space-y-6">
                     <div className="flex items-baseline gap-2">
                       <span className="text-3xl sm:text-4xl font-alexandria font-black text-white">
-                        {course.price === 0 ? "مجاني" : `${course.price} ج.م`}
+                        {coursePricing ? (coursePricing.price === 0 ? "مجاني" : formatPrice(coursePricing.price, currency)) : ""}
                       </span>
-                      {course.original_price > 0 && (
-                        <span className="text-sm text-zinc-500 line-through font-alexandria">{course.original_price} ج.م</span>
+                      {coursePricing && coursePricing.original_price > 0 && (
+                        <span className="text-sm text-zinc-500 line-through font-alexandria">{formatPrice(coursePricing.original_price, currency)}</span>
                       )}
                     </div>
 
@@ -1054,19 +1064,19 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
               <div className="bg-white/[0.02] border border-white/5 p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center shrink-0 w-full sm:w-[320px] text-center z-10 relative">
                 <div className="absolute inset-0 bg-grid-lines mask-radial-faded opacity-20 pointer-events-none" />
                 
-                {course.original_price > 0 && (
+                {coursePricing && coursePricing.original_price > 0 && (
                   <span className="text-xs sm:text-sm text-zinc-500 line-through mb-1 font-alexandria">
-                    {course.original_price} ج.م
+                    {formatPrice(coursePricing.original_price, currency)}
                   </span>
                 )}
                 
                 <div className="flex items-baseline gap-2 mb-2">
                   <span className="text-3xl sm:text-4xl font-alexandria font-black text-white">
-                    {course.price === 0 ? "مجاني" : `${course.price} ج.م`}
+                    {coursePricing ? (coursePricing.price === 0 ? "مجاني" : formatPrice(coursePricing.price, currency)) : ""}
                   </span>
-                  {course.original_price > 0 && (
+                  {coursePricing && coursePricing.original_price > 0 && (
                     <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
-                      وفر {Math.round(((course.original_price - course.price) / course.original_price) * 100)}%
+                      وفر {Math.round(((coursePricing.original_price - coursePricing.price) / coursePricing.original_price) * 100)}%
                     </span>
                   )}
                 </div>
@@ -1107,6 +1117,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
               
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {recommendedCourses.map((item) => {
+                  const itemPricing = resolveProductPrice(item as any, currency);
                   return (
                     <Link
                       key={item.id}
@@ -1152,11 +1163,11 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
 
                         <div className="pt-3 border-t border-white/5 flex items-center justify-between">
                           <div className="flex flex-col">
-                            {item.original_price > 0 && (
-                              <span className="text-[10px] text-zinc-500 line-through mb-0.5 font-alexandria">{item.original_price} ج.م</span>
+                            {itemPricing.original_price > 0 && (
+                              <span className="text-[10px] text-zinc-500 line-through mb-0.5 font-alexandria">{formatPrice(itemPricing.original_price, currency)}</span>
                             )}
                             <span className="text-base font-alexandria font-black text-[#D6004B]">
-                              {item.price === 0 ? "مجاني" : `${item.price} ج.م`}
+                              {itemPricing.price === 0 ? "مجاني" : formatPrice(itemPricing.price, currency)}
                             </span>
                           </div>
                           
@@ -1201,6 +1212,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
           onPreviewLessonClick={setActivePreviewLesson}
           isMobileOnly={isClient && isMobile}
           onAddToCart={handleAddToCart}
+          currency={currency}
         />
 
         {/* Global Styles for Marquee */}
@@ -1300,7 +1312,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
           <div className="flex flex-col shrink-0 text-right">
             <span className="text-[9px] text-zinc-400 font-bold font-cairo">استثمار الانضمام للدورة</span>
             <span className="text-base font-alexandria font-black text-[#D6004B]">
-              {course.price === 0 ? "مجاناً" : `${course.price} ج.م`}
+              {coursePricing ? (coursePricing.price === 0 ? "مجاناً" : formatPrice(coursePricing.price, currency)) : ""}
             </span>
           </div>
           <div className="flex gap-2 flex-grow justify-end items-center">
@@ -1308,7 +1320,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
               href={course.price === 0 ? `/learn/${course.slug}/${firstLessonSlug}` : `/checkout/${course.id}`}
               className="h-12 px-5 bg-gradient-to-r from-[#D6004B] via-[#ff1d6b] to-[#D6004B] text-white rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-1 transition-all shadow-[0_4px_20px_rgba(214,0,75,0.45)] font-cairo flex-grow max-w-[240px] active:scale-95 animate-pulse-glow"
             >
-              <span>{course.price === 0 ? "ابدأ مجاناً 🎁" : (course.original_price > 0 && course.original_price > course.price) ? `اشترك الآن - خصم ${Math.round(((course.original_price - course.price) / course.original_price) * 100)}%` : "اشترك الآن"}</span>
+              <span>{course.price === 0 ? "ابدأ مجاناً 🎁" : (coursePricing && coursePricing.original_price > 0 && coursePricing.original_price > coursePricing.price) ? `اشترك الآن - خصم ${Math.round(((coursePricing.original_price - coursePricing.price) / coursePricing.original_price) * 100)}%` : "اشترك الآن"}</span>
               <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
             </Link>
             {course.price > 0 && (
@@ -1356,6 +1368,7 @@ interface MobileCourseViewProps {
   marqueeVideos: any[];
   isMobileOnly?: boolean;
   onAddToCart?: () => void;
+  currency: Currency;
 }
 
 function MobileCourseView({
@@ -1383,7 +1396,9 @@ function MobileCourseView({
   onPreviewLessonClick,
   isMobileOnly = false,
   onAddToCart,
+  currency,
 }: MobileCourseViewProps) {
+  const coursePricing = resolveProductPrice(course as any, currency);
 
   return (
     <div className="block md:hidden space-y-6 px-4 pb-24">
@@ -1588,18 +1603,18 @@ function MobileCourseView({
              <div className="flex items-center justify-between">
                <span className="text-[10px] text-zinc-400 font-bold font-alexandria uppercase tracking-wider">سعر الاستثمار الحالي</span>
                {course.original_price > 0 && (
-                 <span className="text-xs text-zinc-500 line-through font-alexandria">بدلاً من {course.original_price} ج.م</span>
+                  <span className="text-xs text-zinc-500 line-through font-alexandria">بدلاً من {formatPrice(coursePricing?.original_price || 0, currency)}</span>
                )}
              </div>
              
              <div className="flex items-baseline justify-between gap-2">
                <div className="flex items-baseline gap-2">
                  <span className="text-2xl sm:text-3xl font-alexandria font-black text-white">
-                   {course.price === 0 ? "مجاني" : `${course.price} ج.م`}
+                    {coursePricing ? (coursePricing.price === 0 ? "مجاني" : formatPrice(coursePricing.price, currency)) : ""}
                  </span>
                  {course.original_price > 0 && (
                    <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
-                     وفر {Math.round(((course.original_price - course.price) / course.original_price) * 100)}%
+                      وفر {coursePricing ? Math.round(((coursePricing.original_price - coursePricing.price) / coursePricing.original_price) * 100) : 0}%
                    </span>
                  )}
                </div>

@@ -32,10 +32,10 @@ const getAvatarUrl = (firstName: string, gender?: string) => {
 
 export function ProductReviews({ productId, initialReviews }: { productId: string, initialReviews?: Review[] }) {
   const [reviews, setReviews] = useState<Review[]>(initialReviews || []);
-  const [loading, setLoading] = useState(!initialReviews || initialReviews.length === 0);
+  const [loading, setLoading] = useState(initialReviews === undefined);
 
   useEffect(() => {
-    if (initialReviews && initialReviews.length > 0) {
+    if (initialReviews !== undefined) {
       setReviews(initialReviews);
       setLoading(false);
       return;

@@ -11,6 +11,7 @@ import { Search, Mail, Eye, Download, Filter, Loader2, RefreshCw, MoreVertical, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import { formatPrice } from "@/lib/pricing";
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -139,7 +140,7 @@ export default function AdminOrders() {
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {[
-          { label: "إجمالي المبيعات", value: `${totalRevenue.toFixed(2)} ج.م`, sub: "+12% عن الشهر الماضي", accent: "#D6004B", glow: "rgba(214,0,75,0.12)" },
+          { label: "إجمالي المبيعات", value: formatPrice(totalRevenue, "EGP"), sub: "+12% عن الشهر الماضي", accent: "#D6004B", glow: "rgba(214,0,75,0.12)" },
           { label: "الطلبات المكتملة", value: completedCount, sub: `من إجمالي ${totalOrdersCount} طلب`, accent: "#10b981", glow: "rgba(16,185,129,0.12)" },
           { label: "معدل التحويل", value: `${conversionRate}%`, sub: "أداء مستقر", accent: "#f59e0b", glow: "rgba(245,158,11,0.12)" },
         ].map((stat) => (
@@ -222,7 +223,7 @@ export default function AdminOrders() {
                         </div>
                         <div>
                           <div className="font-bold text-white font-alexandria mb-1 text-base tracking-tight">#{order.payment_id || order.id?.slice(0, 8)}</div>
-                          <div className="text-rose-400 text-sm font-bold">{order.amount} {order.currency || 'ج.م'}</div>
+                           <div className="text-rose-400 text-sm font-bold">{formatPrice(order.amount, order.currency || 'EGP')}</div>
                         </div>
                       </div>
                     </TableCell>

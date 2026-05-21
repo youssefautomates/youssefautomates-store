@@ -24,6 +24,7 @@ import { getCoursesList, type LmsCourse } from "@/lib/coursesDb";
 import { supabaseClient } from "@/lib/supabaseClient";
 import WishlistButton from "@/components/WishlistButton";
 import { fetchActiveBundles, type HydratedBundle } from "@/lib/bundles";
+import { resolveUserCurrency, resolveProductPrice, formatPrice, type Currency } from "@/lib/pricing";
 
 // ── Helper: Unpack Product Media Tags ───────────────────────────────────────────────
 function unpackProduct(p: any) {
@@ -60,6 +61,12 @@ function stripHtml(html: string) {
 export default function Home() {
   const router = useRouter();
   const { addToCart } = useCart();
+
+  const [currency, setCurrency] = useState<Currency>("EGP");
+
+  useEffect(() => {
+    resolveUserCurrency().then(setCurrency);
+  }, []);
 
   // State Management
   const [products, setProducts] = useState<Product[]>([]);
@@ -352,46 +359,48 @@ export default function Home() {
                 const averageRating = reviewsCount > 0 
                   ? (courseReviews.reduce((sum: number, r: any) => sum + Number(r.rating), 0) / reviewsCount).toFixed(1)
                   : "5.0";
+                
+                const coursePricing = resolveProductPrice(course as any, currency);
+
                 return (
                   <div
                     key={course.slug}
                     className="group bg-[#09090e] border border-[#1b1b24]/60 hover:border-[#D6004B]/40 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between hover:-translate-y-1 transition-all duration-300 h-full relative cursor-pointer"
                     onClick={() => router.push(`/courses/${course.slug}`)}
                   >
-                    {/* Visual header */}
-                    <div className="relative h-48 bg-zinc-950 overflow-hidden flex items-center justify-center border-b border-white/5">
-                      {course.image_url ? (
-                        <img src={course.image_url} alt={course.title} className="absolute inset-0 w-full h-full object-cover opacity-100 group-hover:scale-102 transition-transform duration-500" />
-                      ) : (
-                        <div className="absolute inset-0 bg-grid-lines mask-radial-faded opacity-35"></div>
+                    {/* Course Card Top Banner */}
+                    <div className="relative h-48 bg-zinc-900 overflow-hidden border-b border-[#1b1b24]/60">
+                      {course.image_url && (
+                        <img 
+                          src={course.image_url} 
+                          alt={course.title} 
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
                       )}
-
-                      {/* Wishlist Heart Button */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#09090e] via-[#09090e]/20 to-transparent" />
+                      <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
+                        <Badge className="bg-[#D6004B] text-white border-none font-cairo text-[9px] py-0.5 px-2.5 rounded shadow-lg uppercase tracking-wider font-black">
+                          {course.category}
+                        </Badge>
+                      </div>
                       <div className="absolute top-4 right-4 z-30">
                         <WishlistButton itemId={course.id} itemType="course" size={16} />
                       </div>
                     </div>
 
-                    {/* Content area */}
-                    <div className="p-5 flex-1 flex flex-col justify-between">
+                    {/* Course Card Body */}
+                    <div className="p-6 flex-1 flex flex-col justify-between">
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between text-[11px] text-zinc-400 font-bold border-b border-white/5 pb-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className="flex items-center gap-1">
-                              <Clock className="w-3.5 h-3.5 text-[#FF7A00]" />
-                              <span>{course.duration_hours} ساعة</span>
-                            </div>
-                            <div className="flex items-center gap-1 border-r border-white/10 pr-2">
+                        <div className="flex items-center justify-between text-[10px] text-zinc-500 font-bold">
+                          <div className="flex items-center gap-3">
+                            <span className="flex items-center gap-1">
                               <BookOpen className="w-3.5 h-3.5 text-[#D6004B]" />
-                              <span>{course.lessons_count} محاضرة</span>
-                            </div>
-
-                            {course.category && (
-                              <div className="flex items-center gap-1 border-r border-white/10 pr-2">
-                                <Layers className="w-3.5 h-3.5 text-[#D6004B]" />
-                                <span>{course.category}</span>
-                              </div>
-                            )}
+                              {course.lessons_count || 0} دروس
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-[#D6004B]" />
+                              {course.duration_hours || 0} ساعة
+                            </span>
                           </div>
                           <div className="flex items-center gap-1 text-yellow-400">
                             <Star className="w-3.5 h-3.5 fill-current" />
@@ -411,14 +420,14 @@ export default function Home() {
 
                       <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between">
                         <div className="flex flex-col">
-                          {course.original_price > 0 && (
+                          {coursePricing.original_price > 0 && (
                             <span className="text-[10px] text-zinc-500 line-through mb-0.5">
-                              {course.original_price} ج.م
+                              {formatPrice(coursePricing.original_price, currency)}
                             </span>
                           )}
                           <div className="flex items-baseline gap-0.5">
                             <span className="text-xl font-alexandria font-black text-[#D6004B]">
-                              {course.price === 0 ? "مجاني" : `${course.price} ج.م`}
+                              {coursePricing.price === 0 ? "مجاني" : formatPrice(coursePricing.price, currency)}
                             </span>
                           </div>
                         </div>
@@ -428,11 +437,9 @@ export default function Home() {
                             onClick={(e) => {
                               e.stopPropagation();
                               addToCart({
-                                id: course.id,
-                                title: course.title,
-                                price: course.price,
-                                original_price: course.original_price,
-                                image_url: course.image_url,
+                                ...course,
+                                price: coursePricing.price,
+                                original_price: coursePricing.original_price,
                                 category: course.category || "courses"
                               } as any);
                               toast.success("تم إضافة الكورس للسلة بنجاح");
@@ -484,6 +491,7 @@ export default function Home() {
                 {bundles.map((bundle) => {
                   const coursesCount = bundle.items.filter(it => it.item_type === "course").length;
                   const productsCount = bundle.items.filter(it => it.item_type === "digital_product").length;
+                  const bundlePricing = resolveProductPrice(bundle as any, currency);
 
                   return (
                     <motion.div
@@ -558,16 +566,15 @@ export default function Home() {
 
                         <div className="mt-6 pt-5 border-t border-white/5 flex items-center justify-between">
                           <div className="flex flex-col">
-                            {bundle.original_price && bundle.original_price > 0 && (
-                              <span className="text-[9px] text-zinc-500 line-through mb-0.5 font-mono">
-                                ${bundle.original_price}
+                            {bundlePricing.original_price > 0 && (
+                              <span className="text-[9px] text-zinc-500 line-through mb-0.5">
+                                {formatPrice(bundlePricing.original_price, currency)}
                               </span>
                             )}
                             <div className="flex items-baseline gap-0.5">
-                              <span className="text-2xl font-alexandria font-black text-white font-mono">
-                                ${bundle.price}
+                              <span className="text-2xl font-alexandria font-black text-white">
+                                {formatPrice(bundlePricing.price, currency)}
                               </span>
-                              <span className="text-[8px] text-zinc-500 uppercase tracking-widest font-black mr-1">USD</span>
                             </div>
                           </div>
 
@@ -650,7 +657,8 @@ export default function Home() {
                   const unpacked = unpackProduct(product);
                   const primaryVideo = unpacked.slides.find((s: any) => s.type === 'video')?.url;
                   const primaryImage = unpacked.slides.find((s: any) => s.type === 'image')?.url || product.image_url;
-                  const isFree = product.price === 0;
+                  const productPricing = resolveProductPrice(product, currency);
+                  const isFree = productPricing.price === 0;
 
                   return (
                     <div 
@@ -716,19 +724,18 @@ export default function Home() {
 
                           <div className="mt-auto flex items-end justify-between">
                             <div className="flex flex-col">
-                              {product.original_price && (
+                              {productPricing.original_price && productPricing.original_price > 0 ? (
                                 <span className="text-[9px] font-cairo line-through text-zinc-500 mb-0.5">
-                                  {product.original_price} ج.م
+                                  {formatPrice(productPricing.original_price, currency)}
                                 </span>
-                              )}
+                              ) : null}
                               <div className="flex items-baseline gap-0.5">
                                 {isFree ? (
                                   <span className="text-2xl font-alexandria font-black text-emerald-400">مجاني</span>
                                 ) : (
-                                  <>
-                                    <span className="text-2xl font-alexandria font-black text-white">{product.price}</span>
-                                    <span className="text-[10px] font-cairo text-zinc-400">ج.م</span>
-                                  </>
+                                  <span className="text-2xl font-alexandria font-black text-white">
+                                    {formatPrice(productPricing.price, currency)}
+                                  </span>
                                 )}
                               </div>
                             </div>
@@ -737,7 +744,11 @@ export default function Home() {
                               <button 
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  addToCart(product);
+                                  addToCart({
+                                    ...product,
+                                    price: productPricing.price,
+                                    original_price: productPricing.original_price
+                                  });
                                   toast.success("تمت الإضافة للسلة");
                                 }}
                                 className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-[#D6004B] hover:border-[#D6004B] hover:shadow-[0_0_15px_rgba(214,0,75,0.4)] transition-all duration-300"

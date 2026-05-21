@@ -897,7 +897,14 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
 
               <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-4">
                 <p className="text-sm text-purple-300 font-cairo mb-1">المبلغ المطلوب تحويله</p>
-                <p className="text-3xl font-alexandria font-black text-white">{appliedCoupon ? Math.round(product!.price * (1 - appliedCoupon.percent / 100)) : product?.price} <span className="text-lg text-zinc-400">ج.م</span></p>
+                <p className="text-3xl font-alexandria font-black text-white">
+                  {formatPrice(
+                    appliedCoupon 
+                      ? Math.round(product!.price * (1 - appliedCoupon.percent / 100)) 
+                      : product?.price || 0, 
+                    currency
+                  )}
+                </p>
               </div>
 
               <div className="bg-white rounded-2xl p-4 mx-auto max-w-[220px]">

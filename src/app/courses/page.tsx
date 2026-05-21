@@ -11,6 +11,7 @@ import { supabaseClient } from "@/lib/supabaseClient";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { resolveUserCurrency, resolveProductPrice, formatPrice, type Currency } from "@/lib/pricing";
 
 function stripHtml(html: string) {
   if (!html) return "";
@@ -24,6 +25,12 @@ function stripHtml(html: string) {
 
 export default function CoursesPage() {
   const { addToCart } = useCart();
+  const [currency, setCurrency] = useState<Currency>("EGP");
+
+  useEffect(() => {
+    resolveUserCurrency().then(setCurrency);
+  }, []);
+
   const [coursesList, setCoursesList] = useState<LmsCourse[]>([]);
   const [activeCategory, setActiveCategory] = useState("الكل");
   const [isLoading, setIsLoading] = useState(true);
@@ -162,6 +169,7 @@ export default function CoursesPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {filteredCourses.map((course) => {
+                const coursePricing = resolveProductPrice(course as any, currency);
                 const courseReviews = allReviews.filter((r: any) => r.productId === course.id && !r.isHidden);
                 const reviewsCount = courseReviews.length;
                 const averageRating = reviewsCount > 0 
@@ -222,14 +230,14 @@ export default function CoursesPage() {
                       <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
                         {/* Price display */}
                         <div className="flex flex-col">
-                          {course.original_price > 0 && (
+                          {coursePricing.original_price > 0 && (
                             <span className="text-xs sm:text-sm text-zinc-500 line-through mb-0.5">
-                              {course.original_price} ج.م
+                              {formatPrice(coursePricing.original_price, currency)}
                             </span>
                           )}
                           <div className="flex items-baseline gap-1">
                             <span className="text-2xl sm:text-3xl font-alexandria font-black text-[#D6004B]">
-                              {course.price === 0 ? "مجاني" : `${course.price} ج.م`}
+                              {coursePricing.price === 0 ? "مجاني" : formatPrice(coursePricing.price, currency)}
                             </span>
                           </div>
                         </div>
@@ -242,8 +250,8 @@ export default function CoursesPage() {
                               addToCart({
                                 id: course.id,
                                 title: course.title,
-                                price: course.price,
-                                original_price: course.original_price,
+                                price: coursePricing.price,
+                                original_price: coursePricing.original_price,
                                 image_url: course.image_url,
                                 category: course.category || "courses"
                               } as any);

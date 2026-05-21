@@ -111,7 +111,7 @@ export async function POST(req: Request) {
     // Prevent price spoofing from client side
     const clientAmount = parseFloat(amount);
     if (Math.abs(clientAmount - totalExpectedEGP) > 10) { // 10 EGP threshold for rounding safe across multiple products
-      throw new Error(`محاولة تلاعب بأسعار السلة! الإجمالي الفعلي هو ${totalExpectedEGP} ج.م`);
+      throw new Error(`محاولة تلاعب بأسعار السلة! الإجمالي الفعلي هو ${totalExpectedEGP} EGP`);
     }
 
     const amountCents = Math.round(totalExpectedEGP * 100);

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { Target, CheckCircle2, ShoppingCart, Loader2, Sparkles, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
+import { formatPrice } from "@/lib/pricing";
 
 interface Order {
   id: string;
@@ -194,7 +195,7 @@ export default function FacebookPixelAnalytics() {
               </div>
               <div className="flex justify-between items-center p-3 rounded-2xl bg-white/[0.02]">
                 <span className="text-xs text-zinc-400">العائد الإجمالي المحقق</span>
-                <span className="text-xs font-bold text-rose-500">{stats.revenue.toLocaleString()} ج.م</span>
+                <span className="text-xs font-bold text-rose-500">{formatPrice(stats.revenue, 'EGP')}</span>
               </div>
             </div>
           </div>

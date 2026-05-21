@@ -19,6 +19,7 @@ import { generateSlug, calcDiscount, type Product } from "@/lib/products";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { formatPrice } from "@/lib/pricing";
 
 // ── Helper: Safe Image Src ───────────────────────────────────────────
 function safeImageSrc(src: string) {
@@ -798,7 +799,7 @@ export default function AdminProductsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="font-alexandria font-bold text-white">
-                      <div className="text-rose-400">{p.price_egp || p.price} ج.م</div>
+                      <div className="text-rose-400">{formatPrice(Number(p.price_egp || p.price), 'EGP')}</div>
                       <div className="text-emerald-400 text-[10px]">${p.price_usd || 0}</div>
                     </TableCell>
                     <TableCell className="text-zinc-400 font-bold">{p.sales || 0}</TableCell>

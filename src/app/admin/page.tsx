@@ -11,6 +11,7 @@ import {
   Calendar, Flame, Sparkles, Volume2, VolumeX, Keyboard
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { formatPrice } from "@/lib/pricing";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip
 } from "recharts";
@@ -23,6 +24,7 @@ interface Order {
   amount: number;
   status: "pending" | "completed" | "failed";
   created_at: string;
+  currency?: string;
 }
 
 interface Product {
@@ -87,7 +89,7 @@ export default function AdminDashboard() {
           const newOrder = payload.new as Order;
           setOrders(prev => [newOrder, ...prev]);
           playNewOrderSound();
-          toast.success(`طلب جديد بقيمة ${newOrder.amount} ج.م من ${newOrder.customer_name || 'عميل'}`);
+          toast.success(`طلب جديد بقيمة ${formatPrice(newOrder.amount, (newOrder.currency as any) || 'EGP')} من ${newOrder.customer_name || 'عميل'}`);
         }
       )
       .subscribe();
@@ -246,7 +248,7 @@ export default function AdminDashboard() {
     list.push({
       title: "توصية الإيرادات (Revenue Insight)",
       text: stats.totalRevenue > 0 
-        ? `بناءً على إجمالي المبيعات الحالي، يمكنك زيادة إيراداتك بمعدل تقديري ${profitPotential.toFixed(0)} ج.م عبر إطلاق عرض باقة مخصصة (Bundle Offer) وربطها بكوبون تخفيض.`
+        ? `بناءً على إجمالي المبيعات الحالي، يمكنك زيادة إيراداتك بمعدل تقديري ${formatPrice(Math.round(profitPotential), 'EGP')} عبر إطلاق عرض باقة مخصصة (Bundle Offer) وربطها بكوبون تخفيض.`
         : "لا توجد بيانات إيرادات كافية بعد. نوصي بإطلاق عرض افتتاح للمنصة لجمع أول مبيعات وتدشين الدورة التسويقية.",
       type: "success"
     });
@@ -311,11 +313,11 @@ export default function AdminDashboard() {
   };
 
   const dashboardCards = [
-    { label: "إجمالي الإيرادات", value: `${stats.totalRevenue.toLocaleString()} ج.م`, desc: "مبيعات حقيقية مكتملة", icon: DollarSign, trend: stats.totalRevenue > 0 ? "+14.2% ↑" : "0%", color: "#D6004B", glow: "rgba(214,0,75,0.25)" },
-    { label: "صافي الأرباح", value: `${stats.netProfit.toLocaleString(undefined, { maximumFractionDigits: 0 })} ج.م`, desc: "هامش ربح تقديري 85%", icon: ShieldCheck, trend: stats.netProfit > 0 ? "+12.8% ↑" : "0%", color: "#10b981", glow: "rgba(16,185,129,0.25)" },
+    { label: "إجمالي الإيرادات", value: formatPrice(stats.totalRevenue, "EGP"), desc: "مبيعات حقيقية مكتملة", icon: DollarSign, trend: stats.totalRevenue > 0 ? "+14.2% ↑" : "0%", color: "#D6004B", glow: "rgba(214,0,75,0.25)" },
+    { label: "صافي الأرباح", value: formatPrice(Math.round(stats.netProfit), "EGP"), desc: "هامش ربح تقديري 85%", icon: ShieldCheck, trend: stats.netProfit > 0 ? "+12.8% ↑" : "0%", color: "#10b981", glow: "rgba(16,185,129,0.25)" },
     { label: "إجمالي الطلبات", value: stats.totalOrders.toString(), desc: "محاولات الشراء الكلية", icon: ShoppingCart, trend: stats.totalOrders > 0 ? "+8.4% ↑" : "0%", color: "#6366f1", glow: "rgba(99,102,241,0.25)" },
     { label: "معدل التحويل", value: `${stats.conversionRate}%`, desc: "معدل إتمام الدفع الناجح", icon: Activity, trend: Number(stats.conversionRate) > 0 ? "+2.1% ↑" : "0%", color: "#f59e0b", glow: "rgba(245,158,11,0.25)" },
-    { label: "متوسط الطلب (AOV)", value: `${stats.aov} ج.م`, desc: "متوسط القيمة المالية للطلب", icon: Percent, trend: Number(stats.aov) > 0 ? "+5.3% ↑" : "0%", color: "#a855f7", glow: "rgba(168,85,247,0.25)" },
+    { label: "متوسط الطلب (AOV)", value: formatPrice(Number(stats.aov), "EGP"), desc: "متوسط القيمة المالية للطلب", icon: Percent, trend: Number(stats.aov) > 0 ? "+5.3% ↑" : "0%", color: "#a855f7", glow: "rgba(168,85,247,0.25)" },
     { label: "العملاء الفريدون", value: stats.totalCustomers.toString(), desc: "عملاء مسجلين حقيقيين", icon: Users, trend: stats.totalCustomers > 0 ? "+11.1% ↑" : "0%", color: "#06b6d4", glow: "rgba(6,182,212,0.25)" },
     { label: "معدل الفشل والاسترداد", value: `${stats.refundRate}%`, desc: "عمليات الدفع المرفوضة", icon: AlertTriangle, trend: "0%", color: "#ef4444", glow: "rgba(239,68,68,0.25)" },
     { label: "معدل التخلي عن السلة", value: `${stats.abandonmentRate}%`, desc: "مغادرة صفحة الدفع", icon: Clock, trend: "0%", color: "#f97316", glow: "rgba(249,115,22,0.25)" },
@@ -549,7 +551,7 @@ export default function AdminDashboard() {
                       </div>
                       <div className="text-right shrink-0">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColors[order.status] || statusColors.pending}`}>
-                          {order.amount} ج.م
+                          {formatPrice(order.amount, order.currency || 'EGP')}
                         </span>
                       </div>
                     </motion.div>
@@ -610,7 +612,7 @@ export default function AdminDashboard() {
                           <p className="text-[10px] text-zinc-500">كود: {p.id.slice(0, 8)}</p>
                         </div>
                       </td>
-                      <td className="py-4 text-center text-xs font-bold text-zinc-300">{p.price} ج.م</td>
+                      <td className="py-4 text-center text-xs font-bold text-zinc-300">{formatPrice(p.price, 'EGP')}</td>
                       <td className="py-4 text-center text-xs font-bold text-rose-500">{p.sales || 0} مبيعة</td>
                       <td className="py-4 text-center">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
@@ -704,7 +706,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-zinc-500">القيمة</span>
-                    <span className="font-bold text-rose-500">{selectedOrder.amount} ج.م</span>
+                    <span className="font-bold text-rose-500">{formatPrice(selectedOrder.amount, selectedOrder.currency || 'EGP')}</span>
                   </div>
                 </div>
 
