@@ -172,13 +172,15 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
   }, [fetchProduct]);
 
   const handleUnmuteAndStart = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = false;
-      videoRef.current.currentTime = 0;
-      videoRef.current.play();
-      setIsMuted(false);
-      setHasInteracted(true);
-    }
+    setHasInteracted(true);
+    setIsMuted(false);
+    setTimeout(() => {
+      if (videoRef.current) {
+        videoRef.current.muted = false;
+        videoRef.current.currentTime = 0;
+        videoRef.current.play().catch(() => {});
+      }
+    }, 50);
   };
 
   if (isLoading) {
@@ -233,9 +235,39 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                       exit={{ opacity: 0 }}
                       className="absolute inset-0 z-10 flex items-center justify-center bg-black"
                     >
-                      {activeMedia.url.includes('youtube.com') || activeMedia.url.includes('youtu.be') ? (
+                      {!hasInteracted ? (
+                        <div 
+                          onClick={handleUnmuteAndStart}
+                          className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer group/play overflow-hidden"
+                          style={{ zIndex: 25 }}
+                        >
+                          {product.image_url ? (
+                            <Image 
+                              src={product.image_url} 
+                              alt={product.title}
+                              fill
+                              className="object-cover transition-transform duration-700 group-hover/play:scale-105"
+                              priority
+                            />
+                          ) : (
+                            <div className="absolute inset-0 bg-[#0a0a0f] flex items-center justify-center">
+                              <div className="absolute inset-0 bg-gradient-to-tr from-[#D6004B]/20 to-[#ff1d6b]/5 opacity-30" />
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-black/40 transition-colors duration-500 group-hover/play:bg-black/30" />
+                          
+                          <motion.div 
+                            whileHover={{ scale: 1.15, rotate: 5 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="relative z-10 w-16 h-16 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 group-hover/play:border-rose-500/50 group-hover/play:bg-rose-500/10 group-hover/play:shadow-rose-500/20"
+                          >
+                            <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#D6004B] to-[#ff1d6b] opacity-0 group-hover/play:opacity-20 transition-opacity duration-300 blur-[8px]" />
+                            <Play className="w-6 h-6 text-white transition-transform duration-300 group-hover/play:scale-110 ml-0.5 fill-white" />
+                          </motion.div>
+                        </div>
+                      ) : activeMedia.url.includes('youtube.com') || activeMedia.url.includes('youtu.be') ? (
                         <iframe 
-                          src={`https://www.youtube.com/embed/${activeMedia.url.split('v=')[1]?.split('&')[0] || activeMedia.url.split('/').pop()}?autoplay=1&mute=1&controls=1`}
+                          src={`https://www.youtube.com/embed/${activeMedia.url.split('v=')[1]?.split('&')[0] || activeMedia.url.split('/').pop()}?autoplay=1&mute=0&controls=1`}
                           className="w-full h-full border-none"
                           allow="autoplay; encrypted-media"
                           allowFullScreen
@@ -245,35 +277,15 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                           <video 
                             ref={videoRef}
                             src={activeMedia.url} 
-                            muted={isMuted}
+                            muted={false}
                             autoPlay 
                             playsInline
-                            loop={!hasInteracted}
-                            controls={hasInteracted}
+                            controls={true}
                             preload="metadata"
                             controlsList="nodownload"
                             onContextMenu={(e) => e.preventDefault()}
                             className="w-full h-full object-cover"
                           />
-                          
-                          {!hasInteracted && (
-                            <div 
-                              onClick={handleUnmuteAndStart}
-                              className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] cursor-pointer group/unmute transition-all hover:bg-black/20"
-                              style={{ zIndex: 10 }}
-                            >
-                               <motion.div 
-                                animate={{ scale: [1, 1.1, 1] }}
-                                transition={{ duration: 2, repeat: Infinity }}
-                                className="w-16 h-16 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-full flex items-center justify-center mb-4 shadow-2xl"
-                               >
-                                  <VolumeX className="w-6 h-6 text-white" />
-                               </motion.div>
-                               <span className="font-alexandria font-black text-base text-white tracking-widest bg-rose-600 px-6 py-2 rounded-2xl shadow-[0_12px_30px_rgba(214,0,75,0.4)]">
-                                  اضغط لفتح الصوت
-                               </span>
-                            </div>
-                          )}
                         </div>
                       )}
                     </motion.div>
@@ -523,9 +535,39 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                         exit={{ opacity: 0 }}
                         className="absolute inset-0 z-10 flex items-center justify-center bg-black"
                       >
-                        {activeMedia.url.includes('youtube.com') || activeMedia.url.includes('youtu.be') ? (
+                        {!hasInteracted ? (
+                          <div 
+                            onClick={handleUnmuteAndStart}
+                            className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer group/play overflow-hidden"
+                            style={{ zIndex: 25 }}
+                          >
+                            {product.image_url ? (
+                              <Image 
+                                src={product.image_url} 
+                                alt={product.title}
+                                fill
+                                className="object-cover transition-transform duration-700 group-hover/play:scale-105"
+                                priority
+                              />
+                            ) : (
+                              <div className="absolute inset-0 bg-[#0a0a0f] flex items-center justify-center">
+                                <div className="absolute inset-0 bg-gradient-to-tr from-[#D6004B]/20 to-[#ff1d6b]/5 opacity-30" />
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-black/40 transition-colors duration-500 group-hover/play:bg-black/30" />
+                            
+                            <motion.div 
+                              whileHover={{ scale: 1.15, rotate: 5 }}
+                              whileTap={{ scale: 0.95 }}
+                              className="relative z-10 w-20 h-20 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 group-hover/play:border-rose-500/50 group-hover/play:bg-rose-500/10 group-hover/play:shadow-rose-500/20"
+                            >
+                              <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#D6004B] to-[#ff1d6b] opacity-0 group-hover/play:opacity-20 transition-opacity duration-300 blur-[8px]" />
+                              <Play className="w-8 h-8 text-white transition-transform duration-300 group-hover/play:scale-110 ml-1 fill-white" />
+                            </motion.div>
+                          </div>
+                        ) : activeMedia.url.includes('youtube.com') || activeMedia.url.includes('youtu.be') ? (
                           <iframe 
-                            src={`https://www.youtube.com/embed/${activeMedia.url.split('v=')[1]?.split('&')[0] || activeMedia.url.split('/').pop()}?autoplay=1&mute=1&controls=1`}
+                            src={`https://www.youtube.com/embed/${activeMedia.url.split('v=')[1]?.split('&')[0] || activeMedia.url.split('/').pop()}?autoplay=1&mute=0&controls=1`}
                             className="w-full h-full border-none"
                             allow="autoplay; encrypted-media"
                             allowFullScreen
@@ -535,35 +577,15 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                             <video 
                               ref={videoRef}
                               src={activeMedia.url} 
-                              muted={isMuted}
+                              muted={false}
                               autoPlay 
                               playsInline
-                              loop={!hasInteracted}
-                              controls={hasInteracted}
+                              controls={true}
                               preload="metadata"
                               controlsList="nodownload"
                               onContextMenu={(e) => e.preventDefault()}
                               className="w-full h-full object-cover"
                             />
-                            
-                            {!hasInteracted && (
-                              <div 
-                                onClick={handleUnmuteAndStart}
-                                className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] cursor-pointer group/unmute transition-all hover:bg-black/20"
-                                style={{ zIndex: 10 }}
-                              >
-                                 <motion.div 
-                                  animate={{ scale: [1, 1.1, 1] }}
-                                  transition={{ duration: 2, repeat: Infinity }}
-                                  className="w-20 h-20 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-full flex items-center justify-center mb-6 shadow-2xl"
-                                 >
-                                    <VolumeX className="w-8 h-8 text-white" />
-                                 </motion.div>
-                                 <span className="font-alexandria font-black text-xl text-white tracking-widest bg-rose-600 px-8 py-3 rounded-2xl shadow-[0_15px_40px_rgba(214,0,75,0.4)]">
-                                    اضغط لفتح الصوت
-                                 </span>
-                              </div>
-                            )}
                           </div>
                         )}
                       </motion.div>

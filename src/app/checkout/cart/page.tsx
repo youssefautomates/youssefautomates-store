@@ -766,7 +766,7 @@ export default function CartCheckoutPage() {
               </div>
 
               <a 
-                href={`https://wa.me/201016748891?text=${encodeURIComponent(hasCourse ? `مرحباً، لقد قمت بدفع قيمة اشتراك دورة ${items.map(i => i.title).join(' و ')} أريد الانضمام للكورس الآن.` : `مرحباً، لقد قمت بدفع قيمة منتج ${items.map(i => i.title).join(' و ')} أريد الحصول عليه الآن.`)}`}
+                href={`https://wa.me/201107099196?text=${encodeURIComponent(hasCourse ? `مرحباً، لقد قمت بدفع قيمة اشتراك دورة ${items.map(i => i.title).join(' و ')} أريد الانضمام للكورس الآن.` : `مرحباً، لقد قمت بدفع قيمة منتج ${items.map(i => i.title).join(' و ')} أريد الحصول عليه الآن.`)}`}
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-[0_4px_14px_rgba(16,185,129,0.3)] font-cairo"
