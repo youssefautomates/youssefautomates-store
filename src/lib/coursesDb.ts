@@ -919,14 +919,20 @@ export async function getEnrollmentsForAdmin(): Promise<LmsEnrollment[]> {
   return localDb.getEnrollments();
 }
 
-export async function getUserEnrollments(userId: string): Promise<string[]> {
+export async function getUserEnrollments(userId: string, userEmail?: string): Promise<string[]> {
   try {
-    const { data, error } = await supabaseClient.from("enrollments").select("course_id").eq("user_id", userId);
+    let query = supabaseClient.from("enrollments").select("course_id");
+    if (userEmail) {
+      query = query.or(`user_id.eq.${userId},user_email.eq.${userEmail}`);
+    } else {
+      query = query.eq("user_id", userId);
+    }
+    const { data, error } = await query;
     if (!error && data) return data.map(d => d.course_id);
   } catch (e) {}
 
   // Fallback
-  return localDb.getEnrollments().filter(e => e.user_id === userId).map(e => e.course_id);
+  return localDb.getEnrollments().filter(e => e.user_id === userId || (userEmail && e.user_email === userEmail)).map(e => e.course_id);
 }
 
 // 8. Progress and Complete tracking

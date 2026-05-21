@@ -337,7 +337,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
     <div className="min-h-screen bg-[#050505] text-white selection:bg-[#D6004B]/30 font-cairo overflow-x-hidden">
       <Navbar />
 
-      <main className="flex-1 pt-24 pb-20">
+      <main className="flex-1 pt-24 pb-0 md:pb-20">
         <div className="hidden md:block">
         
         {/* Cinematic Header Section */}
@@ -1401,7 +1401,7 @@ function MobileCourseView({
   const coursePricing = resolveProductPrice(course as any, currency);
 
   return (
-    <div className="block md:hidden space-y-6 px-4 pb-24">
+    <div className="block md:hidden space-y-6 px-4 pb-12">
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes bounce-subtle {
           0%, 100% { transform: translateY(0); }
@@ -1451,75 +1451,50 @@ function MobileCourseView({
       <div className="aspect-video bg-[#0a0a0f] border border-white/5 rounded-2xl overflow-hidden relative shadow-2xl group w-full">
         {previewVideoUrl ? (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black">
-            {isEmbed ? (
-              <div className="relative w-full h-full">
-                <iframe 
-                  src={getEmbedUrl(previewVideoUrl!, hasInteracted)}
-                  className="w-full h-full border-none"
-                  allow="autoplay; encrypted-media"
-                  allowFullScreen
-                  referrerPolicy="origin"
-                />
-                {!hasInteracted && (
-                  <div 
-                    onClick={handleUnmuteAndStart}
-                    className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] cursor-pointer group/unmute transition-all hover:bg-black/20"
-                    style={{ zIndex: 20 }}
-                  >
-                     <motion.div 
+            {!hasInteracted ? (
+               <div 
+                 className="relative w-full h-full cursor-pointer group"
+                 onClick={handleUnmuteAndStart}
+               >
+                 {course.image_url ? (
+                   <img src={course.image_url} alt="Cover" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                 ) : (
+                   <div className="absolute inset-0 bg-grid-lines mask-radial-faded opacity-30 flex items-center justify-center">
+                     <BookOpen className="w-12 h-12 text-zinc-700" />
+                   </div>
+                 )}
+                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] transition-all group-hover:bg-black/20" style={{ zIndex: 20 }}>
+                    <motion.div 
                       animate={{ scale: [1, 1.1, 1] }}
                       transition={{ duration: 2, repeat: Infinity }}
-                      className="w-12 h-12 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-full flex items-center justify-center mb-3 shadow-2xl animate-pulse"
-                     >
-                        <VolumeX className="w-5 h-5 text-white" />
-                     </motion.div>
-                     <span className="font-alexandria font-black text-xs text-white tracking-wider bg-[#D6004B] px-5 py-2.5 rounded-xl shadow-[0_10px_25px_rgba(214,0,75,0.3)]">
-                        اضغط لفتح الصوت
-                     </span>
-                  </div>
-                )}
-              </div>
+                      className="w-16 h-16 bg-[#D6004B]/90 backdrop-blur-2xl border border-white/20 rounded-full flex items-center justify-center mb-4 shadow-2xl animate-pulse"
+                    >
+                       <Play className="w-6 h-6 text-white fill-current ml-1" />
+                    </motion.div>
+                    <span className="font-alexandria font-black text-sm text-white tracking-widest bg-black/50 px-6 py-2 rounded-xl border border-white/10 shadow-[0_15px_40px_rgba(0,0,0,0.4)]">
+                       تشغيل الفيديو
+                    </span>
+                 </div>
+               </div>
             ) : (
-              <div className="relative w-full h-full flex items-center justify-center">
-                {isMobileOnly && (
-                  <video 
-                    ref={mobileVideoRef}
-                    src={previewVideoUrl} 
-                    muted={isMuted}
-                    autoPlay 
-                    playsInline
-                    loop={!hasInteracted}
-                    controls={hasInteracted}
-                    preload="metadata"
-                    controlsList="nodownload"
-                    onContextMenu={(e) => e.preventDefault()}
-                    onEnded={() => {
-                      if (!hasInteracted && mobileVideoRef.current) {
-                        mobileVideoRef.current.currentTime = 0;
-                        mobileVideoRef.current.play().catch(() => {});
-                      }
-                    }}
-                    className="w-full h-full object-cover"
+              <div className="relative w-full h-full bg-black">
+                {isEmbed ? (
+                  <iframe 
+                    src={getEmbedUrl(previewVideoUrl, true)}
+                    className="w-full h-full border-none"
+                    allow="autoplay; encrypted-media"
+                    allowFullScreen
+                    referrerPolicy="origin"
                   />
-                )}
-                
-                {!hasInteracted && (
-                  <div 
-                    onClick={handleUnmuteAndStart}
-                    className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] cursor-pointer group/unmute transition-all hover:bg-black/20"
-                    style={{ zIndex: 20 }}
-                  >
-                     <motion.div 
-                      animate={{ scale: [1, 1.1, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                      className="w-12 h-12 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-full flex items-center justify-center mb-3 shadow-2xl animate-pulse"
-                     >
-                        <VolumeX className="w-5 h-5 text-white" />
-                     </motion.div>
-                     <span className="font-alexandria font-black text-xs text-white tracking-wider bg-[#D6004B] px-5 py-2.5 rounded-xl shadow-[0_10px_25px_rgba(214,0,75,0.3)]">
-                        اضغط لفتح الصوت
-                     </span>
-                  </div>
+                ) : (
+                   <video 
+                     ref={mobileVideoRef}
+                     src={previewVideoUrl} 
+                     autoPlay 
+                     playsInline
+                     controls
+                     className="w-full h-full object-contain"
+                   />
                 )}
               </div>
             )}
@@ -2015,7 +1990,7 @@ function MobileCourseView({
       )}
 
       {/* 8. Small Custom Footer */}
-      <footer className="border-t border-white/5 pt-6 pb-16 flex flex-col items-center gap-4 text-center text-zinc-500 text-[9px] w-full">
+      <footer className="border-t border-white/5 pt-6 pb-20 flex flex-col items-center gap-4 text-center text-zinc-500 text-[9px] w-full">
          <Link href="/" className="flex items-center gap-2 group">
            <img src="/logo.png" alt="Youssef Automates" className="w-5 h-5 object-contain" />
            <span className="font-alexandria font-bold text-xs tracking-tight text-white" dir="ltr">
@@ -2023,8 +1998,10 @@ function MobileCourseView({
            </span>
          </Link>
          
-         <div className="flex gap-3 font-bold">
+         <div className="flex flex-wrap justify-center gap-3 font-bold">
            <Link href="/privacy" className="hover:text-white transition-colors">سياسة الخصوصية</Link>
+           <span>·</span>
+           <Link href="/privacy" className="hover:text-white transition-colors">سياسة الإسترجاع</Link>
            <span>·</span>
            <Link href="/privacy" className="hover:text-white transition-colors">الشروط والاستخدام</Link>
            <span>·</span>

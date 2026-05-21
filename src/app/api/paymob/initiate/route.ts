@@ -96,6 +96,20 @@ export async function POST(req: Request) {
 
     if (!dbItem) throw new Error("المحتوى المطلوب غير متوفر حالياً في قاعدة البيانات");
 
+    // Check for existing enrollment to prevent double purchase
+    if (isCourseItem && email) {
+      const { data: existingEnrollment } = await supabaseAdmin
+        .from("enrollments")
+        .select("id")
+        .eq("course_id", dbItem.id)
+        .eq("user_email", email.toLowerCase().trim())
+        .maybeSingle();
+
+      if (existingEnrollment) {
+        throw new Error("لقد قمت بالاشتراك في هذه الدورة مسبقاً بنفس البريد الإلكتروني.");
+      }
+    }
+
     // 2. Dual Pricing Secure Resolver Layer
     const resolvedPrice = resolveProductPrice(dbItem, userCurrency);
     let expectedPriceBase = resolvedPrice.price; 

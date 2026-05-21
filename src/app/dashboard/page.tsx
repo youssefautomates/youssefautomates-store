@@ -97,6 +97,17 @@ export default function DashboardPage() {
         console.error("Session tracking failure:", e);
       }
 
+      // Sync any anonymous purchases made before registration
+      try {
+        await fetch("/api/user/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: session.user.id, email: session.user.email })
+        });
+      } catch (e) {
+        console.error("Failed to sync user records:", e);
+      }
+
       // Load user metrics and course enrollments
       await loadUserDashboardData(session.user);
       setIsLoading(false);
@@ -123,7 +134,7 @@ export default function DashboardPage() {
       const allCourses = await getCoursesList();
 
       // 2. Fetch user's enrollments (course IDs)
-      const userEnrolls = await getUserEnrollments(activeUser.id);
+      const userEnrolls = await getUserEnrollments(activeUser.id, activeUser.email);
 
       // 3. Populate enrolled course statistics
       const populatedCourses = [];
