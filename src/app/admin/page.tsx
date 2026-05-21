@@ -551,7 +551,7 @@ export default function AdminDashboard() {
                       </div>
                       <div className="text-right shrink-0">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColors[order.status] || statusColors.pending}`}>
-                          {formatPrice(order.amount, order.currency || 'EGP')}
+                          {formatPrice(order.amount, (order.currency as any) || 'EGP')}
                         </span>
                       </div>
                     </motion.div>
@@ -706,7 +706,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-zinc-500">القيمة</span>
-                    <span className="font-bold text-rose-500">{formatPrice(selectedOrder.amount, selectedOrder.currency || 'EGP')}</span>
+                    <span className="font-bold text-rose-500">{formatPrice(selectedOrder.amount, (selectedOrder.currency as any) || 'EGP')}</span>
                   </div>
                 </div>
 

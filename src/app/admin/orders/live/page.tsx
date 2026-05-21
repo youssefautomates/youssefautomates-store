@@ -176,7 +176,7 @@ export default function LiveOrdersFeed() {
 
                     <div className="flex items-center justify-between md:justify-end gap-6 border-t md:border-t-0 pt-4 md:pt-0 border-white/5">
                       <div className="text-right">
-                        <p className="text-sm font-bold text-rose-500">{formatPrice(order.amount, order.currency || 'EGP')}</p>
+                        <p className="text-sm font-bold text-rose-500">{formatPrice(order.amount, (order.currency as any) || 'EGP')}</p>
                         <p className="text-[10px] text-zinc-500 mt-0.5">{formatDate(order.created_at)}</p>
                       </div>
                       <span className={`text-[10px] font-bold px-3 py-1 rounded-full border ${statusColors[order.status] || statusColors.pending}`}>
