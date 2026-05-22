@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   Plus, Edit, Trash2, BookOpen, Clock, 
   Video, Save, FileText, Link as LinkIcon, Download, 
@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { RichTextEditor } from "@/components/RichTextEditor";
-import { useUploadStore } from "@/store/useUploadStore";
+import * as tus from "tus-js-client";
 import {
   DndContext,
   closestCenter,
@@ -37,25 +37,20 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// Helper to extract GUID from Bunny.net URL or read GUID directly
+function extractBunnyVideoId(urlOrId: string): string | null {
+  const trimmed = urlOrId.trim();
+  const guidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+  const match = trimmed.match(guidRegex);
+  return match ? match[0] : null;
+}
+
 // --- Sortable Section Component ---
 function SortableSection({ section, index, onEdit, onDelete, onAddLesson, lessons, onEditLesson, onDeleteLesson, onLessonDragEnd, expanded, toggleExpand }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.id });
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 10 : 1 };
 
-  const uploadStore = useUploadStore();
-  
-  const pendingUploads = Object.values(uploadStore.uploads)
-    .filter((u: any) => u.isNewLesson && u.sectionId === section.id && !(lessons || []).find((l: any) => l.id === u.lessonId))
-    .map((u: any) => ({
-      id: u.lessonId,
-      title: u.title,
-      section_id: u.sectionId,
-      lecture_type: "video",
-      is_preview: false,
-      duration_seconds: 0
-    }));
-
-  const allLessons = [...(lessons || []), ...pendingUploads];
+  const allLessons = lessons || [];
 
   return (
     <div ref={setNodeRef} style={style} className={cn("border border-white/5 bg-[#0f0f15] rounded-2xl overflow-hidden mb-4", isDragging && "opacity-50 border-rose-500")}>
@@ -119,15 +114,10 @@ function SortableLesson({ lesson, onEdit, onDelete }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: lesson.id });
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 10 : 1 };
   
-  const uploadStore = useUploadStore();
-  const uploadTask = uploadStore.uploads[lesson.id];
-  const isUploading = uploadTask?.status === 'Uploading' || uploadTask?.status === 'Encoding' || uploadTask?.status === 'Queued';
-
   return (
     <div ref={setNodeRef} style={style} className={cn(
       "p-3.5 rounded-xl bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-white/10 flex items-center justify-between gap-4 transition-all group flex-wrap", 
-      isDragging && "opacity-50 border-emerald-500",
-      isUploading && "opacity-60 bg-black/50 border-dashed"
+      isDragging && "opacity-50 border-emerald-500"
     )}>
       <div className="flex items-center gap-3">
         <div {...attributes} {...listeners} className="cursor-grab hover:text-white text-zinc-600">
@@ -142,18 +132,7 @@ function SortableLesson({ lesson, onEdit, onDelete }: any) {
         <div className="text-right">
           <div className="flex items-center gap-2 flex-wrap">
             <h4 className="font-bold text-xs sm:text-sm text-white group-hover:text-rose-400 transition-colors">{lesson.title}</h4>
-            {uploadTask ? (
-              <span className={cn(
-                "text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border",
-                (uploadTask.status === 'Uploading' || uploadTask.status === 'Encoding') && "bg-amber-950 text-amber-400 border-amber-900/30",
-                uploadTask.status === 'Ready' && "bg-emerald-950 text-emerald-400 border-emerald-900/30",
-                uploadTask.status === 'Failed' && "bg-rose-950 text-rose-400 border-rose-900/30",
-              )}>
-                {(uploadTask.status === 'Uploading' || uploadTask.status === 'Encoding') && `🔄 جاري الرفع... ${uploadTask.progress}%`}
-                {uploadTask.status === 'Ready' && (uploadTask.savedToDb ? `✅ تم الحفظ تلقائياً` : `✅ تم الرفع`)}
-                {uploadTask.status === 'Failed' && `❌ فشل - إعادة المحاولة`}
-              </span>
-            ) : lesson.is_preview ? (
+            {lesson.is_preview ? (
               <span className="bg-emerald-950 text-emerald-400 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-emerald-900/30">متاح مجاناً Preview</span>
             ) : null}
           </div>
@@ -321,27 +300,73 @@ export default function AdminCoursesPage() {
   const [videoFileName, setVideoFileName] = useState<string | null>(null);
   const [autoThumbnailUrl, setAutoThumbnailUrl] = useState<string | null>(null);
 
-  // Global upload store
-  const uploadStore = useUploadStore();
-  
-  // Derived state for the currently editing lesson
-  const currentUploadTask = editingLesson?.id ? uploadStore.uploads[editingLesson.id] : null;
-  const bunnyUploadStatus = currentUploadTask?.status || null;
-  const videoUploadProgress = currentUploadTask?.progress !== undefined ? currentUploadTask.progress : null;
-  const bunnyEncodeProgress = currentUploadTask?.progress || 0;
+  // External Video states
+  const [videoSourceTab, setVideoSourceTab] = useState<"upload" | "link">("upload");
+  const [externalVideoInput, setExternalVideoInput] = useState("");
+  const [fetchingVideoDetails, setFetchingVideoDetails] = useState(false);
+
+  // Video upload states (local replacements for useUploadStore)
+  const [bunnyUploadStatus, setBunnyUploadStatus] = useState<"Queued" | "Uploading" | "Encoding" | "Ready" | "Failed" | null>(null);
+  const [videoUploadProgress, setVideoUploadProgress] = useState<number | null>(null);
+  const [bunnyEncodeProgress, setBunnyEncodeProgress] = useState<number>(0);
+  const tusUploadRef = useRef<tus.Upload | null>(null);
+  const pollingIntervalRef = useRef<any>(null);
+
+  const cancelVideoUpload = () => {
+    if (tusUploadRef.current) {
+      tusUploadRef.current.abort();
+      tusUploadRef.current = null;
+    }
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    setBunnyUploadStatus(null);
+    setVideoUploadProgress(null);
+    setBunnyEncodeProgress(0);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (tusUploadRef.current) tusUploadRef.current.abort();
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    };
+  }, []);
 
   // Attachment upload states
   const [attachmentUploading, setAttachmentUploading] = useState(false);
   const [attachmentProgress, setAttachmentProgress] = useState<number | null>(null);
 
+  const initializedLessonIdRef = useRef<string | null>(null);
+
   // Clear upload states upon opening/closing lesson modal
   useEffect(() => {
-    if (showLessonModal) {
-      setVideoFileSize(null);
-      setVideoFileName(null);
-      setAutoThumbnailUrl(editingLesson?.thumbnail_url || editingLesson?.attachment_url || null);
-      setAttachmentUploading(false);
-      setAttachmentProgress(null);
+    if (showLessonModal && editingLesson) {
+      if (initializedLessonIdRef.current !== editingLesson.id) {
+        initializedLessonIdRef.current = editingLesson.id || null;
+        setVideoFileSize(null);
+        setVideoFileName(null);
+        setAutoThumbnailUrl(editingLesson.thumbnail_url || editingLesson.attachment_url || null);
+        setAttachmentUploading(false);
+        setAttachmentProgress(null);
+        
+        // Reset local upload progress/status
+        setBunnyUploadStatus(null);
+        setVideoUploadProgress(null);
+        setBunnyEncodeProgress(0);
+        
+        // Reset external video states
+        if (editingLesson.video_id) {
+          setVideoSourceTab("link");
+          setExternalVideoInput(editingLesson.video_id);
+        } else {
+          setVideoSourceTab("upload");
+          setExternalVideoInput("");
+        }
+      }
+    } else {
+      cancelVideoUpload();
+      initializedLessonIdRef.current = null;
     }
   }, [showLessonModal, editingLesson]);
 
@@ -356,6 +381,13 @@ export default function AdminCoursesPage() {
     setVideoFileName(file.name);
     const sizeInMB = (file.size / (1024 * 1024)).toFixed(1);
     setVideoFileSize(`${sizeInMB} MB`);
+
+    if (tusUploadRef.current) tusUploadRef.current.abort();
+    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+
+    setBunnyUploadStatus('Uploading');
+    setVideoUploadProgress(0);
+    setBunnyEncodeProgress(0);
 
     try {
       // 1. Auto read video duration in client-side JS
@@ -376,23 +408,126 @@ export default function AdminCoursesPage() {
       const durationSec = await getDuration();
       setEditingLesson(prev => prev ? { ...prev, duration_seconds: durationSec } : prev);
 
-      // 2. Delegate to background store
-      uploadStore.startBackgroundUpload(editingLesson.id, file, {
-        courseId: selectedCourse?.id || "",
-        sectionId: editingLesson.section_id || activeSectionForLesson || "",
-        title: editingLesson.title || file.name,
-        isNewLesson: !!editingLesson.id?.startsWith("les-"),
-        duration_seconds: durationSec
+      // 2. Create placeholder and get TUS authorization via Backend API
+      const createRes = await fetch(`/api/admin/bunny/create-video`, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ title: editingLesson.title || file.name })
       });
-      toast.success("بدأ رفع الفيديو في الخلفية. يمكنك حفظ المحاضرة والمتابعة.");
+      if (!createRes.ok) {
+        const errData = await createRes.json().catch(() => ({}));
+        throw new Error(`فشل إنشاء حاوية الفيديو: ${errData.error || createRes.statusText}`);
+      }
+      const { videoId, signature, expiry, libraryId } = await createRes.json();
+
+      // 3. Perform direct browser-to-Bunny upload using TUS
+      const uploadPromise = new Promise<void>((resolve, reject) => {
+        const upload = new tus.Upload(file, {
+          endpoint: "https://video.bunnycdn.com/tusupload",
+          retryDelays: [0, 3000, 5000, 10000, 20000],
+          headers: {
+            AuthorizationSignature: signature,
+            AuthorizationExpire: expiry.toString(),
+            VideoId: videoId,
+            LibraryId: libraryId,
+          },
+          metadata: {
+            filename: file.name,
+            filetype: file.type,
+          },
+          onError: (error) => {
+            if (error.message && error.message.includes("abort")) {
+              reject(new Error("ABORTED"));
+            } else {
+              reject(new Error(`فشل رفع الفيديو إلى Bunny Stream: ${error.message}`));
+            }
+          },
+          onProgress: (bytesUploaded, bytesTotal) => {
+            const percentage = Math.round((bytesUploaded / bytesTotal) * 100);
+            console.log(`TUS Direct Upload: chunk sent to Bunny - progress: ${percentage}%`);
+            setVideoUploadProgress(percentage);
+          },
+          onSuccess: () => {
+            console.log(`TUS Upload Complete - videoId: ${videoId}`);
+            resolve();
+          },
+        });
+
+        tusUploadRef.current = upload;
+        upload.start();
+      });
+
+      await uploadPromise;
+
+      // 4. Start polling status
+      setBunnyUploadStatus('Encoding');
+      setVideoUploadProgress(0);
+
+      const interval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/admin/bunny/video?videoId=${videoId}`);
+          if (!res.ok) return;
+          const data = await res.json();
+          
+          if (data.status === 3 || data.status === 4) {
+            clearInterval(interval);
+            pollingIntervalRef.current = null;
+            setBunnyUploadStatus('Ready');
+            setVideoUploadProgress(100);
+            
+            const playUrl = `https://iframe.mediadelivery.net/play/${libraryId}/${videoId}/playlist.m3u8`;
+            const thumbUrl = data.thumbnailUrl || `https://iframe.mediadelivery.net/play/${libraryId}/${videoId}/thumbnail.jpg`;
+            const finalDuration = data.length || durationSec || 0;
+            
+            setEditingLesson(prev => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                video_id: videoId,
+                video_url: playUrl,
+                playback_url: playUrl,
+                thumbnail_url: thumbUrl,
+                duration_seconds: finalDuration
+              };
+            });
+            setAutoThumbnailUrl(thumbUrl);
+            
+            toast.success(`اكتمل رفع ومعالجة الفيديو "${editingLesson.title || file.name}" بنجاح! 🚀`);
+          } else if (data.status === 5 || data.status === 8) {
+            clearInterval(interval);
+            pollingIntervalRef.current = null;
+            setBunnyUploadStatus('Failed');
+            toast.error(`فشل تشفير الفيديو "${file.name}" على Bunny Stream.`);
+          } else {
+            setBunnyEncodeProgress(data.encodeProgress || 0);
+          }
+        } catch (err: any) {
+          console.warn("Error polling video status:", err.message || err);
+        }
+      }, 4000);
+
+      pollingIntervalRef.current = interval;
+
     } catch (err: any) {
-      toast.error(err.message || "خطأ أثناء بدء الرفع.");
+      if (err.message !== "ABORTED") {
+        setBunnyUploadStatus('Failed');
+        toast.error(err.message || `خطأ أثناء رفع الفيديو "${file.name}".`);
+      }
       setVideoFileName(null);
       setVideoFileSize(null);
     }
   };
 
   const handleVideoDelete = async () => {
+    if (bunnyUploadStatus === "Uploading" || bunnyUploadStatus === "Encoding") {
+      cancelVideoUpload();
+      toast.success("تم إلغاء عملية الرفع بنجاح.");
+      return;
+    }
+
     const videoId = editingLesson?.video_id;
     const videoUrl = editingLesson?.video_url;
     if (!videoId && !videoUrl) return;
@@ -427,6 +562,60 @@ export default function AdminCoursesPage() {
       toast.success("تم حذف ملف الفيديو بنجاح! 🗑️");
     } catch (err: any) {
       toast.error(err.message || "فشل حذف الفيديو.");
+    }
+  };
+
+  const handleFetchExternalVideo = async () => {
+    if (!externalVideoInput) {
+      toast.error("يرجى إدخال رابط أو معرف الفيديو من Bunny.net");
+      return;
+    }
+    const videoId = extractBunnyVideoId(externalVideoInput);
+    if (!videoId) {
+      toast.error("لم نتمكن من استخراج معرف فيديو (GUID) صالح من الرابط/المعرف المدخل");
+      return;
+    }
+
+    setFetchingVideoDetails(true);
+    try {
+      // 1. Fetch library configurations from API (needed for embed URL construction)
+      const configRes = await fetch("/api/admin/bunny/config");
+      if (!configRes.ok) {
+        throw new Error("فشل تحميل إعدادات Bunny Stream");
+      }
+      const { libraryId } = await configRes.json();
+
+      // 2. Fetch video status and details
+      const res = await fetch(`/api/admin/bunny/video?videoId=${videoId}`);
+      if (!res.ok) {
+        throw new Error("فشل جلب تفاصيل الفيديو من Bunny.net. تأكد من صحة معرف الفيديو وجودته في مكتبة Bunny.");
+      }
+      const data = await res.json();
+
+      // Construct standard play and thumbnail URL
+      const playUrl = `https://iframe.mediadelivery.net/play/${libraryId}/${videoId}/playlist.m3u8`;
+      const thumbUrl = data.thumbnailUrl || `https://iframe.mediadelivery.net/play/${libraryId}/${videoId}/thumbnail.jpg`;
+
+      // 3. Update editing lesson state
+      setEditingLesson(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          video_id: videoId,
+          video_url: playUrl,
+          playback_url: playUrl,
+          duration_seconds: data.length || prev.duration_seconds || 0,
+          title: (!prev.title || prev.title.trim() === "") ? data.title : prev.title, // Autofill only if empty
+          thumbnail_url: thumbUrl
+        };
+      });
+
+      toast.success("تم ربط الفيديو وجلب تفاصيله بنجاح! 🎉");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "حدث خطأ أثناء جلب الفيديو");
+    } finally {
+      setFetchingVideoDetails(false);
     }
   };
 
@@ -956,13 +1145,11 @@ export default function AdminCoursesPage() {
     const sectionId = editingLesson.section_id || (editingLesson as any).module_id || activeSectionForLesson;
     if (!sectionId) return toast.error("فشل تحديد القسم، يرجى المحاولة مرة أخرى.");
     
-    // Retrieve active upload task to get the video details if it's currently uploading or finished
-    const uploadTask = editingLesson?.id ? uploadStore.uploads[editingLesson.id] : null;
-    const finalVideoId = editingLesson.video_id || uploadTask?.videoId || "";
-    const finalVideoUrl = editingLesson.video_url || uploadTask?.playUrl || "";
-    const finalPlaybackUrl = editingLesson.playback_url || uploadTask?.playUrl || "";
-    const finalThumbUrl = editingLesson.thumbnail_url || uploadTask?.thumbUrl || "";
-    const finalDuration = editingLesson.duration_seconds || uploadTask?.duration_seconds || 0;
+    const finalVideoId = editingLesson.video_id || "";
+    const finalVideoUrl = editingLesson.video_url || "";
+    const finalPlaybackUrl = editingLesson.playback_url || "";
+    const finalThumbUrl = editingLesson.thumbnail_url || "";
+    const finalDuration = editingLesson.duration_seconds || 0;
 
     setSavingLesson(true);
     try {
@@ -1064,21 +1251,38 @@ export default function AdminCoursesPage() {
   };
 
   // --- Uploading ---
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: "image_url" | "banner_url" | "certificate_bg_url" | "attachment_url") => {
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    fieldName: "image_url" | "banner_url" | "certificate_bg_url" | "attachment_url" | "lesson_thumbnail_url"
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadingField(fieldName);
     const bucket = fieldName === "attachment_url" ? "course-materials" : "course-images";
+    
+    // Custom thumbnail upload goes to 'lessons/thumbnails' folder
+    let folder = "courses";
+    if (fieldName === "attachment_url") {
+      folder = "lessons";
+    } else if (fieldName === "lesson_thumbnail_url") {
+      folder = "lessons/thumbnails";
+    }
+
     try {
-      const publicUrl = await uploadFile(file, bucket, fieldName === "attachment_url" ? "lessons" : "courses");
+      const publicUrl = await uploadFile(file, bucket, folder);
       if (fieldName === "attachment_url") {
         setEditingLesson(prev => ({ ...prev, attachment_url: publicUrl, attachment_name: file.name }));
+      } else if (fieldName === "lesson_thumbnail_url") {
+        setEditingLesson(prev => ({ ...prev, thumbnail_url: publicUrl }));
       } else {
         setCourseForm(prev => ({ ...prev, [fieldName]: publicUrl }));
       }
       toast.success("تم رفع الملف بنجاح! 🚀");
-    } catch (err: any) { toast.error(err.message || "خطأ أثناء الرفع."); } 
-    finally { setUploadingField(null); }
+    } catch (err: any) {
+      toast.error(err.message || "خطأ أثناء الرفع.");
+    } finally {
+      setUploadingField(null);
+    }
   };
 
   return (
@@ -1725,7 +1929,10 @@ export default function AdminCoursesPage() {
               <button 
                 onClick={() => { 
                   if (bunnyUploadStatus === 'Uploading' || bunnyUploadStatus === 'Encoding') {
-                    toast.success("يتم الرفع في الخلفية ✓");
+                    if (!confirm("جاري رفع أو معالجة الفيديو حالياً. إغلاق النافذة سيلغي عملية الرفع. هل أنت متأكد؟")) {
+                      return;
+                    }
+                    cancelVideoUpload();
                   }
                   setShowLessonModal(false); 
                   setEditingLesson(null); 
@@ -1740,17 +1947,7 @@ export default function AdminCoursesPage() {
                 <label className="text-xs text-zinc-400 font-bold">عنوان المحاضرة *</label>
                 <input required value={editingLesson.title || ""} onChange={e => setEditingLesson({ ...editingLesson, title: e.target.value })} className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm" />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-zinc-400 font-bold">نوع المحاضرة والمحتوى</label>
-                <select value={editingLesson.lecture_type} onChange={e => setEditingLesson({ ...editingLesson, lecture_type: e.target.value as any })} className="bg-[#0f0f15] border border-white/5 rounded-xl py-3 px-4 text-sm">
-                  <option value="video">فيديو (مقطع مرئي)</option>
-                  <option value="pdf">ملف دراسي PDF</option>
-                  <option value="link">رابط خارجي (External Link)</option>
-                  <option value="download">ملف مرفق للتحميل</option>
-                  <option value="text">درس نصي (Text Lesson)</option>
-                </select>
-              </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
                 <label className="text-xs text-zinc-400 font-bold">مدة المحاضرة</label>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex items-center gap-2 bg-white/5 border border-white/5 rounded-xl px-3 h-[46px]">
@@ -1806,8 +2003,40 @@ export default function AdminCoursesPage() {
                     <span className="text-[10px] text-zinc-500 font-bold">مدعوم بالكامل بواسطة Bunny Stream API</span>
                   </div>
 
-                  {/* Drag/Drop and File picker box */}
-                  {!editingLesson.video_url && bunnyUploadStatus !== "Encoding" && (
+                  {/* Tab Selector - Only show if video is not yet uploaded/linked */}
+                  {!(editingLesson.video_url || editingLesson.video_id) && bunnyUploadStatus !== "Encoding" && (
+                    <div className="flex p-1 bg-white/5 border border-white/5 rounded-xl gap-1 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => setVideoSourceTab("upload")}
+                        className={cn(
+                          "flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all duration-300 font-cairo flex items-center justify-center gap-1.5 cursor-pointer",
+                          videoSourceTab === "upload" 
+                            ? "bg-rose-600 text-white shadow-md shadow-rose-600/20" 
+                            : "text-zinc-400 hover:text-white hover:bg-white/5"
+                        )}
+                      >
+                        <Download className="w-3.5 h-3.5 rotate-180" />
+                        <span>رفع ملف فيديو محلي</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVideoSourceTab("link")}
+                        className={cn(
+                          "flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all duration-300 font-cairo flex items-center justify-center gap-1.5 cursor-pointer",
+                          videoSourceTab === "link" 
+                            ? "bg-rose-600 text-white shadow-md shadow-rose-600/20" 
+                            : "text-zinc-400 hover:text-white hover:bg-white/5"
+                        )}
+                      >
+                        <LinkIcon className="w-3.5 h-3.5" />
+                        <span>ربط فيديو خارجي من Bunny.net</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Drag/Drop and File picker box (Upload Tab) */}
+                  {videoSourceTab === "upload" && !(editingLesson.video_url || editingLesson.video_id) && bunnyUploadStatus !== "Encoding" && (
                     <div className="border-2 border-dashed border-white/10 hover:border-rose-500/40 rounded-xl p-8 text-center transition-all bg-black/25 relative group">
                       <input 
                         type="file" 
@@ -1848,6 +2077,46 @@ export default function AdminCoursesPage() {
                           </div>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* External Link Input Box (Link Tab) */}
+                  {videoSourceTab === "link" && !(editingLesson.video_url || editingLesson.video_id) && (
+                    <div className="bg-black/25 border border-white/5 rounded-xl p-6 space-y-4">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs text-zinc-400 font-bold font-cairo">أدخل رابط أو معرف الفيديو من Bunny.net</label>
+                        <p className="text-[10px] text-zinc-500 leading-normal mb-1 font-cairo">
+                          مثال: رابط تضمين (iframe)، رابط تشغيل، أو GUID الفيديو مباشرة. سنقوم باستخراج معرف الفيديو وجلب كامل تفاصيله تلقائياً.
+                        </p>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={externalVideoInput}
+                            onChange={e => setExternalVideoInput(e.target.value)}
+                            placeholder="https://iframe.mediadelivery.net/embed/666491/83c27e8d-8c10-4be6-bc6f-ea98ff691e84"
+                            className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs font-mono text-zinc-300 flex-1 focus:border-rose-500/50 outline-none"
+                            disabled={fetchingVideoDetails}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleFetchExternalVideo}
+                            disabled={fetchingVideoDetails || !externalVideoInput}
+                            className="h-[46px] px-5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold font-alexandria flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
+                          >
+                            {fetchingVideoDetails ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>جاري الجلب...</span>
+                              </>
+                            ) : (
+                              <>
+                                <BookOpen className="w-4 h-4" />
+                                <span>جلب التفاصيل</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -1895,12 +2164,12 @@ export default function AdminCoursesPage() {
                   </div>
 
                   {/* Generated Thumbnail preview & details */}
-                  {(editingLesson.video_url || bunnyUploadStatus === "Encoding") && (
+                  {(editingLesson.video_url || editingLesson.video_id || bunnyUploadStatus === "Encoding") && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
                       
                       {/* Video Player Preview */}
                       <div className="rounded-xl overflow-hidden border border-white/10 bg-zinc-950 aspect-video relative flex flex-col justify-center items-center">
-                        <span className="absolute top-2 right-2 bg-black/60 text-[9px] text-zinc-400 font-black px-2 py-0.5 rounded backdrop-blur z-20 font-alexandria uppercase tracking-wider">Video Stream Preview</span>
+                        <span className="absolute top-2 right-2 bg-black/60 text-[9px] text-zinc-400 font-black px-2 py-0.5 rounded backdrop-blur z-20 font-alexandria uppercase tracking-wider">معاينة مشغل الفيديو (Preview Player)</span>
                         {bunnyUploadStatus === "Encoding" ? (
                           <div className="text-center p-4 flex flex-col items-center justify-center space-y-3">
                             <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
@@ -1914,6 +2183,12 @@ export default function AdminCoursesPage() {
                             className="w-full h-full object-contain"
                             controlsList="nodownload"
                           />
+                        ) : editingLesson.video_id ? (
+                          <iframe 
+                            src={`https://iframe.mediadelivery.net/embed/666491/${editingLesson.video_id}?autoplay=false&responsive=true`}
+                            className="w-full h-full border-none"
+                            allowFullScreen
+                          />
                         ) : (
                           <div className="text-center p-4">
                             <Video className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
@@ -1926,7 +2201,7 @@ export default function AdminCoursesPage() {
                       <div className="rounded-xl overflow-hidden border border-white/10 bg-zinc-950 aspect-video relative flex flex-col justify-center items-center">
                         <span className="absolute top-2 right-2 bg-black/60 text-[9px] text-emerald-400 font-black px-2 py-0.5 rounded backdrop-blur z-20 font-alexandria uppercase tracking-wider flex items-center gap-1">
                           <CheckCircle className="w-2.5 h-2.5" />
-                          Thumbnail Preview
+                          صورة الغلاف (Thumbnail Cover)
                         </span>
                         
                         {editingLesson.thumbnail_url || autoThumbnailUrl ? (
@@ -1941,6 +2216,34 @@ export default function AdminCoursesPage() {
                             <p className="text-zinc-500 text-[11px] font-bold">سيتم جلب الصورة المصغرة تلقائياً فور جهوزية الفيديو</p>
                           </div>
                         )}
+                      </div>
+
+                      {/* Custom cover section */}
+                      <div className="sm:col-span-2 border-t border-white/5 pt-4 space-y-3">
+                        <label className="text-xs font-bold text-zinc-400 font-cairo block">غلاف مخصص للمحاضرة (Custom Lecture Cover)</label>
+                        <div className="flex gap-2">
+                          <input 
+                            type="text" 
+                            value={editingLesson.thumbnail_url || ""} 
+                            onChange={e => setEditingLesson(prev => prev ? { ...prev, thumbnail_url: e.target.value } : prev)} 
+                            placeholder="أدخل رابط صورة الغلاف هنا (أو ارفع صورة)..." 
+                            className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs flex-1 text-zinc-300 focus:border-rose-500/50 outline-none" 
+                          />
+                          <label className="h-[46px] px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors select-none shrink-0">
+                            {uploadingField === "lesson_thumbnail_url" ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
+                            <span>رفع غلاف</span>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              onChange={e => handleFileUpload(e, "lesson_thumbnail_url")} 
+                              disabled={uploadingField !== null} 
+                            />
+                          </label>
+                        </div>
+                        <p className="text-[10px] text-zinc-500 leading-normal font-cairo">
+                          اختياري. إذا تم تركه فارغاً، سيتم استخدام لقطة الشاشة التلقائية الافتراضية من الفيديو.
+                        </p>
                       </div>
 
                     </div>
@@ -2050,13 +2353,16 @@ export default function AdminCoursesPage() {
             <div className="flex items-center justify-end gap-2 border-t border-white/5 pt-4">
               <button disabled={savingLesson} onClick={() => { 
                 if (bunnyUploadStatus === 'Uploading' || bunnyUploadStatus === 'Encoding') {
-                  toast.success("يتم الرفع في الخلفية ✓");
+                  if (!confirm("جاري رفع أو معالجة الفيديو حالياً. إغلاق النافذة سيلغي عملية الرفع. هل أنت متأكد؟")) {
+                    return;
+                  }
+                  cancelVideoUpload();
                 }
                 setShowLessonModal(false); 
                 setEditingLesson(null); 
               }} className="h-10 px-4 bg-white/5 hover:bg-white/10 rounded-xl font-bold text-xs cursor-pointer disabled:opacity-50 text-white">إلغاء</button>
               <button 
-                disabled={savingLesson || !editingLesson.title} 
+                disabled={savingLesson || !editingLesson.title || bunnyUploadStatus === "Uploading" || bunnyUploadStatus === "Encoding"} 
                 onClick={handleSaveLesson} 
                 className="h-10 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
               >

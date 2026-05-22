@@ -179,3 +179,18 @@ export function generateSignedHlsUrl(videoId: string, expirationMinutes = 120): 
 
   return `https://iframe.mediadelivery.net/play/${libraryId}/${videoId}/playlist.m3u8?token=${signature}&expires=${expiration}`;
 }
+
+/**
+ * Generates a SHA256 authorization signature for TUS secure client-side uploads.
+ * Formula: SHA256(library_id + api_key + expiration_time + video_id)
+ */
+export function generateTusSignature(videoId: string, expirationTime: number): string {
+  if (!libraryId || !apiKey) {
+    throw new Error("Bunny library credentials are not configured.");
+  }
+  return crypto
+    .createHash("sha256")
+    .update(libraryId + apiKey + expirationTime.toString() + videoId)
+    .digest("hex");
+}
+
