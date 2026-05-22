@@ -384,6 +384,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                            <video 
                              ref={videoRef}
                              src={previewVideoUrl} 
+                             poster={course.image_url || undefined}
                              playsInline
                              autoPlay
                              muted={isMuted}
