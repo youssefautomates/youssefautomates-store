@@ -133,7 +133,7 @@ function SuccessContent() {
         const res = await fetch("/api/paymob/verify-and-deliver", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ orderId: id }),
+          body: JSON.stringify({ orderId: id, paymobOrderId: paymobOrderParam }),
         });
         const data = await res.json();
 

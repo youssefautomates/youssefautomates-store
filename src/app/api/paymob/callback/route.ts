@@ -43,11 +43,17 @@ export async function GET(request: Request) {
   // This guarantees store customers never see JoeSchool pages
   const reason = searchParams.get("txn_response_code") || "declined";
   
+  // Extract real Supabase UUID if available to prevent 404s on Intention API Wallet payments
+  let realOrderId = orderId;
+  if (merchantOrderId && merchantOrderId.startsWith("store-")) {
+    realOrderId = merchantOrderId.replace("store-", "");
+  }
+  
   if (success || reason === "verification_timeout") {
     // If verification_timeout, send to success page anyway so the robust
     // verify-and-deliver API can check Paymob directly. Often it's a false negative.
-    return NextResponse.redirect(new URL(`/checkout/success?order_id=${orderId}`, request.url));
+    return NextResponse.redirect(new URL(`/checkout/success?order_id=${realOrderId}&paymob_order_id=${orderId}`, request.url));
   } else {
-    return NextResponse.redirect(new URL(`/checkout/failed?order_id=${orderId}&reason=${reason}`, request.url));
+    return NextResponse.redirect(new URL(`/checkout/failed?order_id=${realOrderId}&reason=${reason}`, request.url));
   }
 }

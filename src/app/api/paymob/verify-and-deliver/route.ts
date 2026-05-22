@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   console.log(`[VERIFY][${requestId}] Verifying transaction...`);
 
   try {
-    const { orderId, forceResend } = await req.json();
+    const { orderId, paymobOrderId, forceResend } = await req.json();
     if (!orderId) {
       return NextResponse.json({ error: "Missing orderId" }, { status: 400 });
     }
@@ -128,7 +128,7 @@ export async function POST(req: Request) {
     }
 
     // ── 4. Verify Payment Status directly with Paymob API ───────────
-    const paymobPaymentId = baseOrder.payment_id;
+    const paymobPaymentId = paymobOrderId || baseOrder.payment_id;
     if (!paymobPaymentId || paymobPaymentId === "PENDING") {
       console.warn(`[VERIFY][${requestId}] ⚠️ Payment not initiated or pending in DB`);
       return NextResponse.json({ error: "Payment not initiated yet", status: "pending" }, { status: 200 });
