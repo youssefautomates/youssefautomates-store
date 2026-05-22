@@ -88,7 +88,7 @@ export function ProductReviews({ productId, initialReviews }: { productId: strin
             display: flex;
             gap: 1.5rem;
             width: max-content;
-            animation: product-reviews-scroll 40s linear infinite;
+            animation: product-reviews-scroll 80s linear infinite;
           }
           .animate-product-reviews-marquee:hover {
             animation-play-state: paused;
