@@ -78,10 +78,10 @@ export function ProductReviews({ productId, initialReviews }: { productId: strin
         <style jsx global>{`
           @keyframes product-reviews-scroll {
             0% {
-              transform: translate3d(0, 0, 0);
+              transform: translate3d(-33.333%, 0, 0);
             }
             100% {
-              transform: translate3d(-33.333%, 0, 0);
+              transform: translate3d(0, 0, 0);
             }
           }
           .animate-product-reviews-marquee {

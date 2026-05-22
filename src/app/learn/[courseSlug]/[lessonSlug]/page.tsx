@@ -20,15 +20,6 @@ import {
 import SecureVideoPlayer from "@/components/SecureVideoPlayer";
 
 
-interface QAComment {
-  id: string;
-  author: string;
-  avatar: string;
-  content: string;
-  time: string;
-  replies?: { author: string; avatar: string; content: string; time: string }[];
-}
-
 export default function LessonPlayerPage({ params }: { params: Promise<{ courseSlug: string, lessonSlug: string }> }) {
   const { courseSlug, lessonSlug } = use(params);
   const router = useRouter();
@@ -59,10 +50,6 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ courseS
 
   // Accordion collapsed state
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
-
-  // Q&A Interactive States
-  const [qaList, setQaList] = useState<QAComment[]>([]);
-  const [newQuestion, setNewQuestion] = useState("");
 
   // Personal Notes States
   const [personalNote, setPersonalNote] = useState("");
@@ -114,36 +101,6 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ courseS
       setPersonalNote(saved);
     }
   }, [courseSlug, lessonSlug]);
-
-  // 5. Load Q&A from local storage or set defaults
-  useEffect(() => {
-    if (lessonSlug) {
-      const savedQA = localStorage.getItem(`qa_${lessonSlug}`);
-      if (savedQA) {
-        setQaList(JSON.parse(savedQA));
-      } else {
-        const defaultQA: QAComment[] = [
-          {
-            id: "1",
-            author: "ياسين عبد الرحمن",
-            avatar: "YA",
-            content: "السلام عليكم مهندس يوسف، هل هذا التطبيق يشتغل على n8n المحلي بالكامل أم نحتاج سيرفر خارجي؟",
-            time: "منذ ساعتين",
-            replies: [
-              {
-                author: "يوسف أوتوميتس (المدرب)",
-                avatar: "YA",
-                content: "وعليكم السلام يا ياسين. نعم، يمكنك تطبيقه بالكامل على n8n المحلي (Self-Hosted) عبر Docker أو npm دون دفع أي تكاليف سيرفرات خارجية. بالتوفيق!",
-                time: "منذ ساعة"
-              }
-            ]
-          }
-        ];
-        setQaList(defaultQA);
-        localStorage.setItem(`qa_${lessonSlug}`, JSON.stringify(defaultQA));
-      }
-    }
-  }, [lessonSlug]);
 
   // 6. Keyboard Shortcuts Listener
   useEffect(() => {
@@ -358,27 +315,6 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ courseS
     }
     
     return url;
-  };
-
-  // Submit Q&A Question
-  const handleAddQuestion = () => {
-    if (!newQuestion.trim()) return;
-    const authorName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split("@")[0] || "طالب يوسف أوتوميتس";
-    
-    const newQAItem: QAComment = {
-      id: `qa-${Date.now()}`,
-      author: authorName,
-      avatar: authorName.substring(0, 2).toUpperCase(),
-      content: newQuestion,
-      time: "الآن",
-      replies: []
-    };
-
-    const updated = [newQAItem, ...qaList];
-    setQaList(updated);
-    setNewQuestion("");
-    localStorage.setItem(`qa_${lessonSlug}`, JSON.stringify(updated));
-    toast.success("تم نشر سؤالك بنجاح! سيتم الرد عليك قريباً من قبل المدرب. 💬");
   };
 
   // Save Note to LocalStorage
@@ -722,8 +658,7 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ courseS
               {[
                 { id: "overview", name: "تفاصيل وملاحظات الدرس", icon: FileText },
                 { id: "personal_notes", name: "ملاحظاتي الشخصية Notes", icon: Keyboard },
-                { id: "resources", name: "المرفقات والملفات", icon: Download },
-                { id: "support", name: "المناقشات والاستفسارات Q&A", icon: MessageSquare }
+                { id: "resources", name: "المرفقات والملفات", icon: Download }
               ].map((t) => (
                 <button
                   key={t.id}
@@ -869,64 +804,6 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ courseS
                 </div>
               )}
 
-              {activeTab === "support" && (
-                <div className="space-y-6">
-                  {/* Write Question */}
-                  <div className="bg-[#0a0a0f] border border-white/5 rounded-2xl p-4 space-y-3">
-                    <span className="text-xs text-zinc-400 font-bold block">لديك سؤال أو استفسار؟ اطرحه هنا</span>
-                    <div className="flex gap-2">
-                      <input 
-                        type="text"
-                        value={newQuestion}
-                        onChange={e => setNewQuestion(e.target.value)}
-                        placeholder="اكتب سؤالك بوضوح..."
-                        className="flex-1 bg-white/5 border border-white/5 focus:border-rose-500/50 rounded-xl px-4 py-2.5 text-xs focus:outline-none transition-all text-white text-right"
-                      />
-                      <button 
-                        onClick={handleAddQuestion}
-                        className="h-10 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                        <span>ارسال</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* List QA comments */}
-                  <div className="space-y-4">
-                    {qaList.map((qa) => (
-                      <div key={qa.id} className="p-4 rounded-2xl bg-white/[0.01] border border-white/5 space-y-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-rose-600/10 border border-rose-500/20 text-rose-500 font-bold text-xs flex items-center justify-center">
-                            {qa.avatar}
-                          </div>
-                          <div>
-                            <h4 className="text-xs font-bold text-white leading-none">{qa.author}</h4>
-                            <span className="text-[9px] text-zinc-500 font-bold block mt-1">{qa.time}</span>
-                          </div>
-                        </div>
-                        <p className="text-xs text-zinc-400 leading-relaxed pr-11">{qa.content}</p>
-
-                        {/* Replies */}
-                        {qa.replies && qa.replies.map((rep, rIdx) => (
-                          <div key={rIdx} className="bg-white/[0.01] border-r border-rose-500/30 p-3 rounded-xl mr-8 space-y-2 mt-2">
-                            <div className="flex items-center gap-3">
-                              <div className="w-6 h-6 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-500 font-bold text-[9px] flex items-center justify-center">
-                                {rep.avatar}
-                              </div>
-                              <div>
-                                <h5 className="text-[10px] font-bold text-amber-400 leading-none">{rep.author}</h5>
-                                <span className="text-[8px] text-zinc-500 block mt-0.5">{rep.time}</span>
-                              </div>
-                            </div>
-                            <p className="text-xs text-zinc-400 leading-relaxed pr-9">{rep.content}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
