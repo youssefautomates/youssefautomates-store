@@ -108,13 +108,35 @@ export async function GET(request: Request) {
               if (orderRes.ok) {
                 const paymobOrder = await orderRes.json();
                 console.log(`[CALLBACK] 📋 Paymob Order data retrieved:`, paymobOrder);
+                
+                // Try A: merchant_order_id resolution
                 const apiMerchantOrderId = paymobOrder.merchant_order_id;
                 if (apiMerchantOrderId && apiMerchantOrderId.startsWith("store-")) {
                   const resolvedUuid = apiMerchantOrderId.replace("store-", "");
                   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(resolvedUuid);
                   if (isUuid) {
                     dbOrder = { id: resolvedUuid };
-                    console.log(`[CALLBACK] ✅ Successfully resolved Supabase UUID via Paymob Order API: ${resolvedUuid}`);
+                    console.log(`[CALLBACK] ✅ Successfully resolved Supabase UUID via Paymob Order API merchant_order_id: ${resolvedUuid}`);
+                  }
+                }
+
+                // Try B: email-based matching fallback (for Unified Checkout where merchant_order_id is null)
+                if (!dbOrder) {
+                  const email = paymobOrder.shipping_data?.email || paymobOrder.billing_data?.email;
+                  if (email) {
+                    console.log(`[CALLBACK] 🔍 Searching DB for most recent pending order for email: ${email}...`);
+                    const { data: matchedOrders } = await supabaseAdmin
+                      .from("orders")
+                      .select("id")
+                      .eq("customer_email", email.toLowerCase().trim())
+                      .eq("status", "pending")
+                      .order("created_at", { ascending: false })
+                      .limit(1);
+                    
+                    if (matchedOrders && matchedOrders.length > 0) {
+                      dbOrder = matchedOrders[0];
+                      console.log(`[CALLBACK] ✅ Resolved Supabase UUID via email matching: ${dbOrder.id}`);
+                    }
                   }
                 }
               }

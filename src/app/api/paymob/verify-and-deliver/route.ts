@@ -78,6 +78,7 @@ export async function POST(req: Request) {
             if (orderRes.ok) {
               const paymobOrder = await orderRes.json();
               if (paymobOrder) {
+                // Try A: merchant_order_id match
                 const apiMerchantOrderId = paymobOrder.merchant_order_id;
                 if (apiMerchantOrderId && apiMerchantOrderId.startsWith("store-")) {
                   const resolvedUuid = apiMerchantOrderId.replace("store-", "");
@@ -86,6 +87,26 @@ export async function POST(req: Request) {
                     console.log(`[VERIFY][${requestId}] ✅ Resolved Supabase UUID via Paymob Order API: ${resolvedUuid}`);
                     const { data } = await supabaseAdmin.from("orders").select("*").eq("id", resolvedUuid);
                     orders = data || [];
+                  }
+                }
+
+                // Try B: email-based matching fallback (for Unified Checkout where merchant_order_id is null)
+                if (orders.length === 0) {
+                  const email = paymobOrder.shipping_data?.email || paymobOrder.billing_data?.email;
+                  if (email) {
+                    console.log(`[VERIFY][${requestId}] 🔍 Searching DB for most recent pending order for email: ${email}...`);
+                    const { data: matchedOrders } = await supabaseAdmin
+                      .from("orders")
+                      .select("*")
+                      .eq("customer_email", email.toLowerCase().trim())
+                      .eq("status", "pending")
+                      .order("created_at", { ascending: false })
+                      .limit(1);
+                    
+                    orders = matchedOrders || [];
+                    if (orders.length > 0) {
+                      console.log(`[VERIFY][${requestId}] ✅ Resolved Supabase UUID via email matching: ${orders[0].id}`);
+                    }
                   }
                 }
               }
@@ -122,6 +143,7 @@ export async function POST(req: Request) {
             if (orderRes.ok) {
               const paymobOrder = await orderRes.json();
               if (paymobOrder) {
+                // Try A: merchant_order_id match
                 const apiMerchantOrderId = paymobOrder.merchant_order_id;
                 if (apiMerchantOrderId && apiMerchantOrderId.startsWith("store-")) {
                   const resolvedUuid = apiMerchantOrderId.replace("store-", "");
@@ -130,6 +152,26 @@ export async function POST(req: Request) {
                     console.log(`[VERIFY][${requestId}] ✅ Resolved Supabase UUID via Paymob Order API: ${resolvedUuid}`);
                     const { data } = await supabaseAdmin.from("orders").select("*").eq("id", resolvedUuid);
                     orders = data || [];
+                  }
+                }
+
+                // Try B: email-based matching fallback (for Unified Checkout where merchant_order_id is null)
+                if (orders.length === 0) {
+                  const email = paymobOrder.shipping_data?.email || paymobOrder.billing_data?.email;
+                  if (email) {
+                    console.log(`[VERIFY][${requestId}] 🔍 Searching DB for most recent pending order for email: ${email}...`);
+                    const { data: matchedOrders } = await supabaseAdmin
+                      .from("orders")
+                      .select("*")
+                      .eq("customer_email", email.toLowerCase().trim())
+                      .eq("status", "pending")
+                      .order("created_at", { ascending: false })
+                      .limit(1);
+                    
+                    orders = matchedOrders || [];
+                    if (orders.length > 0) {
+                      console.log(`[VERIFY][${requestId}] ✅ Resolved Supabase UUID via email matching: ${orders[0].id}`);
+                    }
                   }
                 }
               }
