@@ -372,17 +372,18 @@ export default function SecureVideoPlayer({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isPlaying, playbackSpeed, currentTime, duration]);
 
-  // Helper to talk with Plyr directly
+  // PostMessage helper to talk with Bunny CDN Embedded player
   const postPlayerMessage = (event: string, value?: any) => {
-    if (!plyrRef.current) return;
-    try {
-      if (event === "play") plyrRef.current.play();
-      if (event === "pause") plyrRef.current.pause();
-      if (event === "seek") plyrRef.current.currentTime = value;
-      if (event === "setPlaybackSpeed") plyrRef.current.speed = value;
-      // Quality change could be added here via hlsRef if needed
-    } catch (e) {
-      console.error("Failed to control player:", e);
+    const iframe = containerRef.current?.querySelector("iframe");
+    if (iframe?.contentWindow) {
+      try {
+        iframe.contentWindow.postMessage(
+          JSON.stringify({ event, value }),
+          "*"
+        );
+      } catch (e) {
+        console.error("Failed to post message to iframe:", e);
+      }
     }
   };
 
@@ -456,112 +457,65 @@ export default function SecureVideoPlayer({
     }
   };
 
-  // 10. Load Scripts and Initialize Plyr + Hls.js natively
-  const loadScript = (src: string) => {
-    return new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src="${src}"]`)) {
-        resolve(true);
-        return;
-      }
-      const script = document.createElement("script");
-      script.src = src;
-      script.onload = () => resolve(true);
-      script.onerror = reject;
-      document.body.appendChild(script);
-    });
-  };
-
-  const loadStyle = (href: string) => {
-    if (document.querySelector(`link[href="${href}"]`)) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = href;
-    document.head.appendChild(link);
-  };
-
+  // 10. Listen for postMessage Event APIs from Bunny Stream Player
   useEffect(() => {
-    if (hasStarted && !plyrReady) {
-      loadStyle("https://cdn.plyr.io/3.7.8/plyr.css");
-      Promise.all([
-        loadScript("https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js"),
-        loadScript("https://cdn.plyr.io/3.7.8/plyr.js")
-      ]).then(() => {
-        setPlyrReady(true);
-      }).catch(console.error);
-    }
-  }, [hasStarted, plyrReady]);
+    const handlePlayerMessage = async (e: MessageEvent) => {
+      if (!e.origin.includes("mediadelivery.net") && !e.origin.includes("bunnycdn.com")) return;
 
-  useEffect(() => {
-    if (!plyrReady || !hasStarted || !videoUrl) return;
+      try {
+        let eventData = e.data;
+        if (typeof eventData === "string") {
+          eventData = JSON.parse(eventData);
+        }
 
-    const videoElement = containerRef.current?.querySelector("#main-video") as HTMLVideoElement;
-    if (!videoElement) return;
+        if (eventData && typeof eventData === "object") {
+          const eventName = eventData.event || eventData.eventName;
+          
+          if (eventName === "timeupdate" || eventName === "player:timeupdate") {
+            const time = Number(eventData.value || eventData.currentTime);
+            const dur = Number(eventData.duration || eventData.totalTime || duration);
+            if (!isNaN(time)) {
+              setCurrentTime(time);
+              recordWatchSecond(time);
+              if (!isNaN(dur) && dur > 0) {
+                setDuration(dur);
+              }
 
-    const Hls = (window as any).Hls;
-    const Plyr = (window as any).Plyr;
-
-    if (hlsRef.current) hlsRef.current.destroy();
-    if (plyrRef.current) plyrRef.current.destroy();
-
-    const isHls = videoUrl.includes(".m3u8");
-
-    const player = new Plyr(videoElement, {
-      autoplay: true,
-      muted: true,
-      controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
-      settings: ['quality', 'speed']
-    });
-
-    plyrRef.current = player;
-
-    if (isHls && Hls.isSupported()) {
-      const hls = new Hls({ maxBufferLength: 30, enableWorker: true });
-      hlsRef.current = hls;
-      
-      hls.loadSource(videoUrl);
-      hls.attachMedia(videoElement);
-    } else {
-      videoElement.src = videoUrl;
-    }
-
-    player.on("ready", () => {
-      player.play();
-      if (resumeTime > 0) player.currentTime = resumeTime;
-    });
-
-    player.on("timeupdate", () => {
-      const time = player.currentTime;
-      const dur = player.duration;
-      setCurrentTime(time);
-      recordWatchSecond(time);
-      if (dur > 0) setDuration(dur);
-
-      const sec = Math.floor(time);
-      if (sec % 10 === 0 && sec !== lastSyncTimeRef.current) {
-        syncProgress(time, dur);
-      }
-    });
-
-    player.on("play", () => {
-      setIsPlaying(true);
-      if (player.duration > 0) syncProgress(player.currentTime, player.duration);
-    });
-
-    player.on("pause", () => {
-      setIsPlaying(false);
-      setPauseCount(prev => prev + 1);
-      if (player.duration > 0) syncProgress(player.currentTime, player.duration);
-    });
-
-    player.on("ended", () => {
-      handleVideoEnded();
-    });
-
-    return () => {
-      if (hlsRef.current) hlsRef.current.destroy();
-      if (plyrRef.current) plyrRef.current.destroy();
+              // Auto-sync progress to database every 10 seconds
+              const sec = Math.floor(time);
+              if (sec % 10 === 0 && sec !== lastSyncTimeRef.current) {
+                syncProgress(time, dur || duration);
+              }
+            }
+          } else if (eventName === "durationchange" || eventName === "player:durationchange") {
+            const dur = Number(eventData.value || eventData.duration);
+            if (!isNaN(dur)) {
+              setDuration(dur);
+            }
+          } else if (eventName === "ended" || eventName === "player:ended") {
+            await handleVideoEnded();
+          } else if (eventName === "play" || eventName === "player:play") {
+            setIsPlaying(true);
+            setHasStarted(true);
+            if (duration > 0) {
+              await syncProgress(currentTime, duration);
+            }
+          } else if (eventName === "pause" || eventName === "player:pause") {
+            setIsPlaying(false);
+            setPauseCount(prev => prev + 1);
+            if (duration > 0) {
+              await syncProgress(currentTime, duration);
+            }
+          }
+        }
+      } catch (err) {}
     };
-  }, [plyrReady, hasStarted, videoUrl, lessonId]);
+
+    window.addEventListener("message", handlePlayerMessage);
+    return () => {
+      window.removeEventListener("message", handlePlayerMessage);
+    };
+  }, [currentTime, duration, lessonId, isPlaying]);
 
   const handleVideoEnded = async () => {
     setIsPlaying(false);
@@ -671,14 +625,15 @@ export default function SecureVideoPlayer({
           </button>
         )}
 
-        {/* 1. Official Native Plyr.js / Hls.js Video Element */}
-        {!loading && !error && hasStarted && (
+        {/* 1. Official Bunny Embed Iframe (Direct Integration) */}
+        {!loading && !error && iframeSrc && hasStarted && (
           <div className={`absolute inset-0 w-full h-full transition-all duration-500 z-0 ${isBlurred ? "blur-[30px] scale-[1.02] pointer-events-none" : ""}`}>
-            <video
-              id="main-video"
-              className="w-full h-full rounded-3xl"
-              playsInline
-              crossOrigin="anonymous"
+            <iframe
+              src={`${iframeSrc}${iframeSrc.includes("?") ? "&" : "?"}autoplay=true&muted=true&preload=true`}
+              className="w-full h-full border-none absolute inset-0 z-10"
+              allow="autoplay; fullscreen; picture-in-picture"
+              allowFullScreen
+              referrerPolicy="origin"
             />
           </div>
         )}
