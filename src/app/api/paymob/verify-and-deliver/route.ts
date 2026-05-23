@@ -30,7 +30,7 @@ export async function POST(req: Request) {
 
     console.log(`[VERIFY][${requestId}] Lookup ID: ${orderId} | ForceResend: ${forceResend}`);
 
-    // ── 1. Resolve Orders by internal UUID or payment_id ────────────
+    // ── 1. Resolve Orders by internal UUID, payment_id, or paymobOrderId ────────────
     let orders: any[] = [];
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(orderId);
 
@@ -38,14 +38,22 @@ export async function POST(req: Request) {
       // Direct query by UUID
       const { data } = await supabaseAdmin.from("orders").select("*").eq("id", orderId);
       orders = data || [];
-    } else {
-      // Query by Paymob payment_id
+    }
+
+    if (orders.length === 0) {
+      // Query by Paymob payment_id (covers both classic order ID and intention ID)
       const { data } = await supabaseAdmin.from("orders").select("*").eq("payment_id", String(orderId));
       orders = data || [];
     }
 
+    // Fallback: try paymobOrderId if different from orderId
+    if (orders.length === 0 && paymobOrderId && paymobOrderId !== orderId) {
+      const { data } = await supabaseAdmin.from("orders").select("*").eq("payment_id", String(paymobOrderId));
+      orders = data || [];
+    }
+
     if (orders.length === 0) {
-      console.error(`[VERIFY][${requestId}] ❌ Order not found in DB`);
+      console.error(`[VERIFY][${requestId}] ❌ Order not found in DB for orderId=${orderId}, paymobOrderId=${paymobOrderId}`);
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
@@ -134,61 +142,127 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Payment not initiated yet", status: "pending" }, { status: 200 });
     }
 
-    // Authenticate with Paymob
-    const apiKey = process.env.PAYMOB_API_KEY;
-    if (!apiKey) throw new Error("PAYMOB_API_KEY is missing");
-
-    const authRes = await fetch("https://accept.paymob.com/api/auth/tokens", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ api_key: apiKey }),
-    });
-    const authData = await authRes.json();
-    const authToken = authData.token;
-
-    // Fetch order status from Paymob
-    console.log(`[VERIFY][${requestId}] 🔍 Checking Paymob Order: ${paymobPaymentId}...`);
-    const txnRes = await fetch(`https://accept.paymob.com/api/ecommerce/orders/${paymobPaymentId}`, {
-      method: "GET",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${authToken}`
-      },
-    });
-    
-    const paymobOrder = await txnRes.json();
-    
     let isPaymentSuccessful = false;
     let transactionId = "";
     let amountCents = 0;
 
-    // Try to find a successful transaction in the order's transactions list
-    const txnListRes = await fetch(`https://accept.paymob.com/api/ecommerce/orders/${paymobPaymentId}/transactions`, {
-      method: "GET",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${authToken}`
-      },
-    });
+    // ── 4a. Try Intention API first (for wallet/unified checkout payments) ─────
+    const secretKey = process.env.PAYMOB_SECRET_KEY;
+    const storedPaymentId = baseOrder.payment_id;
 
-    if (txnListRes.ok) {
-      const transactions = await txnListRes.json();
-      if (Array.isArray(transactions)) {
-        const successfulTxn = transactions.find((t: any) => t.success === true);
-        if (successfulTxn) {
-          isPaymentSuccessful = true;
-          transactionId = successfulTxn.id;
-          amountCents = successfulTxn.amount_cents;
-          console.log(`[VERIFY][${requestId}] ✅ Successful transaction found: ${transactionId}`);
+    if (secretKey && storedPaymentId) {
+      try {
+        console.log(`[VERIFY][${requestId}] 🔍 Trying Intention API with ID: ${storedPaymentId}...`);
+        const intentionRes = await fetch(`https://accept.paymob.com/v1/intention/${storedPaymentId}/`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Token ${secretKey}`,
+          },
+        });
+
+        if (intentionRes.ok) {
+          const intentionData = await intentionRes.json();
+          console.log(`[VERIFY][${requestId}] 📋 Intention status: ${intentionData.status}, confirmed: ${intentionData.confirmed}`);
+
+          // Check if the intention has a successful payment
+          if (intentionData.status === "PAID" || intentionData.confirmed === true) {
+            isPaymentSuccessful = true;
+            amountCents = intentionData.amount || intentionData.intention_detail?.amount || 0;
+            transactionId = intentionData.transaction_id || intentionData.id || storedPaymentId;
+            console.log(`[VERIFY][${requestId}] ✅ Intention API: Payment confirmed! TxnID: ${transactionId}`);
+          }
+
+          // Also check payment_methods for successful transactions
+          if (!isPaymentSuccessful && intentionData.payment_methods) {
+            for (const pm of intentionData.payment_methods) {
+              if (pm.status === "PAID" || pm.confirmed === true) {
+                isPaymentSuccessful = true;
+                amountCents = pm.amount || intentionData.amount || 0;
+                transactionId = pm.transaction_id || pm.id || storedPaymentId;
+                console.log(`[VERIFY][${requestId}] ✅ Intention API (payment_method): Payment confirmed! TxnID: ${transactionId}`);
+                break;
+              }
+            }
+          }
+
+          // Store the Paymob numeric order ID back to the order for future lookups
+          if (isPaymentSuccessful && intentionData.order_id && intentionData.order_id !== storedPaymentId) {
+            await supabaseAdmin
+              .from("orders")
+              .update({ payment_id: `${storedPaymentId}|${intentionData.order_id}` })
+              .eq("id", baseOrder.id);
+          }
+        } else {
+          console.log(`[VERIFY][${requestId}] ℹ️ Intention API returned ${intentionRes.status}, falling back to Classic API...`);
         }
+      } catch (intentionErr) {
+        console.warn(`[VERIFY][${requestId}] ⚠️ Intention API check failed:`, intentionErr);
       }
     }
 
-    if (!isPaymentSuccessful && paymobOrder.paid_amount_cents > 0) {
+    // ── 4b. Fallback: Classic ecommerce API (for card S2S payments) ─────
+    if (!isPaymentSuccessful) {
+      const apiKey = process.env.PAYMOB_API_KEY;
+      if (!apiKey) throw new Error("PAYMOB_API_KEY is missing");
+
+      const authRes = await fetch("https://accept.paymob.com/api/auth/tokens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ api_key: apiKey }),
+      });
+      const authData = await authRes.json();
+      const authToken = authData.token;
+
+      // Try the paymobOrderId from the callback first (this is the numeric Paymob order ID)
+      const classicOrderId = paymobOrderId || paymobPaymentId;
+      
+      console.log(`[VERIFY][${requestId}] 🔍 Checking Paymob Classic API Order: ${classicOrderId}...`);
+      const txnRes = await fetch(`https://accept.paymob.com/api/ecommerce/orders/${classicOrderId}`, {
+        method: "GET",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`
+        },
+      });
+      
+      const paymobOrder = await txnRes.json();
+
+      // Try to find a successful transaction in the order's transactions list
+      const txnListRes = await fetch(`https://accept.paymob.com/api/ecommerce/orders/${classicOrderId}/transactions`, {
+        method: "GET",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`
+        },
+      });
+
+      if (txnListRes.ok) {
+        const transactions = await txnListRes.json();
+        if (Array.isArray(transactions)) {
+          const successfulTxn = transactions.find((t: any) => t.success === true);
+          if (successfulTxn) {
+            isPaymentSuccessful = true;
+            transactionId = successfulTxn.id;
+            amountCents = successfulTxn.amount_cents;
+            console.log(`[VERIFY][${requestId}] ✅ Classic API: Successful transaction found: ${transactionId}`);
+          }
+        }
+      }
+
+      if (!isPaymentSuccessful && paymobOrder.paid_amount_cents > 0) {
+        isPaymentSuccessful = true;
+        amountCents = paymobOrder.paid_amount_cents;
+        transactionId = paymobOrder.id;
+        console.log(`[VERIFY][${requestId}] ✅ Classic API: Order marked as paid: ${amountCents} cents`);
+      }
+    }
+
+    // ── 4c. Final check: if order already completed in DB (webhook beat us) ────
+    if (!isPaymentSuccessful && baseOrder.status === "completed") {
       isPaymentSuccessful = true;
-      amountCents = paymobOrder.paid_amount_cents;
-      transactionId = paymobOrder.id;
-      console.log(`[VERIFY][${requestId}] ✅ Order marked as paid in Paymob: ${amountCents} cents`);
+      transactionId = baseOrder.payment_id || paymobPaymentId;
+      amountCents = Math.round((baseOrder.amount || 0) * 100);
+      console.log(`[VERIFY][${requestId}] ✅ Order already completed in DB (webhook processed it)`);
     }
 
     if (!isPaymentSuccessful) {

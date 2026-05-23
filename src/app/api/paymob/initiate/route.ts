@@ -223,6 +223,7 @@ export async function POST(req: Request) {
           amount: amountCents,
           currency: "EGP",
           payment_methods: [envWalletIntegrationId],
+          merchant_order_id: `store-${dbOrder.id}`,
           items: [{ name: dbItem.title, amount: amountCents, description: "Digital Purchase", quantity: 1 }],
           billing_data: billingData,
           extras: { supabase_order_id: dbOrder.id, source: "store" }

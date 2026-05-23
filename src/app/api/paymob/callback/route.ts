@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 import { verifyPaymobHmac } from "@/lib/paymob";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+  { auth: { persistSession: false } }
+);
 
 /**
  * GET /api/paymob/callback
@@ -43,10 +50,48 @@ export async function GET(request: Request) {
   // This guarantees store customers never see JoeSchool pages
   const reason = searchParams.get("txn_response_code") || "declined";
   
-  // Extract real Supabase UUID if available to prevent 404s on Intention API Wallet payments
+  // Extract real Supabase UUID — try multiple resolution strategies
   let realOrderId = orderId;
+
+  // Strategy 1: Classic API merchant_order_id with "store-" prefix
   if (merchantOrderId && merchantOrderId.startsWith("store-")) {
     realOrderId = merchantOrderId.replace("store-", "");
+  } else {
+    // Strategy 2: For Intention API (wallet) payments, look up the Supabase order
+    // by querying the DB for orders whose payment_id matches the Paymob order ID
+    // or whose payment_id is the intention ID that created this Paymob order
+    try {
+      // First try: direct payment_id match with the Paymob order ID
+      let dbOrder = null;
+      const { data: byPaymentId } = await supabaseAdmin
+        .from("orders")
+        .select("id")
+        .eq("payment_id", String(orderId))
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (byPaymentId) {
+        dbOrder = byPaymentId;
+      }
+      
+      // Second try: if merchant_order_id exists but without "store-" prefix, try it directly as UUID
+      if (!dbOrder && merchantOrderId) {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(merchantOrderId);
+        if (isUuid) {
+          dbOrder = { id: merchantOrderId };
+        }
+      }
+      
+      if (dbOrder) {
+        realOrderId = dbOrder.id;
+        console.log(`[CALLBACK] ✅ Resolved Supabase UUID from DB: ${realOrderId}`);
+      } else {
+        console.warn(`[CALLBACK] ⚠️ Could not resolve Supabase UUID. Using Paymob Order ID: ${orderId}`);
+      }
+    } catch (err) {
+      console.error(`[CALLBACK] ⚠️ DB lookup error during UUID resolution:`, err);
+    }
   }
   
   if (success || reason === "verification_timeout") {
