@@ -112,21 +112,24 @@ export async function POST(req: Request) {
 
     // 2. Dual Pricing Secure Resolver Layer
     const resolvedPrice = resolveProductPrice(dbItem, userCurrency);
+    const exchangeRate = await getUSDtoEGPExchangeRate();
     let expectedPriceBase = resolvedPrice.price; 
     let expectedPriceEGP = userCurrency === "USD" 
-      ? Math.round(expectedPriceBase * getUSDtoEGPExchangeRate())
+      ? Math.round(expectedPriceBase * exchangeRate)
       : expectedPriceBase;
 
-    console.log(`[PAYMOB_INITIATE] resolvedPriceBase: ${expectedPriceBase} ${userCurrency} | expectedPriceEGP: ${expectedPriceEGP} EGP`);
+    console.log(`[PAYMOB_INITIATE] resolvedPriceBase: ${expectedPriceBase} ${userCurrency} | exchangeRate: ${exchangeRate} | expectedPriceEGP: ${expectedPriceEGP} EGP`);
+
+    let originalPriceBase = expectedPriceBase;
 
     if (couponCode) {
       const upperCode = couponCode.trim().toUpperCase();
       // Query the database for the coupon
       const { data: dbCoupon, error: couponErr } = await supabaseAdmin
-        .from("coupons")
-        .select("*")
-        .eq("code", upperCode)
-        .maybeSingle();
+         .from("coupons")
+         .select("*")
+         .eq("code", upperCode)
+         .maybeSingle();
 
       if (couponErr || !dbCoupon) {
         throw new Error("كود الخصم المدخل غير صالح أو غير متوفر");
@@ -154,8 +157,9 @@ export async function POST(req: Request) {
 
       // Apply coupon to base price and recalculate final EGP amount
       const discountedBase = expectedPriceBase * (1 - dbCoupon.discount_percent / 100);
+      originalPriceBase = discountedBase;
       expectedPriceEGP = userCurrency === "USD"
-        ? Math.round(discountedBase * getUSDtoEGPExchangeRate())
+        ? Math.round(discountedBase * exchangeRate)
         : Math.round(discountedBase);
 
       console.log(`[PAYMOB_INITIATE] Applied coupon: ${upperCode} (-${dbCoupon.discount_percent}%) | Discounted expectedPriceEGP: ${expectedPriceEGP}`);
@@ -172,18 +176,21 @@ export async function POST(req: Request) {
     const cleanPhoneDigits = (phone || "").replace(/\D/g, "");
     const safePhone = (cleanPhoneDigits.length < 8) ? "+201000000000" : (phone.startsWith("+") ? phone : `+${phone}`);
 
-    // 3. Create Order in Supabase locally first
+    // 3. Create Order in Supabase locally first (Logging immutable snapshot details)
     const dbOrder = await createOrder({
       customer_name: `${firstName} ${lastName}`,
       customer_email: email,
       customer_phone: safePhone,
       product_id: productId,
       product_title: dbItem.title,
-      amount: expectedPriceEGP,
-      currency: "EGP",
+      amount: userCurrency === "USD" ? Number(originalPriceBase.toFixed(2)) : expectedPriceEGP,
+      currency: userCurrency,
       status: "pending",
       payment_id: "PENDING", 
-      coupon_code: couponCode ? couponCode.trim().toUpperCase() : undefined
+      coupon_code: couponCode ? couponCode.trim().toUpperCase() : undefined,
+      original_amount_usd: userCurrency === "USD" ? Number(originalPriceBase.toFixed(2)) : null,
+      charged_amount_egp: expectedPriceEGP,
+      exchange_rate: userCurrency === "USD" ? exchangeRate : null
     });
 
     const safeFirstName = (firstName || "Test").replace(/[^a-zA-Z\u0600-\u06FF]/g, "");
@@ -226,7 +233,13 @@ export async function POST(req: Request) {
           merchant_order_id: `store-${dbOrder.id}`,
           items: [{ name: dbItem.title, amount: amountCents, description: "Digital Purchase", quantity: 1 }],
           billing_data: billingData,
-          extras: { supabase_order_id: dbOrder.id, source: "store" }
+          extras: { 
+            supabase_order_id: dbOrder.id, 
+            source: "store",
+            original_currency: userCurrency,
+            original_amount: userCurrency === "USD" ? Number(originalPriceBase.toFixed(2)) : expectedPriceEGP,
+            exchange_rate: userCurrency === "USD" ? exchangeRate : 1.0
+          }
         }),
       });
 
@@ -270,7 +283,13 @@ export async function POST(req: Request) {
           currency: "EGP",
           items: [],
           merchant_order_id: `store-${dbOrder.id}`,
-          extras: { source: "store", supabase_order_id: dbOrder.id }
+          extras: { 
+            source: "store", 
+            supabase_order_id: dbOrder.id,
+            original_currency: userCurrency,
+            original_amount: userCurrency === "USD" ? Number(originalPriceBase.toFixed(2)) : expectedPriceEGP,
+            exchange_rate: userCurrency === "USD" ? exchangeRate : 1.0
+          }
         }),
       });
       if (!orderResponse.ok) throw new Error(`Order failed`);

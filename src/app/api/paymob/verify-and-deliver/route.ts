@@ -241,14 +241,19 @@ export async function POST(req: Request) {
       }
     }
 
+    // Resolve purchased products early to avoid ReferenceError
+    const resolvedProducts = await resolvePurchasedProducts(orders);
+    const firstProduct = resolvedProducts[0] || {};
+
     // ── 3. Check if all matched orders are already completed ───────
     const allCompleted = orders.every(o => o.status === "completed");
     if (allCompleted) {
       console.log(`[VERIFY][${requestId}] ✅ All matching orders already marked as completed. Skipping verification.`);
       
       // Resolve details for success page representation
-      const resolvedProducts = await resolvePurchasedProducts(orders);
-      const firstProduct = resolvedProducts[0] || {};
+      const originalAmountUsd = orders.reduce((sum, o) => sum + (Number(o.original_amount_usd) || 0), 0);
+      const chargedAmountEgp = orders.reduce((sum, o) => sum + (Number(o.charged_amount_egp) || 0), 0);
+      const exchangeRate = baseOrder.exchange_rate || null;
 
       return NextResponse.json({ 
         success: true, 
@@ -256,13 +261,16 @@ export async function POST(req: Request) {
         productTitle: resolvedProducts.map(p => p.title).join(" + "),
         customerName,
         customerEmail,
-        orderValue: orders.reduce((sum, o) => sum + (o.amount || 0), 0),
+        orderValue: currency === "USD" ? originalAmountUsd : chargedAmountEgp,
         currency,
         downloadToken: baseOrder.id,
         downloadUrl: firstProduct.downloadUrl || null,
         category: firstProduct.category || null,
         tags: firstProduct.tags || null,
-        products: resolvedProducts
+        products: resolvedProducts,
+        original_amount_usd: currency === "USD" ? originalAmountUsd : null,
+        charged_amount_egp: chargedAmountEgp,
+        exchange_rate: exchangeRate
       });
     }
 
@@ -564,23 +572,25 @@ export async function POST(req: Request) {
       console.error(`[VERIFY][${requestId}] ❌ Safe catch: Exception during email delivery:`, emailErr.message);
     }
 
-    // Resolve final data for Success Page representation
-    const resolvedProducts = await resolvePurchasedProducts(orders);
-    const firstProduct = resolvedProducts[0] || {};
-    const totalAmount = orders.reduce((sum, o) => sum + (o.amount || 0), 0);
+    const originalAmountUsd = orders.reduce((sum, o) => sum + (Number(o.original_amount_usd) || 0), 0);
+    const chargedAmountEgp = orders.reduce((sum, o) => sum + (Number(o.charged_amount_egp) || 0), 0);
+    const exchangeRate = baseOrder.exchange_rate || null;
 
     return NextResponse.json({ 
       success: true, 
       productTitle: resolvedProducts.map(p => p.title).join(" + "),
       customerName,
       customerEmail,
-      orderValue: totalAmount,
+      orderValue: currency === "USD" ? originalAmountUsd : chargedAmountEgp,
       currency,
       downloadToken: baseOrder.id,
       downloadUrl: firstProduct.downloadUrl || null,
       category: firstProduct.category || null,
       tags: firstProduct.tags || null,
-      products: resolvedProducts
+      products: resolvedProducts,
+      original_amount_usd: currency === "USD" ? originalAmountUsd : null,
+      charged_amount_egp: chargedAmountEgp,
+      exchange_rate: exchangeRate
     });
 
   } catch (error: any) {

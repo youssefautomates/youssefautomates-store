@@ -44,6 +44,7 @@ export async function POST(req: Request) {
     // 1. Dual Pricing Secure Resolver Layer for Multi-Item Cart
     let totalExpectedEGP = 0;
     const verifiedItems: any[] = [];
+    const exchangeRate = await getUSDtoEGPExchangeRate();
 
     for (const item of items) {
       let dbItem: any = null;
@@ -94,14 +95,16 @@ export async function POST(req: Request) {
       }
 
       const resolvedPrice = resolveProductPrice(dbItem, userCurrency);
+      const itemPriceUSD = userCurrency === "USD" ? resolvedPrice.price : null;
       const itemEGPPrice = userCurrency === "USD"
-        ? Math.round(resolvedPrice.price * getUSDtoEGPExchangeRate())
+        ? Math.round(resolvedPrice.price * exchangeRate)
         : resolvedPrice.price;
 
       totalExpectedEGP += itemEGPPrice;
       verifiedItems.push({
         id: item.id,
         title: dbItem.title,
+        priceUSD: itemPriceUSD,
         priceEGP: itemEGPPrice
       });
     }
@@ -119,7 +122,7 @@ export async function POST(req: Request) {
     const cleanPhoneDigits = (phone || "").replace(/\D/g, "");
     const safePhone = (cleanPhoneDigits.length < 8) ? "+201000000000" : (phone.startsWith("+") ? phone : `+${phone}`);
 
-    // 2. Create Orders in Supabase locally first (One per item)
+    // 2. Create Orders in Supabase locally first (One per item - Logging snapshots)
     const dbOrders = [];
     for (const item of verifiedItems) {
       const order = await createOrder({
@@ -128,10 +131,13 @@ export async function POST(req: Request) {
         customer_phone: safePhone,
         product_id: item.id,
         product_title: item.title,
-        amount: item.priceEGP,
-        currency: "EGP",
+        amount: userCurrency === "USD" ? (item.priceUSD || 0) : item.priceEGP,
+        currency: userCurrency,
         status: "pending",
         payment_id: "PENDING", 
+        original_amount_usd: userCurrency === "USD" ? item.priceUSD : null,
+        charged_amount_egp: item.priceEGP,
+        exchange_rate: userCurrency === "USD" ? exchangeRate : null
       });
       dbOrders.push(order);
     }
@@ -177,7 +183,13 @@ export async function POST(req: Request) {
           payment_methods: [envWalletIntegrationId],
           items: [{ name: cartTitle, amount: amountCents, description: "Digital Cart Purchase", quantity: 1 }],
           billing_data: billingData,
-          extras: { supabase_order_id: dbOrders[0].id }
+          extras: { 
+            supabase_order_id: dbOrders[0].id,
+            source: "store",
+            original_currency: userCurrency,
+            original_amount: userCurrency === "USD" ? verifiedItems.reduce((sum, i) => sum + (i.priceUSD || 0), 0) : totalExpectedEGP,
+            exchange_rate: userCurrency === "USD" ? exchangeRate : 1.0
+          }
         }),
       });
 
@@ -221,6 +233,14 @@ export async function POST(req: Request) {
           amount_cents: amountCents.toString(),
           currency: "EGP",
           items: [],
+          merchant_order_id: `store-${dbOrders[0].id}`,
+          extras: { 
+            source: "store", 
+            supabase_order_id: dbOrders[0].id,
+            original_currency: userCurrency,
+            original_amount: userCurrency === "USD" ? verifiedItems.reduce((sum, i) => sum + (i.priceUSD || 0), 0) : totalExpectedEGP,
+            exchange_rate: userCurrency === "USD" ? exchangeRate : 1.0
+          }
         }),
       });
       if (!orderResponse.ok) throw new Error(`Order failed`);

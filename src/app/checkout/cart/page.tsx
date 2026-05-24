@@ -41,6 +41,7 @@ export default function CartCheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<"card" | "wallet" | "instapay">("card");
   const [showInstapayModal, setShowInstapayModal] = useState(false);
   const [currency, setCurrency] = useState<Currency>("EGP");
+  const [exchangeRate, setExchangeRate] = useState<number>(50.0);
   
   // Card Fields State
   const [cardNumber, setCardNumber] = useState("");
@@ -68,8 +69,14 @@ export default function CartCheckoutPage() {
 
   // Load visitor currency on mount
   useEffect(() => {
-    resolveUserCurrency().then(detectedCurrency => {
+    resolveUserCurrency().then(async (detectedCurrency) => {
       setCurrency(detectedCurrency);
+      if (detectedCurrency === "USD") {
+        try {
+          const rate = await getUSDtoEGPExchangeRate();
+          setExchangeRate(rate);
+        } catch (err) {}
+      }
     });
   }, []);
 
@@ -294,13 +301,13 @@ export default function CartCheckoutPage() {
       }
 
       const finalPriceEGP = currency === "USD"
-        ? Math.round(resolvedCartTotal * getUSDtoEGPExchangeRate())
+        ? Math.round(resolvedCartTotal * exchangeRate)
         : resolvedCartTotal;
 
       const payloadBody = {
         items: resolvedItems.map(i => {
           const itemPriceEGP = currency === "USD"
-            ? Math.round(i.price * getUSDtoEGPExchangeRate())
+            ? Math.round(i.price * exchangeRate)
             : i.price;
           return { id: i.id, price: itemPriceEGP, title: i.title };
         }),
@@ -681,6 +688,14 @@ export default function CartCheckoutPage() {
                         <span className="text-3xl font-alexandria font-black">{formatPrice(resolvedCartTotal, currency)}</span>
                       </div>
                     </div>
+
+                    {currency === "USD" && (
+                      <div className="mt-4 p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs font-cairo text-center leading-relaxed">
+                        Notice: Final payment will be processed in EGP based on the current exchange rate ($1 = {exchangeRate.toFixed(2)} EGP).
+                        <br />
+                        تنبيه: سيتم معالجة الدفع النهائي بالجنيه المصري (EGP) بناءً على سعر الصرف الحالي ($1 = {exchangeRate.toFixed(2)} ج.م).
+                      </div>
+                    )}
                   </div>
 
                   <div className="bg-[#050505] rounded-2xl p-4 border border-white/5">

@@ -129,7 +129,7 @@ export async function POST(request: Request) {
         // Resolve customer billing details
         const customerEmail = transaction.payment_key_claims?.billing_data?.email || orderToUpdate.customer_email;
         const customerName = transaction.payment_key_claims?.billing_data?.first_name || orderToUpdate.customer_name || "عميلنا العزيز";
-        const currency = transaction.currency || "EGP";
+        const currency = orderToUpdate.currency || "EGP";
 
         // Query all sibling orders sharing the same payment_id (Multi-item cart purchase support)
         const { data: siblingOrders } = await supabaseAdmin

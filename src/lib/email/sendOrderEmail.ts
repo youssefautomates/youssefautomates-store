@@ -48,6 +48,10 @@ export async function sendOrderEmail(
     // 1. Resolve product details for all orders
     const resolvedProducts: ProductInfo[] = [];
     const totalAmount = orders.reduce((sum, o) => sum + (o.amount || 0), 0);
+    const totalOriginalUsd = orders.reduce((sum, o) => sum + (Number(o.original_amount_usd) || 0), 0);
+    const totalChargedEgp = orders.reduce((sum, o) => sum + (Number(o.charged_amount_egp) || 0), 0);
+    const firstExchangeRate = orders[0]?.exchange_rate ? Number(orders[0].exchange_rate) : null;
+    const isUSDOrder = currency === "USD" || orders[0]?.currency === "USD" || totalOriginalUsd > 0;
     const transactionId = orders[0]?.payment_id || Math.random().toString(36).substring(2, 10).toUpperCase();
 
     for (const order of orders) {
@@ -117,7 +121,16 @@ export async function sendOrderEmail(
 
     emailText += `\nملخص المعاملة المعتمدة:\n`;
     emailText += `رقم المعاملة: #${transactionId}\n`;
-    emailText += `المبلغ الإجمالي: ${totalAmount.toFixed(2)} ${currency}\n\n`;
+    if (isUSDOrder) {
+      emailText += `المبلغ الإجمالي: $${totalOriginalUsd.toFixed(2)} USD\n`;
+      emailText += `المبلغ المخصوم فعلياً: ${totalChargedEgp.toFixed(2)} ج.م\n`;
+      if (firstExchangeRate) {
+        emailText += `سعر الصرف المثبت: 1 USD = ${firstExchangeRate.toFixed(4)} ج.م\n`;
+      }
+    } else {
+      emailText += `المبلغ الإجمالي: ${totalAmount.toFixed(2)} ج.م\n`;
+    }
+    emailText += `\n`;
     emailText += `--------------------------------------------------\n`;
     emailText += `استلمت هذا البريد لأنك قمت بشراء منتج من Youssef Automates.\n`;
     emailText += `الدعم الفني: support@youssefautomates.com\n`;
@@ -202,10 +215,16 @@ export async function sendOrderEmail(
               <table width="100%" cellpadding="0" cellspacing="0">${productsBlock}</table>
               
               <!-- Transaction Summary -->
-              <div style="margin-top:24px;padding:16px;background-color:#f8fafc;border-radius:8px;border: 1px solid #e2e8f0;">
+              <div style="margin-top:24px;padding:16px;background-color:#f8fafc;border-radius:8px;border: 1px solid #e2e8f0;text-align: right;">
                 <p style="color:#64748b;font-size:11px;text-transform:uppercase;margin:0 0 8px 0;font-weight: bold;font-family: 'Segoe UI', Arial, sans-serif;">تفاصيل المعاملة المعتمدة</p>
                 <p style="color:#334155;font-size:13px;margin:4px 0;font-family: 'Segoe UI', Arial, sans-serif;">رقم المعاملة: #${transactionId}</p>
-                <p style="color:#16a34a;font-size:13px;font-weight:bold;margin:4px 0;font-family: 'Segoe UI', Arial, sans-serif;">المبلغ الإجمالي: ${totalAmount.toFixed(2)} ${currency}</p>
+                ${isUSDOrder ? `
+                  <p style="color:#16a34a;font-size:14px;font-weight:bold;margin:4px 0;font-family: 'Segoe UI', Arial, sans-serif;">المبلغ الإجمالي: $${totalOriginalUsd.toFixed(2)} USD</p>
+                  <p style="color:#475569;font-size:12px;margin:4px 0;font-family: 'Segoe UI', Arial, sans-serif;">المبلغ المخصوم فعلياً: ${totalChargedEgp.toFixed(2)} ج.م</p>
+                  ${firstExchangeRate ? `<p style="color:#64748b;font-size:10px;margin:4px 0;font-family: 'Segoe UI', Arial, sans-serif;">سعر الصرف المثبت: 1 USD = ${firstExchangeRate.toFixed(4)} ج.م</p>` : ''}
+                ` : `
+                  <p style="color:#16a34a;font-size:13px;font-weight:bold;margin:4px 0;font-family: 'Segoe UI', Arial, sans-serif;">المبلغ الإجمالي: ${totalAmount.toFixed(2)} ج.م</p>
+                `}
               </div>
             </td>
           </tr>

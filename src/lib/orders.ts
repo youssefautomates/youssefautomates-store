@@ -17,6 +17,9 @@ export interface Order {
   completed_at?: string;
   created_at?: string;
   coupon_code?: string;
+  original_amount_usd?: number | null;
+  charged_amount_egp?: number | null;
+  exchange_rate?: number | null;
 }
 
 export async function createOrder(order: Order) {

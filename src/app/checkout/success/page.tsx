@@ -92,6 +92,9 @@ interface OrderData {
   category?: string | null;
   tags?: string[] | null;
   products?: ProductInfo[];
+  original_amount_usd?: number | null;
+  charged_amount_egp?: number | null;
+  exchange_rate?: number | null;
 }
 
 function SuccessContent() {
@@ -151,7 +154,10 @@ function SuccessContent() {
             alreadyDelivered: data.alreadyDelivered,
             category: data.category || null,
             tags: data.tags || null,
-            products: data.products || []
+            products: data.products || [],
+            original_amount_usd: data.original_amount_usd,
+            charged_amount_egp: data.charged_amount_egp,
+            exchange_rate: data.exchange_rate
           });
           setPhase("success");
           setTimeout(() => setShowParticles(true), 300);
@@ -745,12 +751,30 @@ function SuccessContent() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 text-zinc-400 text-sm">
-                    <Sparkles className="w-4 h-4 text-zinc-600 shrink-0" />
-                    <span className="font-medium">المبلغ الإجمالي المدفوع:</span>
-                    <span className="text-emerald-400 font-alexandria font-black text-base" dir="ltr">
-                      {orderData?.amount?.toFixed(2)} <span className="text-[10px] font-cairo font-normal text-zinc-500">{orderData?.currency}</span>
-                    </span>
+                  <div className="flex items-start gap-3 text-zinc-400 text-sm">
+                    <Sparkles className="w-4 h-4 text-zinc-600 shrink-0 mt-1" />
+                    <div className="space-y-1">
+                      <span className="font-medium block">المبلغ الإجمالي المدفوع:</span>
+                      {orderData?.currency === "USD" || (orderData?.original_amount_usd && orderData.original_amount_usd > 0) ? (
+                        <div className="space-y-1">
+                          <span className="text-emerald-400 font-alexandria font-black text-base block" dir="ltr">
+                            ${Number(orderData.original_amount_usd).toFixed(2)} <span className="text-[10px] font-cairo font-normal text-zinc-500">USD</span>
+                          </span>
+                          <span className="text-zinc-400 font-alexandria font-medium text-xs block animate-pulse" dir="ltr">
+                            ({Number(orderData.charged_amount_egp).toFixed(2)} ج.م)
+                          </span>
+                          {orderData.exchange_rate && (
+                            <span className="text-[10px] text-zinc-500 block">
+                              سعر الصرف المثبت: 1 USD = {Number(orderData.exchange_rate).toFixed(4)} ج.م
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-emerald-400 font-alexandria font-black text-base block" dir="ltr">
+                          {Number(orderData?.charged_amount_egp || orderData?.amount || 0).toFixed(2)} <span className="text-[10px] font-cairo font-normal text-zinc-500">ج.م</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 

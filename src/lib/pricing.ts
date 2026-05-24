@@ -83,11 +83,41 @@ export function formatPrice(price: number, currency: Currency): string {
   return `$${price.toFixed(2)}`;
 }
 
+let cachedRate: number | null = null;
+let lastFetched: number = 0;
+
 /**
  * 💸 Gets real-time or configured exchange rate for USD to EGP conversions.
- * Used to convert USD checkout totals to EGP for Paymob cards/wallets processing.
+ * Fetches from a live dynamic API with in-memory caching and timeout fallbacks.
  */
-export function getUSDtoEGPExchangeRate(): number {
-  // Dynamic or static configured rate (50.0 EGP per 1 USD)
-  return 50.0;
+export async function getUSDtoEGPExchangeRate(): Promise<number> {
+  const cacheDuration = 10 * 60 * 1000; // 10 minutes cache
+  const now = Date.now();
+
+  if (cachedRate && (now - lastFetched < cacheDuration)) {
+    return cachedRate;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 seconds timeout
+
+    const response = await fetch("https://open.er-api.com/v6/latest/USD", {
+      signal: controller.signal,
+      next: { revalidate: 600 } // NextJS fetch cache options
+    });
+    clearTimeout(timeoutId);
+
+    const data = await response.json();
+    if (data && data.rates && typeof data.rates.EGP === "number") {
+      cachedRate = data.rates.EGP;
+      lastFetched = now;
+      console.log(`[ExchangeRate] Successfully fetched live USD to EGP rate: ${cachedRate}`);
+      return data.rates.EGP;
+    }
+  } catch (error) {
+    console.error("[ExchangeRate] Failed to fetch live exchange rate, falling back to 50.0:", error);
+  }
+
+  return cachedRate || 50.0;
 }
