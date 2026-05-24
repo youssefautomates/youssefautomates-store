@@ -56,7 +56,10 @@ export default function CertificateVerificationPage({ params }: { params: Promis
 
               {/* Customizable Certificate Live Template OR Gold Certificate Frame */}
               {cert.certificate_bg_url ? (
-                <div className="w-full aspect-[1.414/1] bg-[#0a0a0f] border border-amber-500/30 rounded-3xl overflow-hidden relative shadow-2xl print:m-0 print:border-none print:shadow-none">
+                <div 
+                  className="w-full aspect-[1.414/1] bg-[#0a0a0f] border border-amber-500/30 rounded-3xl overflow-hidden relative shadow-2xl print:m-0 print:border-none print:shadow-none"
+                  style={{ containerType: "inline-size" }}
+                >
                   <style dangerouslySetInnerHTML={{__html: `
                     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@700;800;900&family=Alexandria:wght@800;900&family=Alike&display=swap');
                   `}} />
@@ -67,7 +70,14 @@ export default function CertificateVerificationPage({ params }: { params: Promis
                       style={{ 
                         left: `${cert.certificate_name_x || 50}%`, 
                         top: `${cert.certificate_name_y || 40}%`, 
-                        fontSize: `${cert.certificate_name_size || 24}px`,
+                        fontSize: `calc((${(() => {
+                          const nameLength = cert.student_name.length;
+                          let lengthScale = 1.0;
+                          if (nameLength > 35) lengthScale = 0.55;
+                          else if (nameLength > 28) lengthScale = 0.65;
+                          else if (nameLength > 20) lengthScale = 0.8;
+                          return (cert.certificate_name_size || 24) * lengthScale;
+                        })()} / 800) * 100cqw)`,
                         transform: 'translate(-50%, -50%)',
                         fontFamily: /[\u0600-\u06FF]/.test(cert.student_name) ? "'Cairo', 'Alexandria', sans-serif" : "'Alike', serif",
                         fontWeight: /[\u0600-\u06FF]/.test(cert.student_name) ? 900 : 'normal',
@@ -80,7 +90,7 @@ export default function CertificateVerificationPage({ params }: { params: Promis
                       style={{ 
                         left: `${cert.certificate_date_x || 50}%`, 
                         top: `${cert.certificate_date_y || 70}%`, 
-                        fontSize: `${cert.certificate_date_size || 14}px`,
+                        fontSize: `calc((${cert.certificate_date_size || 14} / 800) * 100cqw)`,
                         transform: 'translate(-50%, -50%)' 
                       }}
                     >

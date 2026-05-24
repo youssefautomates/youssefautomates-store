@@ -1714,7 +1714,10 @@ export default function AdminCoursesPage() {
                 </div>
                 
                 {/* Certificate Preview Box */}
-                <div className="relative w-full aspect-[1.414/1] bg-white/5 rounded-xl border border-white/10 overflow-hidden flex items-center justify-center">
+                <div 
+                  className="relative w-full aspect-[1.414/1] bg-white/5 rounded-xl border border-white/10 overflow-hidden flex items-center justify-center"
+                  style={{ containerType: 'inline-size' } as React.CSSProperties}
+                >
                   <style dangerouslySetInnerHTML={{__html: `
                     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@700;800;900&family=Alexandria:wght@800;900&family=Alike&display=swap');
                   `}} />
@@ -1728,7 +1731,14 @@ export default function AdminCoursesPage() {
                           style={{ 
                             left: `${courseForm.certificate_name_x}%`, 
                             top: `${courseForm.certificate_name_y}%`, 
-                            fontSize: `${courseForm.certificate_name_size || 24}px`,
+                            fontSize: `calc((${(() => {
+                              const nameLength = (testStudentName || "[اسم الطالب هنا]").length;
+                              let lengthScale = 1.0;
+                              if (nameLength > 35) lengthScale = 0.55;
+                              else if (nameLength > 28) lengthScale = 0.65;
+                              else if (nameLength > 20) lengthScale = 0.8;
+                              return (courseForm.certificate_name_size || 24) * lengthScale;
+                            })()} / 800) * 100cqw)`,
                             transform: 'translate(-50%, -50%)',
                             fontFamily: /[\u0600-\u06FF]/.test(testStudentName) ? "'Cairo', 'Alexandria', sans-serif" : "'Alike', serif",
                             fontWeight: /[\u0600-\u06FF]/.test(testStudentName) ? 900 : 'normal',
@@ -1741,7 +1751,7 @@ export default function AdminCoursesPage() {
                           style={{ 
                             left: `${courseForm.certificate_date_x}%`, 
                             top: `${courseForm.certificate_date_y}%`, 
-                            fontSize: `${courseForm.certificate_date_size || 14}px`,
+                            fontSize: `calc((${courseForm.certificate_date_size || 14} / 800) * 100cqw)`,
                             transform: 'translate(-50%, -50%)' 
                           }}
                         >

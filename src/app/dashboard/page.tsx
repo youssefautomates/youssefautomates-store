@@ -387,7 +387,15 @@ export default function DashboardPage() {
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         
-        const nameSize = (selectedCert.certificate_name_size || 24) * (canvas.width / 800);
+        // Match the exact same preview auto-shrinking logic for high fidelity export
+        const nameLength = selectedCert.student_name.length;
+        let lengthScale = 1.0;
+        if (nameLength > 35) lengthScale = 0.55;
+        else if (nameLength > 28) lengthScale = 0.65;
+        else if (nameLength > 20) lengthScale = 0.8;
+        
+        const baseNameSize = (selectedCert.certificate_name_size || 24) * lengthScale;
+        const nameSize = baseNameSize * (canvas.width / 800);
         ctx.font = `bold ${nameSize}px Cairo, Alexandria, sans-serif`;
         
         const nameX = (selectedCert.certificate_name_x || 50) * (canvas.width / 100);
@@ -1636,7 +1644,10 @@ export default function DashboardPage() {
             </button>
 
             {selectedCert.certificate_bg_url ? (
-              <div className="w-full aspect-[1.414/1] bg-[#0a0a0f] border border-amber-500/30 rounded-2xl overflow-hidden relative shadow-2xl">
+              <div 
+                className="w-full aspect-[1.414/1] bg-[#0a0a0f] border border-amber-500/30 rounded-2xl overflow-hidden relative shadow-2xl"
+                style={{ containerType: 'inline-size' } as React.CSSProperties}
+              >
                 <style dangerouslySetInnerHTML={{__html: `
                   @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@700;800;900&family=Alexandria:wght@800;900&family=Alike&display=swap');
                 `}} />
@@ -1647,7 +1658,14 @@ export default function DashboardPage() {
                     style={{ 
                       left: `${selectedCert.certificate_name_x || 50}%`, 
                       top: `${selectedCert.certificate_name_y || 40}%`, 
-                      fontSize: `${selectedCert.certificate_name_size || 24}px`,
+                      fontSize: `calc((${(() => {
+                        const nameLength = selectedCert.student_name.length;
+                        let lengthScale = 1.0;
+                        if (nameLength > 35) lengthScale = 0.55;
+                        else if (nameLength > 28) lengthScale = 0.65;
+                        else if (nameLength > 20) lengthScale = 0.8;
+                        return (selectedCert.certificate_name_size || 24) * lengthScale;
+                      })()} / 800) * 100cqw)`,
                       transform: 'translate(-50%, -50%)',
                       fontFamily: /[\u0600-\u06FF]/.test(selectedCert.student_name) ? "'Cairo', 'Alexandria', sans-serif" : "'Alike', serif",
                       fontWeight: /[\u0600-\u06FF]/.test(selectedCert.student_name) ? 900 : 'normal',
@@ -1660,7 +1678,7 @@ export default function DashboardPage() {
                     style={{ 
                       left: `${selectedCert.certificate_date_x || 50}%`, 
                       top: `${selectedCert.certificate_date_y || 70}%`, 
-                      fontSize: `${selectedCert.certificate_date_size || 14}px`,
+                      fontSize: `calc((${selectedCert.certificate_date_size || 14} / 800) * 100cqw)`,
                       transform: 'translate(-50%, -50%)' 
                     }}
                   >

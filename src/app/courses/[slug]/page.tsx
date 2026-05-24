@@ -781,7 +781,15 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                                       style={{ 
                                         left: `${course.certificate_name_x ?? 50}%`, 
                                         top: `${course.certificate_name_y ?? 47}%`, 
-                                        fontSize: `${(course.certificate_name_size || 29) * 0.2}cqw`,
+                                        fontSize: `calc(((${(() => {
+                                          const name = "Mariem Mahmoud Alsayed";
+                                          const nameLength = name.length;
+                                          let lengthScale = 1.0;
+                                          if (nameLength > 35) lengthScale = 0.55;
+                                          else if (nameLength > 28) lengthScale = 0.65;
+                                          else if (nameLength > 20) lengthScale = 0.8;
+                                          return (course.certificate_name_size || 24) * lengthScale;
+                                        })()}) / 800) * 100cqw)`,
                                         transform: 'translate(-50%, -50%)',
                                         fontFamily: "'Alike', serif",
                                         fontWeight: 'normal',
@@ -794,7 +802,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                                       style={{ 
                                         left: `${course.certificate_date_x ?? 15}%`, 
                                         top: `${course.certificate_date_y ?? 87}%`, 
-                                        fontSize: `${(course.certificate_date_size || 13) * 0.2}cqw`,
+                                        fontSize: `calc((${course.certificate_date_size || 14} / 800) * 100cqw)`,
                                         transform: 'translate(-50%, -50%)' 
                                       }}
                                     >
@@ -1858,7 +1866,15 @@ function MobileCourseView({
                           style={{ 
                             left: `${course.certificate_name_x ?? 50}%`, 
                             top: `${course.certificate_name_y ?? 47}%`, 
-                            fontSize: `${(course.certificate_name_size || 29) * 0.2}cqw`,
+                            fontSize: `calc(((${(() => {
+                              const name = "Mariem Mahmoud Alsayed";
+                              const nameLength = name.length;
+                              let lengthScale = 1.0;
+                              if (nameLength > 35) lengthScale = 0.55;
+                              else if (nameLength > 28) lengthScale = 0.65;
+                              else if (nameLength > 20) lengthScale = 0.8;
+                              return (course.certificate_name_size || 24) * lengthScale;
+                            })()}) / 800) * 100cqw)`,
                             transform: 'translate(-50%, -50%)',
                             fontFamily: "'Alike', serif",
                             fontWeight: 'normal',
@@ -1871,7 +1887,7 @@ function MobileCourseView({
                           style={{ 
                             left: `${course.certificate_date_x ?? 15}%`, 
                             top: `${course.certificate_date_y ?? 87}%`, 
-                            fontSize: `${(course.certificate_date_size || 13) * 0.2}cqw`,
+                            fontSize: `calc((${course.certificate_date_size || 14} / 800) * 100cqw)`,
                             transform: 'translate(-50%, -50%)' 
                           }}
                         >
