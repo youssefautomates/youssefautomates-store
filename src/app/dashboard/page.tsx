@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { 
   User, BookOpen, Download, Award, Settings, LogOut, 
   Loader2, Sparkles, ShieldCheck, CheckCircle2, ChevronLeft, 
-  ExternalLink, PlayCircle, Clock, FileText, ArrowLeft, RefreshCw, X, Printer, Send, Heart, Trash2
+  ExternalLink, PlayCircle, Clock, FileText, ArrowLeft, RefreshCw, X, Printer, Send, Heart, Trash2, Edit, FileImage, CheckCircle
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -46,6 +46,11 @@ export default function DashboardPage() {
 
   // Active Modals
   const [selectedCert, setSelectedCert] = useState<LmsCertificate | null>(null);
+  const [isEditingCertName, setIsEditingCertName] = useState(false);
+  const [certNameInput, setCertNameInput] = useState("");
+  const [isSavingCertName, setIsSavingCertName] = useState(false);
+  const [isDownloadingCertPdf, setIsDownloadingCertPdf] = useState(false);
+  const [isDownloadingCertPng, setIsDownloadingCertPng] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [resendingOrderId, setResendingOrderId] = useState<string | null>(null);
 
@@ -292,6 +297,180 @@ export default function DashboardPage() {
       await resolvePromise;
     } catch {} finally {
       setResendingOrderId(null);
+    }
+  };
+
+  const handleSaveCertificateName = async () => {
+    if (!selectedCert || !certNameInput.trim() || !user) return;
+    setIsSavingCertName(true);
+    try {
+      const { updateCertificateStudentName } = await import("@/lib/coursesDb");
+      const success = await updateCertificateStudentName(user.id, selectedCert.course_id, certNameInput.trim());
+      if (success) {
+        toast.success("تم تحديث وحفظ الاسم على الشهادة بنجاح! 🎉");
+        
+        // Update selectedCert in state instantly
+        setSelectedCert(prev => prev ? { ...prev, student_name: certNameInput.trim() } : prev);
+        
+        // Refresh certificates list
+        const { getUserCertificates } = await import("@/lib/coursesDb");
+        const updatedList = await getUserCertificates(user.id);
+        setCertificates(updatedList);
+        
+        setIsEditingCertName(false);
+      } else {
+        toast.error("فشل حفظ الاسم الجديد. يرجى المحاولة مرة أخرى.");
+      }
+    } catch (err) {
+      toast.error("حدث خطأ أثناء الاتصال بقاعدة البيانات.");
+    } finally {
+      setIsSavingCertName(false);
+    }
+  };
+
+  const downloadCertificate = async (format: "png" | "pdf") => {
+    if (!selectedCert) return;
+    if (format === "pdf") setIsDownloadingCertPdf(true);
+    else setIsDownloadingCertPng(true);
+
+    toast.info("جاري تهيئة وتصميم الشهادة الرقمية بدقة عالية...");
+    
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      setIsDownloadingCertPdf(false);
+      setIsDownloadingCertPng(false);
+      return;
+    }
+    
+    const finalizeDownload = async (dataUrl: string, width: number, height: number) => {
+      try {
+        if (format === "pdf") {
+          const { jsPDF } = await import("jspdf");
+          const pdf = new jsPDF({
+            orientation: "landscape",
+            unit: "px",
+            format: [width, height]
+          });
+          pdf.addImage(dataUrl, "PNG", 0, 0, width, height);
+          pdf.save(`شهادة_${selectedCert.course_name.replace(/\s+/g, "_")}_${selectedCert.student_name.replace(/\s+/g, "_")}.pdf`);
+          toast.success("تم تنزيل شهادتك المعتمدة بصيغة PDF بنجاح! 🎉🏆");
+        } else {
+          const link = document.createElement("a");
+          link.download = `شهادة_${selectedCert.course_name.replace(/\s+/g, "_")}_${selectedCert.student_name.replace(/\s+/g, "_")}.png`;
+          link.href = dataUrl;
+          link.click();
+          toast.success("تم تنزيل شهادتك المعتمدة بصيغة PNG بنجاح! 🎉🏆");
+        }
+      } catch (err) {
+        console.error("Certificate download failed:", err);
+        toast.error("فشل التنزيل المباشر، يمكنك استخدام زر الطباعة (PDF).");
+      } finally {
+        setIsDownloadingCertPdf(false);
+        setIsDownloadingCertPng(false);
+      }
+    };
+
+    if (selectedCert.certificate_bg_url) {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        canvas.width = img.naturalWidth || 2000;
+        canvas.height = img.naturalHeight || 1414;
+        
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = selectedCert.certificate_text_color || "#000000";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        
+        const nameSize = (selectedCert.certificate_name_size || 24) * (canvas.width / 800);
+        ctx.font = `bold ${nameSize}px Cairo, Alexandria, sans-serif`;
+        
+        const nameX = (selectedCert.certificate_name_x || 50) * (canvas.width / 100);
+        const nameY = (selectedCert.certificate_name_y || 40) * (canvas.height / 100);
+        ctx.fillText(selectedCert.student_name, nameX, nameY);
+        
+        const dateSize = (selectedCert.certificate_date_size || 14) * (canvas.width / 800);
+        ctx.font = `normal ${dateSize}px monospace`;
+        const dateX = (selectedCert.certificate_date_x || 50) * (canvas.width / 100);
+        const dateY = (selectedCert.certificate_date_y || 70) * (canvas.height / 100);
+        ctx.fillText(selectedCert.issued_at, dateX, dateY);
+        
+        const dataUrl = canvas.toDataURL("image/png");
+        finalizeDownload(dataUrl, canvas.width, canvas.height);
+      };
+      
+      img.onerror = () => {
+        toast.error("فشل تحميل قالب الشهادة المخصصة.");
+        setIsDownloadingCertPdf(false);
+        setIsDownloadingCertPng(false);
+      };
+      
+      img.src = selectedCert.certificate_bg_url;
+    } else {
+      canvas.width = 2000;
+      canvas.height = 1414;
+      
+      const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      grad.addColorStop(0, "#06060c");
+      grad.addColorStop(1, "#020205");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.strokeStyle = "#d97706";
+      ctx.lineWidth = 16;
+      ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
+      
+      ctx.strokeStyle = "#fbbf24";
+      ctx.lineWidth = 4;
+      ctx.strokeRect(60, 60, canvas.width - 120, canvas.height - 120);
+      
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      
+      ctx.fillStyle = "#fbbf24";
+      ctx.font = "bold 80px Cairo, sans-serif";
+      ctx.fillText("شهادة إكمال ومثابرة معتمدة", canvas.width / 2, 260);
+      
+      ctx.fillStyle = "#6b7280";
+      ctx.font = "bold 24px monospace";
+      ctx.fillText("VERIFIED DIGITAL CREDENTIAL OF COMPLETION", canvas.width / 2, 330);
+      
+      ctx.fillStyle = "#9ca3af";
+      ctx.font = "40px Cairo, sans-serif";
+      ctx.fillText("تشهد منصة وأكاديمية يوسف أوتوميتس بأن الطالب البارز:", canvas.width / 2, 480);
+      
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 90px Cairo, sans-serif";
+      ctx.fillText(selectedCert.student_name, canvas.width / 2, 630);
+      
+      ctx.strokeStyle = "rgba(245, 158, 11, 0.3)";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(canvas.width / 2 - 400, 700);
+      ctx.lineTo(canvas.width / 2 + 400, 700);
+      ctx.stroke();
+      
+      ctx.fillStyle = "#9ca3af";
+      ctx.font = "40px Cairo, sans-serif";
+      ctx.fillText("قد أكمل بنجاح ومثابرة كامل متطلبات ودروس المسار التدريبي الفخم:", canvas.width / 2, 820);
+      
+      ctx.fillStyle = "#ec4899";
+      ctx.font = "bold 65px Cairo, sans-serif";
+      ctx.fillText(selectedCert.course_name, canvas.width / 2, 940);
+      
+      ctx.fillStyle = "#4b5563";
+      ctx.font = "30px Cairo, sans-serif";
+      ctx.fillText(`تاريخ الصدور: ${selectedCert.issued_at}`, canvas.width / 2 - 350, 1150);
+      ctx.fillText(`رقم التوثيق الرقمي: ${selectedCert.verification_id}`, canvas.width / 2 + 350, 1150);
+      
+      ctx.fillStyle = "rgba(251, 191, 36, 0.03)";
+      ctx.font = "bold 130px Cairo, sans-serif";
+      ctx.fillText("YOUSSEF AUTOMATES", canvas.width / 2, canvas.height / 2 + 50);
+      
+      const dataUrl = canvas.toDataURL("image/png");
+      finalizeDownload(dataUrl, canvas.width, canvas.height);
     }
   };
 
@@ -1194,10 +1373,13 @@ export default function DashboardPage() {
 
       {/* ── MODAL 1: CERTIFICATES SHADED MODAL ────────────────────────────────── */}
       {selectedCert && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl max-w-3xl w-full p-8 space-y-6 shadow-2xl relative">
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-2xl relative">
             <button 
-              onClick={() => setSelectedCert(null)}
+              onClick={() => {
+                setIsEditingCertName(false);
+                setSelectedCert(null);
+              }}
               className="absolute top-4 left-4 p-2 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
@@ -1287,17 +1469,97 @@ export default function DashboardPage() {
               </div>
             )}
 
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/5">
+            {/* Certificate Editing Section */}
+            {!isEditingCertName ? (
+              <div className="flex flex-col items-center justify-center p-5 bg-white/[0.01] border border-white/5 rounded-3xl gap-3 text-center">
+                <div className="text-zinc-400 text-xs font-medium">الاسم المطبوع حالياً على الشهادة: <span className="text-amber-400 font-black">{selectedCert.student_name}</span></div>
+                <button
+                  onClick={() => {
+                    setCertNameInput(selectedCert.student_name);
+                    setIsEditingCertName(true);
+                  }}
+                  className="px-5 py-2.5 bg-white/5 hover:bg-white/10 text-rose-400 border border-white/10 hover:border-rose-500/25 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                  <span>تعديل الاسم المطبوع على الشهادة</span>
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col bg-white/[0.01] border border-white/5 p-6 rounded-3xl gap-4 text-right">
+                <div className="space-y-1">
+                  <label className="text-xs font-alexandria font-bold text-zinc-300 block">تعديل اسم الطالب المطبوع:</label>
+                  <p className="text-[10px] text-zinc-500 font-medium">تنبيه: يمكنك فقط تعديل نص الاسم. لا يمكنك تغيير نوع الخط أو الحجم المحددين مسبقاً من الإدارة لضمان توافق وجودة الشهادة الاحترافية.</p>
+                </div>
+                
+                <input
+                  type="text"
+                  value={certNameInput}
+                  onChange={(e) => setCertNameInput(e.target.value)}
+                  placeholder="اكتب اسمك الثلاثي بالشكل الصحيح..."
+                  className="w-full bg-[#0a0a0f] border border-white/5 focus:border-rose-500/50 rounded-2xl p-4 text-xs focus:outline-none transition-all text-white text-right leading-relaxed"
+                  required
+                />
+                
+                <div className="flex items-center justify-end gap-2.5">
+                  <button
+                    onClick={() => setIsEditingCertName(false)}
+                    className="h-10 px-5 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer border border-white/5"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    onClick={handleSaveCertificateName}
+                    disabled={isSavingCertName || !certNameInput.trim()}
+                    className="h-10 px-5 bg-gradient-to-l from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-xl text-xs font-alexandria font-black flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-rose-600/10"
+                  >
+                    {isSavingCertName ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                    <span>حفظ الاسم وتحديث الشهادة</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-4 border-t border-white/5">
+              <button
+                onClick={() => downloadCertificate("pdf")}
+                disabled={isDownloadingCertPdf || isDownloadingCertPng}
+                className="w-full sm:w-auto h-11 px-6 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-black rounded-xl font-black text-xs flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_4px_20px_rgba(245,158,11,0.25)] disabled:opacity-50 shrink-0 cursor-pointer"
+              >
+                {isDownloadingCertPdf ? (
+                  <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                ) : (
+                  <Download className="w-4.5 h-4.5" />
+                )}
+                <span>تحميل الشهادة بصيغة PDF (جودة فائقة)</span>
+              </button>
+
+              <button
+                onClick={() => downloadCertificate("png")}
+                disabled={isDownloadingCertPdf || isDownloadingCertPng}
+                className="w-full sm:w-auto h-11 px-5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all shrink-0 cursor-pointer"
+              >
+                {isDownloadingCertPng ? (
+                  <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                ) : (
+                  <FileImage className="w-4.5 h-4.5 text-zinc-400" />
+                )}
+                <span>تحميل بصيغة PNG (صورة)</span>
+              </button>
+
               <button
                 onClick={() => window.print()}
-                className="h-11 px-5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl font-bold text-xs flex items-center gap-2 active:scale-95 transition-all cursor-pointer"
+                className="w-full sm:w-auto h-11 px-5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl font-bold text-xs flex items-center gap-2 active:scale-95 transition-all cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
-                <span>طباعة الشهادة (PDF)</span>
+                <span>طباعة الشهادة</span>
               </button>
+              
               <button
-                onClick={() => setSelectedCert(null)}
-                className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs active:scale-95 transition-all cursor-pointer"
+                onClick={() => {
+                  setIsEditingCertName(false);
+                  setSelectedCert(null);
+                }}
+                className="w-full sm:w-auto h-11 px-6 bg-zinc-800 hover:bg-zinc-700 text-zinc-350 hover:text-white rounded-xl font-bold text-xs active:scale-95 transition-all cursor-pointer"
               >
                 إغلاق
               </button>

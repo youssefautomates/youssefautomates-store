@@ -1214,6 +1214,15 @@ export async function getUserCertificates(userId: string): Promise<LmsCertificat
       const courses = await getCoursesList();
       for (const d of data) {
         const c = courses.find(course => course.id === d.course_id);
+        
+        // Fetch user enrolled name for this specific course
+        const { data: enroll } = await supabaseClient
+          .from("enrollments")
+          .select("user_name")
+          .eq("user_id", userId)
+          .eq("course_id", d.course_id)
+          .maybeSingle();
+
         populated.push({
           ...d,
           course_name: c?.title || "دورة تعليمية احترافية",
@@ -1228,7 +1237,8 @@ export async function getUserCertificates(userId: string): Promise<LmsCertificat
           certificate_date_y: c?.certificate_date_y || 70,
           certificate_date_size: c?.certificate_date_size || 14,
           issued_at: new Date(d.created_at || d.issued_at || Date.now()).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
-          verification_id: d.certificate_url || d.id
+          verification_id: d.certificate_url || d.id,
+          student_name: enroll?.user_name || "طالب يوسف أوتوميتس"
         });
       }
       return populated as LmsCertificate[];
@@ -1237,8 +1247,10 @@ export async function getUserCertificates(userId: string): Promise<LmsCertificat
 
   const certs = localDb.getCertificates().filter(c => c.user_id === userId);
   const courses = localDb.getCourses();
+  const enrolls = localDb.getEnrollments();
   return certs.map(c => {
     const course = courses.find(co => co.id === c.course_id);
+    const enroll = enrolls.find(e => e.user_id === userId && e.course_id === c.course_id);
     return {
       ...c,
       course_name: course?.title || c.course_name || "دورة تعليمية احترافية",
@@ -1252,7 +1264,8 @@ export async function getUserCertificates(userId: string): Promise<LmsCertificat
       certificate_date_x: course?.certificate_date_x || 50,
       certificate_date_y: course?.certificate_date_y || 70,
       certificate_date_size: course?.certificate_date_size || 14,
-      verification_id: c.verification_id || c.certificate_url || c.id
+      verification_id: c.verification_id || c.certificate_url || c.id,
+      student_name: enroll?.user_name || c.student_name || "طالب يوسف أوتوميتس"
     };
   });
 }
@@ -1272,6 +1285,14 @@ export async function getCertificateByVerificationId(id: string): Promise<LmsCer
     if (!error && data) {
       // Find course details
       const { data: course } = await supabaseClient.from("courses").select("*").eq("id", data.course_id).maybeSingle();
+      // Fetch user name from enrollments
+      const { data: enroll } = await supabaseClient
+        .from("enrollments")
+        .select("user_name")
+        .eq("user_id", data.user_id)
+        .eq("course_id", data.course_id)
+        .maybeSingle();
+
       return {
         ...data,
         course_name: course?.title || "دورة تعليمية احترافية",
@@ -1286,7 +1307,8 @@ export async function getCertificateByVerificationId(id: string): Promise<LmsCer
         certificate_date_y: course?.certificate_date_y || 70,
         certificate_date_size: course?.certificate_date_size || 14,
         issued_at: new Date(data.created_at || data.issued_at || Date.now()).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
-        verification_id: data.certificate_url || id
+        verification_id: data.certificate_url || id,
+        student_name: enroll?.user_name || "طالب يوسف أوتوميتس"
       } as LmsCertificate;
     }
   } catch (e) {}
@@ -1296,6 +1318,7 @@ export async function getCertificateByVerificationId(id: string): Promise<LmsCer
   const found = certs.find(c => c.verification_id === id || c.id === id || c.certificate_url === id) || null;
   if (found) {
     const course = localDb.getCourses().find(co => co.id === found.course_id);
+    const enroll = localDb.getEnrollments().find(e => e.user_id === found.user_id && e.course_id === found.course_id);
     return {
       ...found,
       course_name: course?.title || found.course_name || "دورة تعليمية احترافية",
@@ -1309,11 +1332,45 @@ export async function getCertificateByVerificationId(id: string): Promise<LmsCer
       certificate_date_x: course?.certificate_date_x || 50,
       certificate_date_y: course?.certificate_date_y || 70,
       certificate_date_size: course?.certificate_date_size || 14,
-      verification_id: found.verification_id || found.certificate_url || id
+      verification_id: found.verification_id || found.certificate_url || id,
+      student_name: enroll?.user_name || found.student_name || "طالب يوسف أوتوميتس"
     } as LmsCertificate;
   }
   return null;
 }
+
+export async function updateCertificateStudentName(userId: string, courseId: string, newName: string): Promise<boolean> {
+  try {
+    const { error } = await supabaseClient
+      .from("enrollments")
+      .update({ user_name: newName })
+      .eq("user_id", userId)
+      .eq("course_id", courseId);
+    
+    if (!error) {
+      // Synchronize in local fallback
+      const enrolls = localDb.getEnrollments();
+      const exists = enrolls.find(e => e.user_id === userId && e.course_id === courseId);
+      if (exists) {
+        exists.user_name = newName;
+        localDb.saveEnrollments(enrolls);
+      }
+      
+      const certs = localDb.getCertificates();
+      const cert = certs.find(c => c.user_id === userId && c.course_id === courseId);
+      if (cert) {
+        cert.student_name = newName;
+        localDb.saveCertificates(certs);
+      }
+      
+      return true;
+    }
+  } catch (e) {
+    console.error("Error updating certificate student name:", e);
+  }
+  return false;
+}
+
 
 // 10. Student Management API Utilities
 export async function updateStudentProfile(userId: string, name: string, email: string): Promise<boolean> {
