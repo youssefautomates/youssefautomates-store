@@ -494,6 +494,10 @@ export default function DashboardPage() {
       return;
     }
 
+    const isEgp = selectedInvoice.currency?.toUpperCase() === "EGP";
+    const formattedPrice = isEgp ? `${selectedInvoice.amount} جنيه` : `$${selectedInvoice.amount}`;
+    const formattedTax = isEgp ? "0 جنيه" : "$0.00";
+
     // Draw beautiful dark glassmorphic receipt design
     // 1. Background
     const grad = ctx.createLinearGradient(0, 0, 0, 1400);
@@ -615,7 +619,7 @@ export default function DashboardPage() {
     ctx.fillStyle = "#10b981";
     ctx.font = "bold 32px monospace";
     ctx.textAlign = "left";
-    ctx.fillText(`$${selectedInvoice.amount}`, 100, 610);
+    ctx.fillText(formattedPrice, 100, 610);
 
     // Separator line
     ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
@@ -635,9 +639,9 @@ export default function DashboardPage() {
     
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 22px monospace";
-    ctx.fillText(`$${selectedInvoice.amount}`, 1100, 740);
-    ctx.fillText("$0.00", 1100, 790);
-    ctx.fillText("$0.00", 1100, 840);
+    ctx.fillText(formattedPrice, 1100, 740);
+    ctx.fillText(formattedTax, 1100, 790);
+    ctx.fillText(formattedTax, 1100, 840);
 
     // Total Paid Row
     ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
@@ -652,7 +656,7 @@ export default function DashboardPage() {
     ctx.fillText("الإجمالي المدفوع:", 900, 950);
     
     ctx.font = "bold 38px monospace";
-    ctx.fillText(`$${selectedInvoice.amount}`, 1100, 950);
+    ctx.fillText(formattedPrice, 1100, 950);
 
     // Stamp / Paid seal in the center bottom
     ctx.strokeStyle = "#10b981";
@@ -1344,7 +1348,7 @@ export default function DashboardPage() {
 
                       <div className="flex items-center gap-3 w-full sm:w-auto shrink-0 justify-between sm:justify-end">
                         <span className="text-emerald-400 font-alexandria font-black text-base pr-2 sm:pr-4">
-                          ${inv.amount}
+                          {inv.currency?.toUpperCase() === "EGP" ? `${inv.amount} جنيه` : `$${inv.amount}`}
                         </span>
 
                         <div className="flex items-center gap-2">
@@ -1862,14 +1866,18 @@ export default function DashboardPage() {
                 <tbody>
                   <tr>
                     <td className="py-3 text-white font-bold">{selectedInvoice.product_title}</td>
-                    <td className="py-3 text-left text-emerald-400 font-bold">${selectedInvoice.amount}</td>
+                    <td className="py-3 text-left text-emerald-400 font-bold">
+                      {selectedInvoice.currency?.toUpperCase() === "EGP" ? `${selectedInvoice.amount} جنيه` : `$${selectedInvoice.amount}`}
+                    </td>
                   </tr>
                 </tbody>
               </table>
 
               <div className="border-t border-white/5 pt-4 flex justify-between items-center text-sm font-bold">
                 <span className="text-zinc-400">الإجمالي المدفوع:</span>
-                <span className="text-emerald-400 text-lg">${selectedInvoice.amount}</span>
+                <span className="text-emerald-400 text-lg">
+                  {selectedInvoice.currency?.toUpperCase() === "EGP" ? `${selectedInvoice.amount} جنيه` : `$${selectedInvoice.amount}`}
+                </span>
               </div>
             </div>
 
