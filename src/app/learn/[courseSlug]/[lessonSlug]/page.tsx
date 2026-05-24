@@ -326,7 +326,7 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ courseS
     }
   }, [courseSlug, lessonSlug]);
 
-  // 6. Keyboard Shortcuts Listener
+  // 6. Keyboard Shortcuts Listener (Conflict-free: Space/Arrows are handled natively by SecureVideoPlayer)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if typing inside inputs or textareas
@@ -338,23 +338,6 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ courseS
       }
 
       switch (e.key.toLowerCase()) {
-        case " ": // Spacebar: Play/Pause video
-          e.preventDefault();
-          setIsPlaying(prev => !prev);
-          toast.info(isPlaying ? "تم إيقاف تشغيل الفيديو مؤقتاً" : "جاري تشغيل الفيديو");
-          break;
-        case "arrowleft": // Left Arrow: Next Lesson (Arabic layout direction)
-          if (nextLesson) {
-            router.push(`/learn/${courseSlug}/${nextLesson.slug}`);
-            toast.info(`المحاضرة التالية: ${nextLesson.title}`);
-          }
-          break;
-        case "arrowright": // Right Arrow: Previous Lesson
-          if (prevLesson) {
-            router.push(`/learn/${courseSlug}/${prevLesson.slug}`);
-            toast.info(`المحاضرة السابقة: ${prevLesson.title}`);
-          }
-          break;
         case "f": // F key: Fullscreen toggle
           e.preventDefault();
           if (playerRef.current) {
@@ -370,7 +353,7 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ courseS
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [courseSlug, lessonSlug, isPlaying]);
+  }, []);
 
   const loadCurriculumAndProgress = async () => {
     const { course: c, sections: s } = await getCourseBySlug(courseSlug);

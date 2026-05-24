@@ -1173,13 +1173,40 @@ export async function getCourseProgressPercent(userId: string, courseId: string)
 
 // 9. Certificates issuing
 export async function issueCertificate(userId: string, courseId: string, studentName: string): Promise<LmsCertificate> {
-  const courses = localDb.getCourses();
-  const c = courses.find(course => course.id === courseId);
-  const courseName = c?.title || "دورة تعليمية احترافية";
+  // Fetch course details from Supabase if possible, otherwise fallback to localDb
+  let courseDetails: any = null;
+  try {
+    const { data } = await supabaseClient.from("courses").select("*").eq("id", courseId).maybeSingle();
+    if (data) {
+      courseDetails = data;
+    }
+  } catch (e) {}
+
+  if (!courseDetails) {
+    const courses = localDb.getCourses();
+    courseDetails = courses.find(course => course.id === courseId);
+  }
+
+  const courseName = courseDetails?.title || "دورة تعليمية احترافية";
 
   const certs = localDb.getCertificates();
   const exists = certs.find(cert => cert.user_id === userId && cert.course_id === courseId);
-  if (exists) return exists;
+  if (exists) {
+    return {
+      ...exists,
+      course_name: courseName,
+      certificate_bg_url: courseDetails?.certificate_bg_url || "",
+      certificate_text_color: courseDetails?.certificate_text_color || "#000000",
+      certificate_name_x: courseDetails?.certificate_name_x || 50,
+      certificate_name_y: courseDetails?.certificate_name_y || 40,
+      certificate_name_size: courseDetails?.certificate_name_size || 24,
+      certificate_course_x: courseDetails?.certificate_course_x || 50,
+      certificate_course_y: courseDetails?.certificate_course_y || 55,
+      certificate_date_x: courseDetails?.certificate_date_x || 50,
+      certificate_date_y: courseDetails?.certificate_date_y || 70,
+      certificate_date_size: courseDetails?.certificate_date_size || 14
+    };
+  }
 
   const verificationId = `YA-CERT-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
   const record: LmsCertificate = {
@@ -1189,7 +1216,17 @@ export async function issueCertificate(userId: string, courseId: string, student
     issued_at: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
     verification_id: verificationId,
     student_name: studentName,
-    course_name: courseName
+    course_name: courseName,
+    certificate_bg_url: courseDetails?.certificate_bg_url || "",
+    certificate_text_color: courseDetails?.certificate_text_color || "#000000",
+    certificate_name_x: courseDetails?.certificate_name_x || 50,
+    certificate_name_y: courseDetails?.certificate_name_y || 40,
+    certificate_name_size: courseDetails?.certificate_name_size || 24,
+    certificate_course_x: courseDetails?.certificate_course_x || 50,
+    certificate_course_y: courseDetails?.certificate_course_y || 55,
+    certificate_date_x: courseDetails?.certificate_date_x || 50,
+    certificate_date_y: courseDetails?.certificate_date_y || 70,
+    certificate_date_size: courseDetails?.certificate_date_size || 14
   };
 
   certs.push(record);
@@ -1213,7 +1250,17 @@ export async function getUserCertificates(userId: string): Promise<LmsCertificat
       const populated = [];
       const courses = await getCoursesList();
       for (const d of data) {
-        const c = courses.find(course => course.id === d.course_id);
+        let c = courses.find(course => course.id === d.course_id);
+        
+        // If course is not found in getCoursesList cache/filters, query directly from Supabase
+        if (!c) {
+          try {
+            const { data: dbCourse } = await supabaseClient.from("courses").select("*").eq("id", d.course_id).maybeSingle();
+            if (dbCourse) {
+              c = dbCourse as any;
+            }
+          } catch (e) {}
+        }
         
         // Fetch user enrolled name for this specific course
         const { data: enroll } = await supabaseClient
