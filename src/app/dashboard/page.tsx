@@ -35,7 +35,7 @@ export default function DashboardPage() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [wishlistItems, setWishlistItems] = useState<any[]>([]);
   const [isRemovingWishlistId, setIsRemovingWishlistId] = useState<string | null>(null);
-  const [studyStats, setStudyStats] = useState({ totalSeconds: 0, completedCount: 0, streak: 1 });
+  const [studyStats, setStudyStats] = useState({ totalSeconds: 0, completedCount: 0, streak: 1, level: "البرونزي (مستكشف مبتدئ) 🥉" });
 
   
   // Settings Form State
@@ -51,6 +51,8 @@ export default function DashboardPage() {
   const [isSavingCertName, setIsSavingCertName] = useState(false);
   const [isDownloadingCertPdf, setIsDownloadingCertPdf] = useState(false);
   const [isDownloadingCertPng, setIsDownloadingCertPng] = useState(false);
+  const [isDownloadingInvoicePdf, setIsDownloadingInvoicePdf] = useState(false);
+  const [isDownloadingInvoicePng, setIsDownloadingInvoicePng] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [resendingOrderId, setResendingOrderId] = useState<string | null>(null);
 
@@ -239,7 +241,8 @@ export default function DashboardPage() {
           setStudyStats({
             totalSeconds: liveStats.studyHours * 3600,
             completedCount: liveStats.completedLessons,
-            streak: liveStats.streak
+            streak: liveStats.streak,
+            level: liveStats.level || "البرونزي (مستكشف مبتدئ) 🥉"
           });
         }
       } catch (e) {
@@ -471,6 +474,244 @@ export default function DashboardPage() {
       
       const dataUrl = canvas.toDataURL("image/png");
       finalizeDownload(dataUrl, canvas.width, canvas.height);
+    }
+  };
+
+  const downloadInvoice = async (format: "png" | "pdf") => {
+    if (!selectedInvoice) return;
+    if (format === "pdf") setIsDownloadingInvoicePdf(true);
+    else setIsDownloadingInvoicePng(true);
+
+    toast.info("جاري تصميم الفاتورة الرقمية بدقة عالية...");
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 1200;
+    canvas.height = 1400;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      setIsDownloadingInvoicePdf(false);
+      setIsDownloadingInvoicePng(false);
+      return;
+    }
+
+    // Draw beautiful dark glassmorphic receipt design
+    // 1. Background
+    const grad = ctx.createLinearGradient(0, 0, 0, 1400);
+    grad.addColorStop(0, "#08080c");
+    grad.addColorStop(1, "#0f0f16");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1200, 1400);
+
+    // Decorative glass glow
+    const radialGrad = ctx.createRadialGradient(600, 700, 100, 600, 700, 600);
+    radialGrad.addColorStop(0, "rgba(214, 0, 75, 0.05)");
+    radialGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = radialGrad;
+    ctx.fillRect(0, 0, 1200, 1400);
+
+    // Border
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+    ctx.lineWidth = 16;
+    ctx.strokeRect(8, 8, 1184, 1384);
+
+    ctx.strokeStyle = "#D6004B";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(20, 20, 1160, 1360);
+
+    // Header (RTL Alignment for Arabic Texts)
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "right";
+    
+    // Logo text
+    ctx.font = "bold 42px sans-serif";
+    ctx.fillText("يوسف أوتوميتس", 1100, 100);
+    
+    ctx.font = "normal 18px sans-serif";
+    ctx.fillStyle = "#a1a1aa";
+    ctx.fillText("المنصة الرائدة لتعليم هندسة البرمجيات والذكاء الاصطناعي", 1100, 140);
+    ctx.fillText("support@youssefautomates.com", 1100, 170);
+
+    // Document Title (LTL Alignment for metadata)
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#D6004B";
+    ctx.font = "bold 48px sans-serif";
+    ctx.fillText("فاتورة شراء رقمية", 100, 100);
+
+    ctx.fillStyle = "#a1a1aa";
+    ctx.font = "normal 20px monospace";
+    ctx.fillText(`رقم الفاتورة: #${selectedInvoice.payment_id || selectedInvoice.id}`, 100, 145);
+    ctx.fillText(`تاريخ الإصدار: ${new Date(selectedInvoice.created_at).toLocaleDateString("ar-EG")}`, 100, 175);
+
+    // Separator line
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(100, 230);
+    ctx.lineTo(1100, 230);
+    ctx.stroke();
+
+    // Bill to / Bill from
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#a1a1aa";
+    ctx.font = "bold 22px sans-serif";
+    ctx.fillText("مُصدرة إلى (العميل):", 1100, 280);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 26px sans-serif";
+    ctx.fillText(selectedInvoice.customer_name || profileName, 1100, 320);
+    
+    ctx.font = "normal 20px monospace";
+    ctx.fillStyle = "#d4d4d8";
+    ctx.fillText(selectedInvoice.customer_email, 1100, 365);
+
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#a1a1aa";
+    ctx.font = "bold 22px sans-serif";
+    ctx.fillText("تفاصيل الدفع والمزود:", 100, 280);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 24px sans-serif";
+    ctx.fillText("أكاديمية Youssef Automates", 100, 320);
+
+    ctx.font = "normal 20px sans-serif";
+    ctx.fillStyle = "#d4d4d8";
+    ctx.fillText("بوابة الدفع الإلكتروني: Paymob", 100, 360);
+    ctx.fillText("الحالة: مدفوعة بالكامل ✅", 100, 395);
+
+    // Separator line
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(100, 450);
+    ctx.lineTo(1100, 450);
+    ctx.stroke();
+
+    // Table Header
+    ctx.fillStyle = "#a1a1aa";
+    ctx.font = "bold 22px sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText("تفاصيل المسار التعليمي / المنتج", 1100, 510);
+    
+    ctx.textAlign = "left";
+    ctx.fillText("المبلغ الإجمالي", 100, 510);
+
+    // Separator line
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(100, 540);
+    ctx.lineTo(1100, 540);
+    ctx.stroke();
+
+    // Table Row
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 28px sans-serif";
+    ctx.textAlign = "right";
+    
+    // Draw course title
+    const prodTitle = selectedInvoice.product_title;
+    ctx.fillText(prodTitle, 1100, 610);
+
+    ctx.fillStyle = "#10b981";
+    ctx.font = "bold 32px monospace";
+    ctx.textAlign = "left";
+    ctx.fillText(`$${selectedInvoice.amount}`, 100, 610);
+
+    // Separator line
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(100, 670);
+    ctx.lineTo(1100, 670);
+    ctx.stroke();
+
+    // Totals Section
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#a1a1aa";
+    ctx.font = "normal 22px sans-serif";
+    ctx.fillText("المجموع الفرعي:", 900, 740);
+    ctx.fillText("الضرائب والرسوم:", 900, 790);
+    ctx.fillText("الخصومات والكوبونات:", 900, 840);
+    
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 22px monospace";
+    ctx.fillText(`$${selectedInvoice.amount}`, 1100, 740);
+    ctx.fillText("$0.00", 1100, 790);
+    ctx.fillText("$0.00", 1100, 840);
+
+    // Total Paid Row
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(700, 890);
+    ctx.lineTo(1100, 890);
+    ctx.stroke();
+
+    ctx.fillStyle = "#10b981";
+    ctx.font = "bold 28px sans-serif";
+    ctx.fillText("الإجمالي المدفوع:", 900, 950);
+    
+    ctx.font = "bold 38px monospace";
+    ctx.fillText(`$${selectedInvoice.amount}`, 1100, 950);
+
+    // Stamp / Paid seal in the center bottom
+    ctx.strokeStyle = "#10b981";
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(300, 850, 90, 0, 2 * Math.PI);
+    ctx.stroke();
+    
+    ctx.fillStyle = "#10b981";
+    ctx.font = "bold 32px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("مدفوع", 300, 835);
+    ctx.font = "bold 20px monospace";
+    ctx.fillText("PAID", 300, 875);
+
+    // Bottom banner
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(100, 1100);
+    ctx.lineTo(1100, 1100);
+    ctx.stroke();
+
+    ctx.fillStyle = "#a1a1aa";
+    ctx.font = "normal 18px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("شكراً لثقتك واشتراكك في مساراتنا التعليمية الفنية الفاخرة.", 600, 1160);
+    ctx.fillText("هذه الفاتورة مستند رسمي ومعتمد لعملية الشراء ولا تحتاج لتوقيع.", 600, 1200);
+    ctx.font = "normal 14px monospace";
+    ctx.fillStyle = "#71717a";
+    ctx.fillText("Youssef Automates © 2026. All rights reserved.", 600, 1240);
+
+    // Finalize image export
+    const dataUrl = canvas.toDataURL("image/png");
+    
+    try {
+      if (format === "pdf") {
+        const { jsPDF } = await import("jspdf");
+        const pdf = new jsPDF({
+          orientation: "portrait",
+          unit: "px",
+          format: [1200, 1400]
+        });
+        pdf.addImage(dataUrl, "PNG", 0, 0, 1200, 1400);
+        pdf.save(`فاتورة_${selectedInvoice.product_title.replace(/\s+/g, "_")}_#${selectedInvoice.payment_id || selectedInvoice.id}.pdf`);
+        toast.success("تم تحميل فاتورتك الرسمية بصيغة PDF بنجاح! 📄🎉");
+      } else {
+        const link = document.createElement("a");
+        link.download = `فاتورة_${selectedInvoice.product_title.replace(/\s+/g, "_")}_#${selectedInvoice.payment_id || selectedInvoice.id}.png`;
+        link.href = dataUrl;
+        link.click();
+        toast.success("تم تحميل الفاتورة الرقمية كصورة PNG بنجاح! 🖼️🎉");
+      }
+    } catch (err) {
+      console.error("Invoice download failed:", err);
+      toast.error("حدث خطأ أثناء تحميل الفاتورة.");
+    } finally {
+      setIsDownloadingInvoicePdf(false);
+      setIsDownloadingInvoicePng(false);
     }
   };
 
@@ -707,7 +948,7 @@ export default function DashboardPage() {
             },
             {
               title: "المستوى التعليمي",
-              value: studyStats.completedCount >= 10 ? "خبير الأتمتة 🎓" : studyStats.completedCount >= 4 ? "طالب مجتهد ⚡" : "مستكشف مبتدئ 🌱",
+              value: studyStats.level || "البرونزي (مستكشف مبتدئ) 🥉",
               unit: "",
               isLevel: true,
               icon: Award,
@@ -840,7 +1081,10 @@ export default function DashboardPage() {
                       className="group relative bg-[#07070b]/60 border border-white/5 hover:border-rose-500/20 rounded-3xl overflow-hidden flex flex-col h-full shadow-2xl transition-all duration-500 hover:-translate-y-1.5 hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
                     >
                       {/* Top Media Cover */}
-                      <div className="relative h-48 bg-zinc-950 overflow-hidden flex items-center justify-center">
+                      <Link 
+                        href={`/learn/${course.slug}/${course.lastLessonSlug || course.firstLessonSlug}`}
+                        className="relative h-48 bg-zinc-950 overflow-hidden flex items-center justify-center cursor-pointer block"
+                      >
                         <img 
                           src={course.image_url} 
                           alt={course.title}
@@ -859,13 +1103,15 @@ export default function DashboardPage() {
                           <Clock className="w-3.5 h-3.5 text-rose-400" />
                           <span>{course.duration_hours} ساعة تدريبية</span>
                         </span>
-                      </div>
+                      </Link>
 
                       {/* Card Content */}
                       <div className="p-6 sm:p-7 flex-1 flex flex-col justify-between relative z-10">
                         <div className="space-y-2">
                           <h3 className="text-base sm:text-lg font-alexandria font-black text-white leading-snug group-hover:text-rose-400 transition-colors duration-300 line-clamp-2">
-                            {course.title}
+                            <Link href={`/learn/${course.slug}/${course.lastLessonSlug || course.firstLessonSlug}`}>
+                              {course.title}
+                            </Link>
                           </h3>
                           <p className="text-zinc-400 font-cairo text-xs leading-relaxed line-clamp-2">
                             {course.short_description || "تعلم الأتمتة والتقنيات الحديثة خطوة بخطوة."}
@@ -1627,7 +1873,42 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/5">
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-4 border-t border-white/5 w-full">
+              <button
+                onClick={() => downloadInvoice("pdf")}
+                disabled={isDownloadingInvoicePdf || isDownloadingInvoicePng}
+                className="w-full sm:w-auto h-11 px-5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl font-black text-xs flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_4px_20px_rgba(16,185,129,0.25)] disabled:opacity-50 shrink-0 cursor-pointer"
+              >
+                {isDownloadingInvoicePdf ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                <span>تحميل PDF (جودة فائقة)</span>
+              </button>
+
+              <button
+                onClick={() => downloadInvoice("png")}
+                disabled={isDownloadingInvoicePdf || isDownloadingInvoicePng}
+                className="w-full sm:w-auto h-11 px-5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 shrink-0 cursor-pointer"
+              >
+                {isDownloadingInvoicePng ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FileImage className="w-4 h-4 text-zinc-400" />
+                )}
+                <span>تحميل كصورة PNG</span>
+              </button>
+
+              <button
+                onClick={() => handleResendEmailForOrder(selectedInvoice.id)}
+                className="w-full sm:w-auto h-11 px-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all shrink-0 cursor-pointer"
+                title="إعادة إرسال الفاتورة والبريد الإلكتروني"
+              >
+                <Send className="w-4 h-4 text-zinc-400" />
+                <span>إرسال بالبريد</span>
+              </button>
+
               <button
                 onClick={() => {
                   const printContents = document.getElementById("printable-invoice")?.innerHTML;
@@ -1655,14 +1936,15 @@ export default function DashboardPage() {
                     printWindow?.document.close();
                   }
                 }}
-                className="h-11 px-5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer"
+                className="w-full sm:w-auto h-11 px-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
-                <span>طباعة الفاتورة (PDF)</span>
+                <span>طباعة</span>
               </button>
+              
               <button
                 onClick={() => setSelectedInvoice(null)}
-                className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs transition-all cursor-pointer"
+                className="w-full sm:w-auto h-11 px-6 bg-zinc-800 hover:bg-zinc-700 text-zinc-350 hover:text-white rounded-xl font-bold text-xs active:scale-95 transition-all cursor-pointer"
               >
                 إغلاق
               </button>

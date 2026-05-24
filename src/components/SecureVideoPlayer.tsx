@@ -377,10 +377,53 @@ export default function SecureVideoPlayer({
     const iframe = containerRef.current?.querySelector("iframe");
     if (iframe?.contentWindow) {
       try {
+        // Send in standard Player.js format (context: "player.js")
         iframe.contentWindow.postMessage(
-          JSON.stringify({ event, value }),
+          JSON.stringify({
+            context: "player.js",
+            method: event,
+            value: value
+          }),
           "*"
         );
+
+        // Also send in custom event/value format (in case some wrapper uses it)
+        iframe.contentWindow.postMessage(
+          JSON.stringify({
+            event: event,
+            value: value
+          }),
+          "*"
+        );
+
+        // If event is speed or quality, try alternative method names to cover all possible specifications
+        if (event === "setPlaybackSpeed") {
+          iframe.contentWindow.postMessage(
+            JSON.stringify({
+              context: "player.js",
+              method: "setPlaybackRate",
+              value: value
+            }),
+            "*"
+          );
+          iframe.contentWindow.postMessage(
+            JSON.stringify({
+              context: "player.js",
+              method: "setSpeed",
+              value: value
+            }),
+            "*"
+          );
+        } else if (event === "setQuality") {
+          iframe.contentWindow.postMessage(
+            JSON.stringify({
+              context: "player.js",
+              method: "quality",
+              value: value
+            }),
+            "*"
+          );
+        }
       } catch (e) {
         console.error("Failed to post message to iframe:", e);
       }
@@ -505,6 +548,27 @@ export default function SecureVideoPlayer({
             setPauseCount(prev => prev + 1);
             if (duration > 0) {
               await syncProgress(currentTime, duration);
+            }
+          } else if (
+            eventName === "ratechange" || 
+            eventName === "playbackspeedchange" || 
+            eventName === "speedchange" || 
+            eventName === "player:ratechange" ||
+            eventName === "player:speedchange"
+          ) {
+            const speed = Number(eventData.value || eventData.playbackRate || eventData.speed);
+            if (!isNaN(speed) && speed > 0) {
+              setPlaybackSpeed(speed);
+            }
+          } else if (
+            eventName === "qualitychange" || 
+            eventName === "renditionchange" || 
+            eventName === "player:qualitychange" ||
+            eventName === "player:renditionchange"
+          ) {
+            const quality = eventData.value || eventData.quality || eventData.rendition;
+            if (quality) {
+              setVideoQuality(String(quality));
             }
           }
         }

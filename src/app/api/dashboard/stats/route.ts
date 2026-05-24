@@ -30,35 +30,81 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // 1. Get total watch time
-    const { data: watchSessions } = await supabaseAdmin
-      .from("video_watch_sessions")
-      .select("seconds_watched")
+    // 1. Get total watch time dynamically from course_progress table
+    const { data: progressSessions } = await supabaseAdmin
+      .from("course_progress")
+      .select("watched_seconds")
       .eq("user_id", user.id);
 
-    const totalSeconds = watchSessions?.reduce((acc, curr) => acc + (curr.seconds_watched || 0), 0) || 0;
+    const totalSeconds = progressSessions?.reduce((acc, curr) => acc + (curr.watched_seconds || 0), 0) || 0;
     const studyHours = (totalSeconds / 3600).toFixed(1);
 
-    // 2. Get completed lessons count
+    // 2. Get completed lessons count dynamically from user_course_progress table
     const { count: completedLessonsCount } = await supabaseAdmin
-      .from("lesson_completions")
+      .from("user_course_progress")
       .select("*", { count: "exact", head: true })
       .eq("user_id", user.id);
 
-    // 3. Get current streak
-    const { data: streakData } = await supabaseAdmin
-      .from("student_streaks")
-      .select("current_streak")
+    // 3. Calculate dynamic learning streak from user_course_progress completions
+    const { data: completions } = await supabaseAdmin
+      .from("user_course_progress")
+      .select("completed_at")
       .eq("user_id", user.id)
-      .maybeSingle();
+      .order("completed_at", { ascending: false });
 
-    const streak = streakData?.current_streak || 0;
+    let streak = 0;
+    if (completions && completions.length > 0) {
+      // Extract unique dates in YYYY-MM-DD format
+      const dates = Array.from(new Set(completions.map(c => {
+        if (!c.completed_at) return "";
+        return c.completed_at.split("T")[0];
+      }).filter(Boolean)));
 
-    // 4. Determine student level
-    let level = "مستكشف مبتدئ";
-    if (totalSeconds > 3600 * 50) level = "خبير أتمتة";
-    else if (totalSeconds > 3600 * 20) level = "محترف متقدم";
-    else if (totalSeconds > 3600 * 5) level = "متدرب نشط";
+      if (dates.length > 0) {
+        const todayStr = new Date().toISOString().split("T")[0];
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+        // Active streak check (today or yesterday)
+        if (dates.includes(todayStr) || dates.includes(yesterdayStr)) {
+          streak = 1;
+          const currentCheck = dates.includes(todayStr) ? new Date() : yesterday;
+          
+          while (true) {
+            currentCheck.setDate(currentCheck.getDate() - 1);
+            const checkStr = currentCheck.toISOString().split("T")[0];
+            if (dates.includes(checkStr)) {
+              streak++;
+            } else {
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // Fallback base streak to 1 day if enrolled in courses and has 0 streak
+    if (streak === 0) {
+      const { data: enrolls } = await supabaseAdmin
+        .from("enrollments")
+        .select("id")
+        .eq("user_id", user.id);
+      if (enrolls && enrolls.length > 0) {
+        streak = 1;
+      }
+    }
+
+    // 4. Determine student educational level (Exactly 4 premium interactive levels)
+    let level = "البرونزي (مستكشف مبتدئ) 🥉";
+    const hoursNum = parseFloat(studyHours);
+    if (hoursNum >= 40) {
+      level = "البلاتيني (خبير الأتمتة) 💎";
+    } else if (hoursNum >= 15) {
+      level = "الذهبي (محترف متقدم) 🥇";
+    } else if (hoursNum >= 5) {
+      level = "الفضي (متعلم نشط) 🥈";
+    }
 
     return NextResponse.json({
       studyHours: parseFloat(studyHours),
