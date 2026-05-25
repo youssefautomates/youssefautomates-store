@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard, Package, ShoppingCart, Settings, LogOut,
   Search, Bell, Sparkles, Target, Star, BarChart3, ShieldAlert,
-  Flame, Globe, ShieldCheck, BookOpen, Video, Users, Award, Mail, LayoutGrid
+  Flame, Globe, ShieldCheck, BookOpen, Users, Award, Mail, LayoutGrid
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
