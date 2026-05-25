@@ -12,7 +12,8 @@ import {
   Globe, Laptop, ShieldAlert, Award, FileText, Ban, ChevronRight, Download
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { formatPrice } from "@/lib/pricing";
+import { formatPrice as formatPriceRaw } from "@/lib/pricing";
+const formatPrice = (price: number, currency: any) => formatPriceRaw(price, currency).replace("ج.م", "L.E");
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip
 } from "recharts";
@@ -83,9 +84,183 @@ export default function AdminDashboard() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [activeTab, setActiveTab] = useState<"performance" | "products" | "diagnostics">("performance");
   const [pollingActive, setPollingActive] = useState(true);
+  const [seeding, setSeeding] = useState(false);
+  const [analyticsTableMissing, setAnalyticsTableMissing] = useState(false);
 
   const hasFetched = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
+
+  const handleSeedTelemetry = async () => {
+    setSeeding(true);
+    try {
+      // 1. Check and Seed Products if empty
+      const { data: currentProducts, error: prodCheckErr } = await supabase.from("products").select("id");
+      if (prodCheckErr) throw prodCheckErr;
+
+      let productIds: string[] = [];
+
+      if (!currentProducts || currentProducts.length === 0) {
+        const demoProducts = [
+          {
+            id: "prod-n8n-mastery",
+            title: "n8n Automation Mastery Suite",
+            price: 450,
+            sales: 12,
+            status: "نشط",
+            created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+          },
+          {
+            id: "prod-ai-content",
+            title: "AI Content Generator Pro & Prompts Pack",
+            price: 250,
+            sales: 8,
+            status: "نشط",
+            created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
+          },
+          {
+            id: "prod-shopify-secrets",
+            title: "Shopify Performance Marketing Secrets Ebook",
+            price: 150,
+            sales: 15,
+            status: "نشط",
+            created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+          }
+        ];
+        const { error: prodSeedErr } = await supabase.from("products").insert(demoProducts);
+        if (prodSeedErr) throw prodSeedErr;
+        productIds = demoProducts.map(p => p.id);
+        toast.success("Successfully seeded 3 digital products!");
+      } else {
+        productIds = currentProducts.map(p => p.id);
+      }
+
+      // Also get the course ID if exists
+      const { data: currentCourses } = await supabase.from("courses").select("id");
+      const courseIds = currentCourses ? currentCourses.map(c => c.id) : [];
+      const allItemIds = [...productIds, ...courseIds];
+
+      if (allItemIds.length === 0) {
+        throw new Error("No products or courses found to bind orders to!");
+      }
+
+      // 2. Check and Seed Orders
+      const { data: currentOrders } = await supabase.from("orders").select("id");
+      
+      if (!currentOrders || currentOrders.length < 10) {
+        const customers = [
+          { name: "Ahmed Mansour", email: "ahmed.mansour@gmail.com" },
+          { name: "Sara El-Ghandour", email: "sara.ghandour@yahoo.com" },
+          { name: "Omar Abdelaziz", email: "omar.aziz@hotmail.com" },
+          { name: "Mariam El-Shafei", email: "mariam.shafei@gmail.com" },
+          { name: "Yassine Abdallah", email: "yassine.abd@gmail.com" },
+          { name: "Nouran Selim", email: "nouran.selim@outlook.com" },
+          { name: "Hassan Ibrahim", email: "hassan.heba@gmail.com" }
+        ];
+
+        const paymentMethods = ["Card", "Wallet", "Kiosk"];
+        const countries = ["EG", "SA", "AE", "US"];
+        const statuses = ["completed", "completed", "completed", "pending", "failed"];
+        const coupons = ["BLACKFRIDAY", "RAMADAN25", "GROWTH30", ""];
+
+        const demoOrders = [];
+        const now = Date.now();
+
+        for (let i = 0; i < 30; i++) {
+          const daysAgo = Math.floor(Math.random() * 14);
+          const minutesAgo = Math.floor(Math.random() * 1440);
+          const orderDate = new Date(now - (daysAgo * 24 * 60 * 60 * 1000) - (minutesAgo * 60 * 1000));
+          
+          const cust = customers[Math.floor(Math.random() * customers.length)];
+          const payId = `pay_mb_${Math.floor(10000000 + Math.random() * 90000000)}`;
+          const targetItemId = allItemIds[Math.floor(Math.random() * allItemIds.length)];
+          
+          let title = "n8n Automation Mastery Suite";
+          let price = 450;
+          
+          if (targetItemId === "prod-n8n-mastery") {
+            title = "n8n Automation Mastery Suite";
+            price = 450;
+          } else if (targetItemId === "prod-ai-content") {
+            title = "AI Content Generator Pro & Prompts Pack";
+            price = 250;
+          } else if (targetItemId === "prod-shopify-secrets") {
+            title = "Shopify Performance Marketing Secrets Ebook";
+            price = 150;
+          } else {
+            const matchedC = currentCourses?.find(c => c.id === targetItemId);
+            if (matchedC) {
+              title = (matchedC as any).title;
+              price = (matchedC as any).price || 650;
+            }
+          }
+
+          const status = statuses[Math.floor(Math.random() * statuses.length)];
+          const coupon = status === "completed" && Math.random() > 0.6 ? coupons[Math.floor(Math.random() * coupons.length)] : null;
+          const finalAmount = coupon ? Math.round(price * 0.7) : price;
+
+          demoOrders.push({
+            customer_name: cust.name,
+            customer_email: cust.email,
+            product_title: title,
+            product_id: targetItemId,
+            amount: finalAmount,
+            status,
+            payment_id: payId,
+            coupon_code: coupon || null,
+            country: countries[Math.floor(Math.random() * countries.length)],
+            payment_method: paymentMethods[Math.floor(Math.random() * paymentMethods.length)],
+            created_at: orderDate.toISOString()
+          });
+        }
+
+        const { error: orderSeedErr } = await supabase.from("orders").insert(demoOrders);
+        if (orderSeedErr) throw orderSeedErr;
+        toast.success("Successfully seeded 30 mock orders with rich metadata!");
+      }
+
+      // 3. Try to seed tracking events if table exists
+      try {
+        const { error: eventCheckErr } = await supabase.from("analytics_events").select("id").limit(1);
+        if (!eventCheckErr) {
+          const demoEvents = [];
+          const now = Date.now();
+          
+          for (let i = 0; i < 150; i++) {
+            const daysAgo = Math.floor(Math.random() * 14);
+            const eventDate = new Date(now - daysAgo * 24 * 60 * 60 * 1000);
+            const sessId = `sess_${Math.floor(100000 + Math.random() * 900000)}`;
+            const eventNames = ["page_view", "product_view", "add_to_cart", "checkout_started"];
+            const randEvent = eventNames[Math.floor(Math.random() * eventNames.length)];
+            const targetItemId = allItemIds[Math.floor(Math.random() * allItemIds.length)];
+
+            demoEvents.push({
+              event_name: randEvent,
+              session_id: sessId,
+              product_id: targetItemId,
+              utm_source: ["tiktok", "facebook", "instagram", "google", "email"][Math.floor(Math.random() * 5)],
+              utm_medium: "cpc",
+              utm_campaign: "spring_sale",
+              referrer: "https://t.co",
+              created_at: eventDate.toISOString()
+            });
+          }
+
+          await supabase.from("analytics_events").insert(demoEvents);
+          toast.success("Seeded visitor clickstream telemetry!");
+        }
+      } catch (e) {
+        console.log("Analytics events table not present, skipped seeding clickstream events.");
+      }
+
+      await refreshTelemetry();
+      toast.success("Telemetry dashboard fully loaded with seeded values!");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Seeding failed");
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   const playNewOrderSound = () => {
     if (!soundEnabled) return;
@@ -184,8 +359,12 @@ export default function AdminDashboard() {
       if (enrollmentsRes.data) setEnrollments(enrollmentsRes.data as Enrollment[]);
       if (analyticsRes.data) {
         setAnalyticsEvents(analyticsRes.data as AnalyticsEvent[]);
+        setAnalyticsTableMissing(false);
       } else {
         setAnalyticsEvents([]); // Fallback to empty array safely if not migrated
+        if (analyticsRes.error && analyticsRes.error.message.includes("relation")) {
+          setAnalyticsTableMissing(true);
+        }
       }
     } catch (err) {
       console.error("[TELEMETRY_LOAD] Error loading analytics:", err);
@@ -1259,6 +1438,79 @@ export default function AdminDashboard() {
               className="space-y-8"
             >
               
+              {/* Telemetry Data Seeder Card */}
+              <div className="p-6 rounded-3xl bg-[#09090e] border border-white/5 relative overflow-hidden group space-y-6 text-left" dir="ltr">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl pointer-events-none" />
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                  <div>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-rose-500 animate-pulse" />
+                      Telemetry Data Seeder
+                    </h3>
+                    <p className="text-[10px] text-zinc-500 mt-1 max-w-xl">
+                      Database empty? Generate 3 digital products, 30 orders with rich billing metadata, and 150 visitor clicks. Live charts, conversions, and Excel exports will populate instantly.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleSeedTelemetry}
+                    disabled={seeding}
+                    className="flex items-center gap-2 px-6 h-11 rounded-xl text-xs font-black transition-all bg-rose-600 hover:bg-[#ff0059] text-white shadow-xl shadow-rose-600/10 shrink-0 cursor-pointer disabled:opacity-50 border border-transparent"
+                  >
+                    {seeding ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Seeding Database...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4" />
+                        Seed Test Telemetry Data
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {analyticsTableMissing && (
+                  <div className="p-5 rounded-2xl bg-red-950/20 border border-red-500/10 space-y-4">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="w-4.5 h-4.5 text-red-400 shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="text-xs font-bold text-red-400">Visitor Telemetry Table Missing in Database</h4>
+                        <p className="text-[10px] text-zinc-400 leading-relaxed mt-1">
+                          To enable deep visitor tracking (views, add-to-carts, attribution funnel), create the <code className="font-mono text-white bg-white/5 px-1.5 py-0.5 rounded">analytics_events</code> table in Supabase. Copy the SQL script below and execute it in your <strong>Supabase SQL Editor</strong>:
+                        </p>
+                      </div>
+                    </div>
+                    <div className="relative text-left">
+                      <pre className="bg-[#050508] border border-white/5 rounded-xl p-4 text-[9px] font-mono text-rose-300 overflow-x-auto select-all max-h-36 custom-scrollbar" dir="ltr">
+{`CREATE TABLE public.analytics_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_name TEXT NOT NULL,
+    session_id TEXT,
+    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    product_id TEXT,
+    product_title TEXT,
+    utm_source TEXT,
+    utm_medium TEXT,
+    utm_campaign TEXT,
+    utm_content TEXT,
+    utm_term TEXT,
+    referrer TEXT,
+    ip_address TEXT,
+    user_agent TEXT,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.analytics_events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow anonymous insert" ON public.analytics_events FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow admin read" ON public.analytics_events FOR SELECT USING (true);`}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 
                 {/* Failed orders details */}

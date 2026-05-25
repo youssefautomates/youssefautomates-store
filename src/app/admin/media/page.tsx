@@ -86,24 +86,24 @@ export default function AdminMediaLibraryPage() {
     setUploading(true);
     try {
       const publicUrl = await uploadFile(selectedFile, bucket, "library");
-      toast.success("تم رفع الملف بنجاح وإضافته إلى مكتبة الوسائط! 🚀");
+      toast.success("File successfully uploaded and added to the media library! 🚀");
       loadFiles();
     } catch (err: any) {
-      toast.error(err.message || "خطأ أثناء رفع الملف.");
+      toast.error(err.message || "Error occurred while uploading file.");
     } finally {
       setUploading(false);
     }
   };
 
   const handleDeleteFile = async (fileName: string) => {
-    if (!confirm("هل أنت متأكد من رغبتك في حذف هذا الملف نهائياً؟ لا يمكن استعادة الملف بعد حذفه.")) return;
+    if (!confirm("Are you sure you want to permanently delete this file? This action cannot be undone.")) return;
     try {
       const { error } = await supabaseClient.storage.from(bucket).remove([fileName]);
       if (error) throw error;
-      toast.success("تم حذف الملف بنجاح!");
+      toast.success("File deleted successfully!");
       loadFiles();
     } catch (err: any) {
-      toast.error(`فشل حذف الملف: ${err.message}`);
+      toast.error(`Failed to delete file: ${err.message}`);
     }
   };
 
@@ -111,7 +111,7 @@ export default function AdminMediaLibraryPage() {
     const { data: { publicUrl } } = supabaseClient.storage.from(bucket).getPublicUrl(fileName);
     navigator.clipboard.writeText(publicUrl);
     setCopiedFile(fileName);
-    toast.success("تم نسخ الرابط المباشر إلى الحافظة! 🔗");
+    toast.success("Direct URL copied to clipboard! 🔗");
     setTimeout(() => setCopiedFile(null), 2000);
   };
 
@@ -133,12 +133,12 @@ export default function AdminMediaLibraryPage() {
   };
 
   return (
-    <div className="space-y-8 pb-32">
+    <div className="space-y-8 pb-32 text-left font-sans" dir="ltr">
       {/* HEADER */}
       <div className="flex items-center justify-between border-b border-white/5 pb-6">
         <div>
-          <h1 className="text-3xl font-alexandria font-black text-white">مكتبة الوسائط السحابية</h1>
-          <p className="text-zinc-400 text-sm mt-1">تصفح وارفع ونظم جميع الملفات والصور ومرفقات الكورسات المرفوعة على خوادم Supabase Storage.</p>
+          <h1 className="text-3xl font-extrabold text-white">Cloud Media Library</h1>
+          <p className="text-zinc-400 text-sm mt-1">Browse, upload, and organize all digital files, assets, and academic materials hosted on Supabase Storage.</p>
         </div>
       </div>
 
@@ -147,12 +147,12 @@ export default function AdminMediaLibraryPage() {
         <div className="lg:col-span-1 space-y-6">
           {/* Storage Quota Card */}
           <div className="bg-[#0a0a0f] border border-white/5 rounded-3xl p-6 space-y-4">
-            <h3 className="font-alexandria font-bold text-white text-xs uppercase tracking-wider text-zinc-400">سعة التخزين الحالية</h3>
+            <h3 className="font-bold text-white text-xs uppercase tracking-wider text-zinc-400">Storage Allocation Quota</h3>
             
             <div className="space-y-2">
               <div className="flex justify-between items-baseline text-xs font-bold font-mono">
-                <span className="text-white">{totalSizeMB} ميجابايت</span>
-                <span className="text-zinc-500">من {storageLimitMB} ميجابايت</span>
+                <span className="text-white">{totalSizeMB} MB</span>
+                <span className="text-zinc-500">of {storageLimitMB} MB</span>
               </div>
               <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
                 <div 
@@ -164,15 +164,15 @@ export default function AdminMediaLibraryPage() {
                 />
               </div>
               <div className="flex justify-between items-center text-[10px] text-zinc-500">
-                <span>{percentUsed}% مستخدمة</span>
-                <span>باقي {Number((storageLimitMB - totalSizeMB).toFixed(1))} ميجابايت</span>
+                <span>{percentUsed}% used</span>
+                <span>{Number((storageLimitMB - totalSizeMB).toFixed(1))} MB remaining</span>
               </div>
             </div>
 
             {percentUsed > 80 && (
               <div className="flex items-start gap-2 bg-red-950/20 border border-red-900/30 rounded-xl p-3 text-red-400 text-[11px] leading-relaxed">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>اقتربت سعة التخزين المجانية من النفاد. قد ترغب في تنظيف الملفات القديمة.</span>
+                <span>Your free storage quota is nearing its capacity. You may want to clean up older or unused files.</span>
               </div>
             )}
           </div>
@@ -183,8 +183,8 @@ export default function AdminMediaLibraryPage() {
               <Upload className="w-6 h-6" />
             </div>
             <div>
-              <h4 className="font-bold text-xs text-white">رفع ملف جديد لمكتبة الوسائط</h4>
-              <p className="text-[10px] text-zinc-500 mt-1">الحد الأقصى لحجم الملف 20 ميجابايت</p>
+              <h4 className="font-bold text-xs text-white">Upload New Asset</h4>
+              <p className="text-[10px] text-zinc-500 mt-1">Maximum allowed size: 20 MB</p>
             </div>
             
             <label className={cn(
@@ -194,12 +194,12 @@ export default function AdminMediaLibraryPage() {
               {uploading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>جاري الرفع...</span>
+                  <span>Uploading...</span>
                 </>
               ) : (
                 <>
                   <Upload className="w-4 h-4" />
-                  <span>اختر ملف للرفع</span>
+                  <span>Select File</span>
                 </>
               )}
               <input type="file" className="hidden" onChange={handleFileUpload} disabled={uploading} />
@@ -221,7 +221,7 @@ export default function AdminMediaLibraryPage() {
                 )}
               >
                 <ImageIcon className="w-4 h-4" />
-                <span>صور الكورسات والغلاف</span>
+                <span>Course Thumbnails</span>
               </button>
               <button 
                 onClick={() => setBucket("course-materials")}
@@ -231,19 +231,19 @@ export default function AdminMediaLibraryPage() {
                 )}
               >
                 <Folder className="w-4 h-4" />
-                <span>ملفات ومرفقات المنهج</span>
+                <span>Academic Attachments</span>
               </button>
             </div>
 
             {/* Search Input */}
             <div className="relative flex-1 max-w-xs">
-              <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
               <input 
                 type="text"
-                placeholder="ابحث باسم الملف..."
+                placeholder="Search files by name..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="bg-white/5 border border-white/5 rounded-xl py-2 px-4 pr-10 text-xs w-full focus:border-rose-500/50"
+                className="bg-white/5 border border-white/5 rounded-xl py-2 px-4 pl-10 text-xs w-full focus:outline-none focus:border-rose-500/50"
               />
             </div>
           </div>
@@ -257,9 +257,9 @@ export default function AdminMediaLibraryPage() {
             </div>
           ) : filteredFiles.length === 0 ? (
             <div className="text-center py-20 bg-[#0a0a0f] border border-white/5 rounded-3xl">
-              <Folder className="w-16 h-16 text-zinc-700 mx-auto mb-4 animate-bounce" />
-              <p className="text-zinc-500 font-bold mb-2">لا توجد ملفات متوفرة حالياً.</p>
-              <p className="text-zinc-600 text-xs">ارفع أول ملف لك الآن أو عدل فلتر البحث.</p>
+              <Folder className="w-16 h-16 text-zinc-700 mx-auto mb-4" />
+              <p className="text-zinc-500 font-bold mb-2">No files available in this storage bucket.</p>
+              <p className="text-zinc-600 text-xs font-sans">Upload your first asset above or modify your search filter.</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -286,14 +286,14 @@ export default function AdminMediaLibraryPage() {
                         <button 
                           onClick={() => handleCopyLink(file.name)}
                           className="p-2 bg-white/10 hover:bg-white text-white hover:text-black rounded-lg transition-colors cursor-pointer"
-                          title="نسخ الرابط المباشر"
+                          title="Copy Public URL"
                         >
                           {copiedFile === file.name ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
                         </button>
                         <button 
                           onClick={() => handleDeleteFile(file.name)}
                           className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors cursor-pointer"
-                          title="حذف الملف"
+                          title="Delete File"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -302,12 +302,12 @@ export default function AdminMediaLibraryPage() {
 
                     {/* Metadata */}
                     <div className="p-3 space-y-1.5 flex-1 flex flex-col justify-between">
-                      <p className="text-xs font-bold text-white truncate text-right w-full" title={file.name}>
+                      <p className="text-xs font-bold text-white truncate w-full text-left" title={file.name}>
                         {file.name}
                       </p>
                       <div className="flex justify-between items-center text-[10px] text-zinc-500 font-mono">
                         <span>{Number(((file.metadata?.size || 0) / 1024).toFixed(1))} KB</span>
-                        <span>{new Date(file.created_at).toLocaleDateString("ar-EG")}</span>
+                        <span>{new Date(file.created_at).toLocaleDateString("en-US")}</span>
                       </div>
                     </div>
                   </div>

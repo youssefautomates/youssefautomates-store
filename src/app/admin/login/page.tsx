@@ -28,14 +28,14 @@ export default function AdminLogin() {
       });
 
       if (res.ok) {
-        toast.success("تم تسجيل الدخول بنجاح");
+        toast.success("Signed in successfully");
         router.push("/admin");
         router.refresh();
       } else {
-        toast.error("البريد الإلكتروني أو كلمة المرور غير صحيحة");
+        toast.error("Invalid email or password");
       }
     } catch (error) {
-      toast.error("حدث خطأ في الاتصال");
+      toast.error("Connection error — please try again");
     } finally {
       setIsLoading(false);
     }
@@ -71,13 +71,13 @@ export default function AdminLogin() {
         {/* Back Link */}
         <Link
           href="/"
-          className="inline-flex items-center gap-2 font-cairo text-sm transition-colors duration-200 mb-10 group"
+          className="inline-flex items-center gap-2 font-sans text-sm transition-colors duration-200 mb-10 group"
           style={{ color: "#71717a" }}
           onMouseEnter={e => (e.currentTarget.style.color = "#ffffff")}
           onMouseLeave={e => (e.currentTarget.style.color = "#71717a")}
         >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform rtl:rotate-180" />
-          العودة للمتجر الرئيسي
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          Back to Store
         </Link>
 
         {/* Header */}
@@ -91,11 +91,11 @@ export default function AdminLogin() {
             <img src="/logo.png" alt="Admin Logo" className="w-full h-full object-contain drop-shadow-[0_0_25px_rgba(214,0,75,0.6)]" />
           </motion.div>
 
-          <h1 className="text-4xl font-alexandria font-black tracking-tighter mb-2" style={{ color: "#ffffff" }}>
-            بوابة الإدارة
+          <h1 className="text-4xl font-sans font-black tracking-tighter mb-2" style={{ color: "#ffffff" }}>
+            Admin Portal
           </h1>
-          <p className="font-cairo text-base" style={{ color: "#71717a" }}>
-            نظام وصول محمي بتقنيات التشفير المتقدمة
+          <p className="font-sans text-base" style={{ color: "#71717a" }}>
+            Secured access system with advanced encryption
           </p>
         </div>
 
@@ -117,8 +117,8 @@ export default function AdminLogin() {
 
             {/* Email */}
             <div className="space-y-2">
-              <label className="block font-cairo text-sm font-semibold" style={{ color: "#d4d4d8" }}>
-                البريد الإلكتروني للإدارة
+              <label className="block font-sans text-sm font-semibold" style={{ color: "#d4d4d8" }}>
+                Admin Email
               </label>
               <div className="relative">
                 <Mail
@@ -132,7 +132,7 @@ export default function AdminLogin() {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   disabled={isLoading}
-                  className="h-14 pr-12 font-cairo text-sm rounded-xl transition-all duration-200 outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="h-14 pr-12 font-sans text-sm rounded-xl transition-all duration-200 outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                   style={{
                     background: "rgba(255,255,255,0.045)",
                     border: "1.5px solid rgba(255,255,255,0.1)",
@@ -152,8 +152,8 @@ export default function AdminLogin() {
 
             {/* Password */}
             <div className="space-y-2">
-              <label className="block font-cairo text-sm font-semibold" style={{ color: "#d4d4d8" }}>
-                كلمة المرور السرية
+              <label className="block font-sans text-sm font-semibold" style={{ color: "#d4d4d8" }}>
+                Secret Password
               </label>
               <div className="relative">
                 <Lock
@@ -167,7 +167,7 @@ export default function AdminLogin() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   disabled={isLoading}
-                  className="h-14 pr-12 pl-12 font-cairo text-sm rounded-xl transition-all duration-200 outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="h-14 pr-12 pl-12 font-sans text-sm rounded-xl transition-all duration-200 outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                   style={{
                     background: "rgba(255,255,255,0.045)",
                     border: "1.5px solid rgba(255,255,255,0.1)",
@@ -199,7 +199,7 @@ export default function AdminLogin() {
             <button
               type="submit"
               disabled={isLoading || !email || !password}
-              className="w-full h-14 mt-2 rounded-xl font-alexandria font-black text-lg text-white transition-all duration-200 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full h-14 mt-2 rounded-xl font-sans font-black text-lg text-white transition-all duration-200 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
               style={{
                 background: "linear-gradient(135deg, #D6004B 0%, #ff2d6b 100%)",
                 boxShadow: "0 8px 32px rgba(214,0,75,0.38)",
@@ -215,17 +215,17 @@ export default function AdminLogin() {
               {isLoading ? (
                 <span className="flex items-center justify-center gap-3">
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  جاري التحقق من الهوية...
+                  Verifying identity...
                 </span>
               ) : (
-                "تسجيل الدخول الآمن"
+                "Secure Sign In"
               )}
             </button>
           </form>
 
           {/* Security Footer */}
           <div
-            className="mt-6 flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-cairo text-xs"
+            className="mt-6 flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-sans text-xs"
             style={{
               background: "rgba(255,255,255,0.03)",
               border: "1px solid rgba(255,255,255,0.06)",
@@ -233,7 +233,7 @@ export default function AdminLogin() {
             }}
           >
             <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: "#22c55e" }} />
-            نظام وصول مشفر ومراقب على مدار الساعة
+            Encrypted access system — monitored 24/7
           </div>
         </motion.div>
       </motion.div>

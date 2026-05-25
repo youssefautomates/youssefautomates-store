@@ -86,23 +86,23 @@ export default function AdminStudentsPage() {
     if (enrolls.length === 0 && lmsCourses.length > 0) {
       // Seed beautiful demonstration students for first load
       const { enrollUser } = await import("@/lib/coursesDb");
-      await enrollUser("usr-student-1", lmsCourses[0].id, { email: "ahmed.ali@gmail.com", name: "أحمد علي" });
-      await enrollUser("usr-student-2", lmsCourses[0].id, { email: "yassine.automates@outlook.com", name: "ياسين عبد الرحمن" });
+      await enrollUser("usr-student-1", lmsCourses[0].id, { email: "ahmed.ali@gmail.com", name: "Ahmed Ali" });
+      await enrollUser("usr-student-2", lmsCourses[0].id, { email: "yassine.automates@outlook.com", name: "Yassine Abdelrahman" });
       if (lmsCourses[1]) {
-        await enrollUser("usr-student-3", lmsCourses[1].id, { email: "m.nour@yahoo.com", name: "محمد نور الدين" });
+        await enrollUser("usr-student-3", lmsCourses[1].id, { email: "m.nour@yahoo.com", name: "Mohamed Nour" });
       }
       
       const { toggleLessonCompleted, getCourseBySlug } = await import("@/lib/coursesDb");
       const { sections: sec1 } = await getCourseBySlug(lmsCourses[0].slug);
       if (sec1.length > 0 && sec1[0].lessons.length > 0) {
-        await toggleLessonCompleted("usr-student-1", sec1[0].lessons[0].id, lmsCourses[0].id, "أحمد علي");
+        await toggleLessonCompleted("usr-student-1", sec1[0].lessons[0].id, lmsCourses[0].id, "Ahmed Ali");
         if (sec1[0].lessons[1]) {
-          await toggleLessonCompleted("usr-student-1", sec1[0].lessons[1].id, lmsCourses[0].id, "أحمد علي");
+          await toggleLessonCompleted("usr-student-1", sec1[0].lessons[1].id, lmsCourses[0].id, "Ahmed Ali");
         }
         
         for (const sec of sec1) {
           for (const les of sec.lessons) {
-            await toggleLessonCompleted("usr-student-2", les.id, lmsCourses[0].id, "ياسين عبد الرحمن");
+            await toggleLessonCompleted("usr-student-2", les.id, lmsCourses[0].id, "Yassine Abdelrahman");
           }
         }
       }
@@ -113,7 +113,7 @@ export default function AdminStudentsPage() {
     const populated: StudentRow[] = [];
     for (const e of enrolls) {
       const c = lmsCourses.find(course => course.id === e.course_id);
-      const courseTitle = c?.title || "دورة تعليمية غير معروفة";
+      const courseTitle = c?.title || "Unknown Course Path";
       const { percent, completedCount, totalCount, isFinished } = await getCourseProgressPercent(e.user_id, e.course_id);
       
       let totalWatchSeconds = 0;
@@ -182,14 +182,14 @@ export default function AdminStudentsPage() {
     try {
       const success = await updateStudentProfile(selectedStudent.user_id, editName, editEmail);
       if (success) {
-        toast.success("تم تحديث بيانات الطالب بنجاح! ✨");
+        toast.success("Student profile updated successfully! ✨");
         setSelectedStudent(null);
         await loadData();
       } else {
-        toast.error("فشل في تحديث بيانات الطالب");
+        toast.error("Failed to update student profile");
       }
     } catch (err) {
-      toast.error("حدث خطأ أثناء حفظ التغييرات");
+      toast.error("An error occurred while saving changes");
     } finally {
       setIsSaving(false);
     }
@@ -203,14 +203,14 @@ export default function AdminStudentsPage() {
     try {
       const success = await toggleUserSuspension(selectedStudent.user_id, isSuspended, suspensionReason);
       if (success) {
-        toast.success("تم تحديث حالة أمان وحظر الطالب بنجاح! 🛡️");
+        toast.success("Student security and suspension state updated successfully! 🛡️");
         setSelectedStudent(null);
         await loadData();
       } else {
-        toast.error("فشل تعديل حالة الحظر");
+        toast.error("Failed to update suspension state");
       }
     } catch (err) {
-      toast.error("حدث خطأ أثناء حفظ بيانات الأمان");
+      toast.error("An error occurred while saving security details");
     } finally {
       setSavingSecurity(false);
     }
@@ -225,7 +225,7 @@ export default function AdminStudentsPage() {
 
       if (error) throw error;
       
-      toast.success("تم إنهاء الجلسة وقطع الاتصال بالجهاز المحدد! 🔌");
+      toast.success("Session terminated and connection severed from active device! 🔌");
       
       // Reload sessions
       if (selectedStudent) {
@@ -233,32 +233,32 @@ export default function AdminStudentsPage() {
         setActiveSessions(updated);
       }
     } catch (err) {
-      toast.error("فشل إنهاء الجلسة المحددة");
+      toast.error("Failed to terminate the selected session");
     }
   };
 
   const handleDisenroll = async () => {
     if (!selectedStudent) return;
-    if (!confirm("هل أنت متأكد من إلغاء اشتراك هذا الطالب وحذف تقدمه بالكامل؟ لا يمكن التراجع عن هذا الإجراء.")) return;
+    if (!confirm("Are you sure you want to disenroll this student and permanently delete their learning progress? This action is irreversible.")) return;
 
     try {
       const success = await removeStudentFromCourse(selectedStudent.user_id, selectedStudent.course_id);
       if (success) {
-        toast.success("تم إلغاء اشتراك الطالب وحذف تقدمه من الكورس بنجاح!");
+        toast.success("Student disenrolled and their progress successfully deleted!");
         setSelectedStudent(null);
         await loadData();
       } else {
-        toast.error("فشل في إلغاء اشتراك الطالب");
+        toast.error("Failed to disenroll student");
       }
     } catch (err) {
-      toast.error("حدث خطأ أثناء إلغاء الاشتراك");
+      toast.error("An error occurred while disenrolling the student");
     }
   };
 
   const handleCreateStudentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStudent.email || !newStudent.password || !newStudent.firstName || !newStudent.lastName || !newStudent.courseId) {
-      toast.error("يرجى ملء جميع الحقول المطلوبة");
+      toast.error("Please fill in all required fields");
       return;
     }
 
@@ -271,9 +271,9 @@ export default function AdminStudentsPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "فشل إنشاء حساب الطالب");
+      if (!res.ok) throw new Error(data.error || "Failed to create student account");
 
-      toast.success("تم إنشاء حساب الطالب وتسجيله في الكورس بنجاح! 🎉");
+      toast.success("Student account created and successfully enrolled in the course! 🎉");
       setIsAddingStudent(false);
       
       // Reset form
@@ -289,7 +289,7 @@ export default function AdminStudentsPage() {
       await loadData();
 
     } catch (err: any) {
-      toast.error(err.message || "حدث خطأ غير متوقع");
+      toast.error(err.message || "An unexpected error occurred");
     } finally {
       setAddingLoading(false);
     }
@@ -304,12 +304,12 @@ export default function AdminStudentsPage() {
   });
 
   return (
-    <div className="space-y-8 font-cairo text-right" dir="rtl">
+    <div className="space-y-8 font-sans text-left" dir="ltr">
       {/* Page Header */}
       <div className="flex items-center justify-between border-b border-white/5 pb-6">
         <div>
-          <h1 className="text-3xl font-alexandria font-black text-white">إدارة قائمة الطلاب والمشتركين</h1>
-          <p className="text-zinc-400 text-sm mt-1">تابع إنجازات الطلاب، نسب تقدمهم، والتحكم الكامل في الحسابات والأجهزة النشطة لمنع مشاركة الحسابات.</p>
+          <h1 className="text-3xl font-extrabold text-white">Students & CRM Panel</h1>
+          <p className="text-zinc-400 text-sm mt-1">Track student progress, completion ratios, and enforce session security policies to prevent account sharing.</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -317,7 +317,7 @@ export default function AdminStudentsPage() {
             className="h-11 px-5 rounded-xl bg-[#D6004B] hover:bg-rose-600 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-rose-600/20 active:scale-95 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>تسجيل طالب جديد</span>
+            <span>Enroll New Student</span>
           </button>
           <div className="w-12 h-12 rounded-xl bg-rose-600/10 border border-rose-500/20 flex items-center justify-center text-rose-500">
             <Users className="w-6 h-6" />
@@ -329,13 +329,13 @@ export default function AdminStudentsPage() {
       <div className="flex flex-col md:flex-row items-center gap-4 bg-[#0a0a0f] border border-white/5 p-4 rounded-2xl">
         {/* Search */}
         <div className="relative w-full md:flex-1 group">
-          <Search className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-rose-500 transition-colors" />
+          <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-rose-500 transition-colors" />
           <input 
             type="text" 
-            placeholder="ابحث عن طالب بالاسم أو البريد..." 
+            placeholder="Search students by name or email..." 
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full bg-white/5 border border-white/5 rounded-xl py-2.5 pr-11 pl-4 text-xs font-cairo focus:outline-none focus:border-rose-500/50 transition-all text-white text-right"
+            className="w-full bg-white/5 border border-white/5 rounded-xl py-2.5 pl-11 pr-4 text-xs font-sans focus:outline-none focus:border-rose-500/50 transition-all text-white text-left"
           />
         </div>
 
@@ -343,9 +343,9 @@ export default function AdminStudentsPage() {
         <select
           value={selectedCourseId}
           onChange={e => setSelectedCourseId(e.target.value)}
-          className="w-full md:w-64 bg-[#0f0f15] border border-white/5 rounded-xl py-2.5 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-cairo text-zinc-300"
+          className="w-full md:w-64 bg-[#0f0f15] border border-white/5 rounded-xl py-2.5 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-sans text-zinc-300"
         >
-          <option value="all">جميع الأقسام</option>
+          <option value="all">All Courses</option>
           {courses.map(c => (
             <option key={c.id} value={c.id}>{c.title}</option>
           ))}
@@ -354,7 +354,7 @@ export default function AdminStudentsPage() {
         <button 
           onClick={loadData}
           className="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:text-rose-500 hover:bg-white/10 transition-all cursor-pointer flex items-center justify-center text-zinc-400"
-          title="تحديث البيانات"
+          title="Refresh Data"
         >
           <RefreshCw className="w-4 h-4" />
         </button>
@@ -363,15 +363,15 @@ export default function AdminStudentsPage() {
       {/* Students Data Grid/Table */}
       <div className="bg-[#0a0a0f] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-right border-collapse">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-white/[0.02] border-b border-white/5 text-[11px] font-black text-zinc-400 uppercase tracking-widest font-cairo">
-                <th className="p-5 text-right">اسم الطالب</th>
-                <th className="p-5 text-right">المسار التعليمي المشترك به</th>
-                <th className="p-5 text-center">نسبة التقدم وإكمال المنهج</th>
-                <th className="p-5 text-right">الوقت الكلي وآخر نشاط</th>
-                <th className="p-5 text-right">حالة الحساب</th>
-                <th className="p-5 text-center">خيارات التحكم</th>
+              <tr className="bg-white/[0.02] border-b border-white/5 text-[11px] font-black text-zinc-400 uppercase tracking-widest font-sans">
+                <th className="p-5 text-left">Student Name</th>
+                <th className="p-5 text-left">Enrolled Path</th>
+                <th className="p-5 text-center">Completion Progress</th>
+                <th className="p-5 text-left">Learning Hours & Activity</th>
+                <th className="p-5 text-left">Account Status</th>
+                <th className="p-5 text-center">Manage</th>
               </tr>
             </thead>
             <tbody>
@@ -387,20 +387,20 @@ export default function AdminStudentsPage() {
                 <tr>
                   <td colSpan={6} className="p-16 text-center text-zinc-500 font-bold text-xs">
                     <Users className="w-12 h-12 text-zinc-700 mx-auto mb-3" />
-                    لا توجد اشتراكات مطابقة للبحث حالياً.
+                    No registered students match your search criteria.
                   </td>
                 </tr>
               ) : (
                 filteredRows.map((row) => (
                   <tr 
                     key={row.id} 
-                    className="border-b border-white/5 hover:bg-white/[0.01] transition-all font-cairo text-xs"
+                    className="border-b border-white/5 hover:bg-white/[0.01] transition-all font-sans text-xs"
                   >
                     {/* Student Identity */}
                     <td className="p-5">
                       <div className="flex flex-col">
-                        <span className="font-bold text-white text-sm">{row.user_name || "طالب يوسف أوتوميتس"}</span>
-                        <span className="text-[10px] text-zinc-500 font-mono mt-0.5" dir="ltr">{row.user_email}</span>
+                        <span className="font-bold text-white text-sm">{row.user_name || "Youssef Automates Student"}</span>
+                        <span className="text-[10px] text-zinc-500 font-mono mt-0.5">{row.user_email}</span>
                       </div>
                     </td>
 
@@ -417,7 +417,7 @@ export default function AdminStudentsPage() {
                       <div className="flex flex-col items-center justify-center space-y-1.5 max-w-xs mx-auto">
                         <div className="flex items-center justify-between w-full text-[10px] font-bold">
                           <span className="text-zinc-500">
-                            ({row.completedCount} من {row.totalCount} دروس)
+                            ({row.completedCount} of {row.totalCount} lessons)
                           </span>
                           <span className={cn(
                             "font-mono font-black",
@@ -444,9 +444,9 @@ export default function AdminStudentsPage() {
                     {/* Date & Watch Time */}
                     <td className="p-5 text-zinc-400 font-mono text-xs">
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-white font-cairo">{(row.totalWatchSeconds ? row.totalWatchSeconds / 3600 : 0).toFixed(1)} ساعة</span>
-                        <span className="text-[9px] text-zinc-500">نشط: {row.lastActivityDate || "-"}</span>
-                        <span className="text-[9px] text-zinc-600">تسجيل: {new Date(row.enrolled_at).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })}</span>
+                        <span className="text-white font-sans">{(row.totalWatchSeconds ? row.totalWatchSeconds / 3600 : 0).toFixed(1)} hrs</span>
+                        <span className="text-[9px] text-zinc-500">Active: {row.lastActivityDate || "-"}</span>
+                        <span className="text-[9px] text-zinc-600">Enrolled: {new Date(row.enrolled_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</span>
                       </div>
                     </td>
 
@@ -463,17 +463,17 @@ export default function AdminStudentsPage() {
                         {row.status === "suspended" ? (
                           <>
                             <ShieldAlert className="w-3 h-3 text-red-400" />
-                            <span>محظور</span>
+                            <span>Suspended</span>
                           </>
                         ) : row.isFinished ? (
                           <>
                             <Award className="w-3 h-3 text-emerald-400" />
-                            <span>مكتمل</span>
+                            <span>Completed</span>
                           </>
                         ) : (
                           <>
                             <Clock className="w-3 h-3 text-rose-400" />
-                            <span>نشط</span>
+                            <span>Active</span>
                           </>
                         )}
                       </span>
@@ -486,7 +486,7 @@ export default function AdminStudentsPage() {
                         className="h-8 px-3 rounded-lg bg-white/5 border border-white/10 hover:border-rose-500/30 hover:text-rose-400 text-zinc-400 font-bold transition-all text-[11px] inline-flex items-center gap-1 cursor-pointer"
                       >
                         <Edit className="w-3 h-3" />
-                        <span>تحكم وإدارة</span>
+                        <span>Manage</span>
                       </button>
                     </td>
                   </tr>
@@ -500,20 +500,20 @@ export default function AdminStudentsPage() {
       {/* ── CONTROL & EDIT MODAL ──────────────────────────────────────────────── */}
       {selectedStudent && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0a0a0f] border border-white/10 rounded-2xl max-w-2xl w-full p-6 space-y-6 shadow-2xl relative text-right">
+          <div className="bg-[#0a0a0f] border border-white/10 rounded-2xl max-w-2xl w-full p-6 space-y-6 shadow-2xl relative text-left">
             
             {/* Close */}
             <button 
               onClick={() => setSelectedStudent(null)}
-              className="absolute top-4 left-4 p-2 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              className="absolute top-4 right-4 p-2 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
 
             {/* Title */}
             <div>
-              <h3 className="font-alexandria font-bold text-white text-base">إدارة حساب واشتراك الطالب الأكاديمي</h3>
-              <p className="text-zinc-500 text-xs mt-1">تعديل الاسم والبريد، إنهاء جلسات الأجهزة النشطة أو تطبيق حظر الأمان.</p>
+              <h3 className="font-bold text-white text-base">Student CRM & Enrollment Control</h3>
+              <p className="text-zinc-500 text-xs mt-1">Update profile information, terminate active sessions, or configure security suspension.</p>
             </div>
 
             {/* Tab Headers inside modal */}
@@ -521,32 +521,32 @@ export default function AdminStudentsPage() {
               <button 
                 onClick={() => setModalTab("profile")}
                 className={cn(
-                  "px-4 py-2 text-xs font-bold font-alexandria border-b-2 transition-all cursor-pointer",
+                  "px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer",
                   modalTab === "profile" ? "border-rose-500 text-rose-500" : "border-transparent text-zinc-500 hover:text-zinc-300"
                 )}
               >
-                بيانات الطالب
+                Personal Info
               </button>
               <button 
                 onClick={() => setModalTab("progress")}
                 className={cn(
-                  "px-4 py-2 text-xs font-bold font-alexandria border-b-2 transition-all cursor-pointer flex items-center gap-1.5",
+                  "px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5",
                   modalTab === "progress" ? "border-rose-500 text-rose-500" : "border-transparent text-zinc-500 hover:text-zinc-300"
                 )}
               >
                 <Clock className="w-4 h-4" />
-                <span>إحصائيات التقدم</span>
+                <span>Learning Progress</span>
               </button>
               <button 
                 onClick={() => setModalTab("devices")}
                 className={cn(
-                  "px-4 py-2 text-xs font-bold font-alexandria border-b-2 transition-all cursor-pointer flex items-center gap-1.5",
+                  "px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5",
                   modalTab === "devices" 
                     ? "border-[#D6004B] text-white" 
                     : "border-transparent text-zinc-500 hover:text-white"
                 )}
               >
-                <span>الأجهزة النشطة</span>
+                <span>Active Devices</span>
                 {activeSessions.length > 0 && (
                   <span className="bg-rose-500/20 text-[#D6004B] text-[9px] px-1.5 rounded-full font-bold">
                     {activeSessions.length}
@@ -556,13 +556,13 @@ export default function AdminStudentsPage() {
               <button 
                 onClick={() => setModalTab("security")}
                 className={cn(
-                  "px-4 py-2 text-xs font-bold font-alexandria border-b-2 transition-all cursor-pointer flex items-center gap-1.5",
+                  "px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5",
                   modalTab === "security" 
                     ? "border-[#D6004B] text-white" 
                     : "border-transparent text-zinc-500 hover:text-white"
                 )}
               >
-                <span>حظر وأمان الجلسات</span>
+                <span>Account Security</span>
               </button>
             </div>
 
@@ -573,35 +573,34 @@ export default function AdminStudentsPage() {
               <form onSubmit={handleUpdateDetails} className="space-y-4">
                 <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 grid grid-cols-2 gap-4 text-xs font-bold text-zinc-400">
                   <div>
-                    <span className="text-[10px] text-zinc-500 block">المسار المشترك به:</span>
+                    <span className="text-[10px] text-zinc-500 block">Enrolled Course:</span>
                     <span className="text-white mt-1 block truncate">{selectedStudent.courseTitle}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-zinc-500 block">نسبة التقدم:</span>
-                    <span className="text-rose-400 mt-1 block font-mono">{selectedStudent.percent}% ({selectedStudent.completedCount} من {selectedStudent.totalCount} دروس)</span>
+                    <span className="text-[10px] text-zinc-500 block">Completion Progress:</span>
+                    <span className="text-rose-400 mt-1 block font-mono">{selectedStudent.percent}% ({selectedStudent.completedCount} of {selectedStudent.totalCount} lessons)</span>
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-zinc-400 font-bold">اسم الطالب الكامل</label>
+                  <label className="text-xs text-zinc-400 font-bold">Student Full Name</label>
                   <input 
                     type="text"
                     required
                     value={editName}
                     onChange={e => setEditName(e.target.value)}
-                    className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-cairo text-zinc-300 w-full text-right"
+                    className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-sans text-zinc-300 w-full"
                   />
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-zinc-400 font-bold">البريد الإلكتروني</label>
+                  <label className="text-xs text-zinc-400 font-bold">Email Address</label>
                   <input 
                     type="email"
                     required
                     value={editEmail}
                     onChange={e => setEditEmail(e.target.value)}
-                    className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-cairo text-zinc-300 w-full text-left font-mono"
-                    dir="ltr"
+                    className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-mono text-zinc-300 w-full"
                   />
                 </div>
 
@@ -612,7 +611,7 @@ export default function AdminStudentsPage() {
                     className="h-10 px-4 bg-red-950/20 hover:bg-red-950 hover:text-red-400 hover:border-red-900/30 border border-red-900/20 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer text-red-500"
                   >
                     <Trash2 className="w-4 h-4" />
-                    <span>إلغاء الاشتراك وحذف التقدم</span>
+                    <span>Revoke Enrollment & Delete Progress</span>
                   </button>
 
                   <button
@@ -621,7 +620,7 @@ export default function AdminStudentsPage() {
                     className="h-10 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
                   >
                     {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                    <span>حفظ التعديلات</span>
+                    <span>Save Changes</span>
                   </button>
                 </div>
               </form>
@@ -633,25 +632,25 @@ export default function AdminStudentsPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-white/5 border border-white/5 p-4 rounded-xl flex flex-col items-center justify-center text-center">
                     <Clock className="w-6 h-6 text-rose-500 mb-2" />
-                    <span className="text-xs text-zinc-400 mb-1 font-bold">وقت التعلم الكلي</span>
+                    <span className="text-xs text-zinc-400 mb-1 font-bold">Total Learning Time</span>
                     <span className="text-xl text-white font-black font-mono">
-                      {(selectedStudent.totalWatchSeconds ? selectedStudent.totalWatchSeconds / 3600 : 0).toFixed(1)} <span className="text-sm font-cairo">ساعة</span>
+                      {(selectedStudent.totalWatchSeconds ? selectedStudent.totalWatchSeconds / 3600 : 0).toFixed(1)} <span className="text-sm font-sans">hrs</span>
                     </span>
                   </div>
                   <div className="bg-white/5 border border-white/5 p-4 rounded-xl flex flex-col items-center justify-center text-center">
                     <Sparkles className="w-6 h-6 text-emerald-500 mb-2" />
-                    <span className="text-xs text-zinc-400 mb-1 font-bold">سلسلة التعلم الحالية</span>
+                    <span className="text-xs text-zinc-400 mb-1 font-bold">Current Learning Streak</span>
                     <span className="text-xl text-white font-black font-mono">
-                      {selectedStudent.streak || 0} <span className="text-sm font-cairo">أيام</span>
+                      {selectedStudent.streak || 0} <span className="text-sm font-sans">days</span>
                     </span>
                   </div>
                 </div>
                 
                 <div className="bg-white/5 border border-white/5 p-4 rounded-xl mt-4">
-                  <h4 className="text-white text-xs font-bold mb-3 font-alexandria">تفاصيل الدورة الحالية: {selectedStudent.courseTitle}</h4>
+                  <h4 className="text-white text-xs font-bold mb-3">Enrolled Course Details: {selectedStudent.courseTitle}</h4>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-zinc-400">الدروس المكتملة</span>
-                    <span className="text-xs text-white font-bold">{selectedStudent.completedCount} من {selectedStudent.totalCount}</span>
+                    <span className="text-xs text-zinc-400">Completed Lessons</span>
+                    <span className="text-xs text-white font-bold">{selectedStudent.completedCount} of {selectedStudent.totalCount}</span>
                   </div>
                   <div className="w-full bg-black h-2 rounded-full overflow-hidden">
                     <div 
@@ -669,7 +668,7 @@ export default function AdminStudentsPage() {
                 <div className="flex items-center gap-2 text-zinc-400 text-xs font-bold p-3 bg-rose-600/5 border border-rose-500/10 rounded-xl leading-relaxed">
                   <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
                   <span>
-                    الحد الأقصى المسموح به هو 3 أجهزة متزامنة. بمجرد قيامك بإنهاء أي جهاز نشط، سيتم تسجيل خروج الطالب تلقائياً من ذلك المتصفح فور قيامه بأي تفاعل.
+                    Maximum allowed limit is 3 concurrent devices. Once you terminate any active device session, the student will be instantly logged out from that browser upon their next action.
                   </span>
                 </div>
 
@@ -677,12 +676,12 @@ export default function AdminStudentsPage() {
                   {loadingSessions ? (
                     <div className="py-12 flex flex-col items-center justify-center gap-2 text-zinc-500 text-xs font-bold">
                       <Loader2 className="w-6 h-6 animate-spin text-rose-500" />
-                      <span>جاري تحميل الأجهزة المتصلة بالحساب...</span>
+                      <span>Loading active devices connected to the account...</span>
                     </div>
                   ) : activeSessions.length === 0 ? (
                     <div className="py-12 text-center text-zinc-500 text-xs font-bold">
                       <Laptop className="w-10 h-10 text-zinc-700 mx-auto mb-2" />
-                      <span>لا توجد أجهزة نشطة مسجلة حالياً في قاعدة البيانات.</span>
+                      <span>No active device sessions registered in the database.</span>
                     </div>
                   ) : (
                     activeSessions.map((session) => (
@@ -697,17 +696,17 @@ export default function AdminStudentsPage() {
                           <div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-white text-[13px]">{session.browser.split(" ")[0] || "Browser Session"}</span>
-                              <span className="text-[9px] bg-white/5 text-zinc-400 px-1.5 py-0.5 rounded font-mono" dir="ltr">{session.device_id.substring(0, 10)}</span>
+                              <span className="text-[9px] bg-white/5 text-zinc-400 px-1.5 py-0.5 rounded font-mono">{session.device_id.substring(0, 10)}</span>
                             </div>
                             <div className="flex items-center gap-3 mt-1 text-[10px] text-zinc-500">
                               <span className="flex items-center gap-0.5">
                                 <Globe className="w-3.5 h-3.5 text-zinc-500" />
-                                <span dir="ltr">{session.ip_address}</span>
+                                <span className="font-mono">{session.ip_address}</span>
                               </span>
                               <span>•</span>
-                              <span>البلد: {session.country || "غير معروف"}</span>
+                              <span>Country: {session.country || "Unknown"}</span>
                               <span>•</span>
-                              <span>النشاط: {new Date(session.last_activity).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}</span>
+                              <span>Activity: {new Date(session.last_activity).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
                             </div>
                           </div>
                         </div>
@@ -716,7 +715,7 @@ export default function AdminStudentsPage() {
                           onClick={() => handleTerminateSession(session.id)}
                           className="h-8 px-3 rounded-lg bg-rose-600/10 hover:bg-rose-600 border border-rose-500/20 hover:border-transparent text-[#D6004B] hover:text-white transition-all text-[10px] font-bold cursor-pointer"
                         >
-                          إنهاء الجلسة
+                          Terminate Session
                         </button>
                       </div>
                     ))
@@ -731,12 +730,12 @@ export default function AdminStudentsPage() {
                 <div className="flex items-center gap-2 text-zinc-400 text-xs font-bold p-3 bg-zinc-950/60 border border-white/5 rounded-xl leading-relaxed">
                   <AlertCircle className="w-4 h-4 text-[#D6004B] shrink-0" />
                   <span>
-                    عند تطبيق الحظر على الطالب، سيتم منعه بالكامل من بث الفيديوهات أو فتح المحاضرات التعليمية، مع إبقائه مشتركاً في الكورس.
+                    When a student is suspended, they will be completely blocked from streaming videos or accessing educational materials, while remaining enrolled in the course.
                   </span>
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <span className="text-xs text-zinc-400 font-bold">حالة تفعيل حساب الطالب</span>
+                  <span className="text-xs text-zinc-400 font-bold">Student Account Access Level</span>
                   <div className="flex gap-3">
                     <button
                       type="button"
@@ -749,7 +748,7 @@ export default function AdminStudentsPage() {
                       )}
                     >
                       <ShieldCheck className="w-4.5 h-4.5" />
-                      <span>نشط (يسمح بالتعلم والبث)</span>
+                      <span>Active (Allow Learning & Streaming)</span>
                     </button>
                     <button
                       type="button"
@@ -762,20 +761,20 @@ export default function AdminStudentsPage() {
                       )}
                     >
                       <Ban className="w-4.5 h-4.5" />
-                      <span>حظر مؤقت (حظر البث والأمان)</span>
+                      <span>Suspended (Block video streaming)</span>
                     </button>
                   </div>
                 </div>
 
                 {isSuspended && (
                   <div className="flex flex-col gap-1.5 animate-fadeIn">
-                    <label className="text-xs text-zinc-400 font-bold">سبب الحظر (سيظهر للطالب عند محاولة البث)</label>
+                    <label className="text-xs text-zinc-400 font-bold">Suspension Reason (Displayed to the student on blockscreen)</label>
                     <textarea 
                       required
-                      placeholder="اكتب سبب الحظر هنا (مثال: مشاركة الحساب مع أكثر من جهاز متزامن)..."
+                      placeholder="Write the suspension reason here (e.g. Account sharing detected on multiple concurrent devices)..."
                       value={suspensionReason}
                       onChange={e => setSuspensionReason(e.target.value)}
-                      className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-cairo text-zinc-300 w-full text-right h-20 resize-none"
+                      className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-sans text-zinc-300 w-full h-20 resize-none"
                     />
                   </div>
                 )}
@@ -787,7 +786,7 @@ export default function AdminStudentsPage() {
                     className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
                   >
                     {savingSecurity && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                    <span>حفظ وتطبيق إعدادات الأمان</span>
+                    <span>Save Security Settings</span>
                   </button>
                 </div>
               </form>
@@ -800,68 +799,67 @@ export default function AdminStudentsPage() {
       {/* ── REGISTER NEW STUDENT MODAL ────────────────────────────────────────── */}
       {isAddingStudent && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0a0a0f] border border-white/10 rounded-2xl max-w-lg w-full p-6 space-y-6 shadow-2xl relative text-right">
+          <div className="bg-[#0a0a0f] border border-white/10 rounded-2xl max-w-lg w-full p-6 space-y-6 shadow-2xl relative text-left">
             
             {/* Close */}
             <button 
               onClick={() => setIsAddingStudent(false)}
-              className="absolute top-4 left-4 p-2 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              className="absolute top-4 right-4 p-2 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
 
             {/* Title */}
             <div>
-              <h3 className="font-alexandria font-bold text-white text-base">تسجيل حساب طالب جديد ودراسة كورس</h3>
-              <p className="text-zinc-500 text-xs mt-1">أدخل البريد الإلكتروني، كلمة المرور، والاسم لتسجيل حساب طالب فوراً وتضمينه في الكورس المحدد مجاناً.</p>
+              <h3 className="font-bold text-white text-base">Enroll New Student</h3>
+              <p className="text-zinc-500 text-xs mt-1">Enter the email, password, and name to instantly register a student account and enroll them in the selected course for free.</p>
             </div>
 
-            <form onSubmit={handleCreateStudentSubmit} className="space-y-4 font-cairo">
+            <form onSubmit={handleCreateStudentSubmit} className="space-y-4 font-sans">
               
               {/* Names row */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-zinc-400 font-bold">الاسم الأول</label>
+                  <label className="text-xs text-zinc-400 font-bold">First Name</label>
                   <input 
                     type="text"
                     required
-                    placeholder="مثال: أحمد"
+                    placeholder="e.g. Ahmed"
                     value={newStudent.firstName}
                     onChange={e => setNewStudent(prev => ({ ...prev, firstName: e.target.value }))}
-                    className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-cairo text-zinc-300 w-full text-right"
+                    className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-sans text-zinc-300 w-full"
                   />
                 </div>
                 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-zinc-400 font-bold">اسم العائلة</label>
+                  <label className="text-xs text-zinc-400 font-bold">Last Name</label>
                   <input 
                     type="text"
                     required
-                    placeholder="مثال: علي"
+                    placeholder="e.g. Ali"
                     value={newStudent.lastName}
                     onChange={e => setNewStudent(prev => ({ ...prev, lastName: e.target.value }))}
-                    className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-cairo text-zinc-300 w-full text-right"
+                    className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-sans text-zinc-300 w-full"
                   />
                 </div>
               </div>
 
               {/* Email */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-zinc-400 font-bold">البريد الإلكتروني</label>
+                <label className="text-xs text-zinc-400 font-bold">Email Address</label>
                 <input 
                   type="email"
                   required
                   placeholder="student@example.com"
                   value={newStudent.email}
                   onChange={e => setNewStudent(prev => ({ ...prev, email: e.target.value }))}
-                  className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-cairo text-zinc-300 w-full text-left font-mono"
-                  dir="ltr"
+                  className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-mono text-zinc-300 w-full"
                 />
               </div>
 
               {/* Password */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-zinc-400 font-bold">كلمة المرور (السرية)</label>
+                <label className="text-xs text-zinc-400 font-bold">Password (min 6 characters)</label>
                 <input 
                   type="password"
                   required
@@ -869,21 +867,20 @@ export default function AdminStudentsPage() {
                   placeholder="••••••••"
                   value={newStudent.password}
                   onChange={e => setNewStudent(prev => ({ ...prev, password: e.target.value }))}
-                  className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-cairo text-zinc-300 w-full text-left font-mono"
-                  dir="ltr"
+                  className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-mono text-zinc-300 w-full"
                 />
               </div>
 
               {/* Course selection */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-zinc-400 font-bold">تخصيص الكورس الدراسي</label>
+                <label className="text-xs text-zinc-400 font-bold">Assign Course Path</label>
                 <select
                   required
                   value={newStudent.courseId}
                   onChange={e => setNewStudent(prev => ({ ...prev, courseId: e.target.value }))}
-                  className="bg-[#0f0f15] border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-cairo text-zinc-300 w-full text-right"
+                  className="bg-[#0f0f15] border border-white/5 rounded-xl py-3 px-4 text-xs focus:outline-none focus:border-rose-500/50 transition-all font-sans text-zinc-300 w-full"
                 >
-                  <option value="" disabled>اختر الكورس...</option>
+                  <option value="" disabled>Select Course...</option>
                   {courses.map(c => (
                     <option key={c.id} value={c.id}>{c.title}</option>
                   ))}
@@ -897,7 +894,7 @@ export default function AdminStudentsPage() {
                   onClick={() => setIsAddingStudent(false)}
                   className="h-11 px-5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-zinc-400 hover:text-white text-xs font-bold transition-all cursor-pointer"
                 >
-                  إلغاء
+                  Cancel
                 </button>
 
                 <button
@@ -906,7 +903,7 @@ export default function AdminStudentsPage() {
                   className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shadow-lg shadow-rose-600/30"
                 >
                   {addingLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>إنشاء الحساب وتفعيل الاشتراك</span>
+                  <span>Enroll Student</span>
                 </button>
               </div>
 

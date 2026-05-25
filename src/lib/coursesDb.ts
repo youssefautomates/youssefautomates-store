@@ -22,7 +22,7 @@ export interface LmsCourse {
   status: "draft" | "published" | "hidden";
   duration_hours: number;
   lessons_count: number;
-  level: "مبتدئ" | "متوسط" | "متقدم";
+  level: "مبتدئ" | "متوسط" | "متقدم" | "Beginner" | "Intermediate" | "Advanced";
   category: string;
   tags: string[];
   requirements: string[];
@@ -496,7 +496,7 @@ export async function upsertCourse(course: Partial<LmsCourse> & { title: string 
     status: course.status || "draft",
     duration_hours: Number(course.duration_hours) || 0,
     lessons_count: Number(course.lessons_count) || 0,
-    level: course.level || "مبتدئ",
+    level: course.level || "Beginner",
     category: course.category || "الأتمتة",
     tags: course.tags || [],
     requirements: course.requirements || [],

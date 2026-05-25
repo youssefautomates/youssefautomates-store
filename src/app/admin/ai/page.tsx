@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { 
   Sparkles, Send, Plus, Trash2, Loader2, Brain, 
-  TrendingUp, BookOpen, Package, Award, HelpCircle, 
-  MessageSquare, User, Zap, AlertTriangle, ArrowLeft,
-  ChevronLeft, BarChart3, LineChart, Target, Flame
+  BookOpen, Package, Award, HelpCircle, Target,
+  MessageSquare, User, Zap, AlertTriangle,
+  ChevronLeft, BarChart3, Flame
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -60,7 +60,7 @@ export default function AIBusinessAssistant() {
         }
       }
     } catch (err) {
-      toast.error("فشل تحميل قائمة المحادثات السابقة");
+      toast.error("Failed to load previous conversation history");
     } finally {
       setLoadingChats(false);
     }
@@ -74,7 +74,7 @@ export default function AIBusinessAssistant() {
       const res = await fetch("/api/admin/ai/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "محادثة استشارية جديدة" })
+        body: JSON.stringify({ title: "New Advisory Session" })
       });
       if (res.ok) {
         const newChat = await res.json();
@@ -82,17 +82,17 @@ export default function AIBusinessAssistant() {
         setActiveConvId(newChat.id);
         setStreamingText("");
         setInputMessage("");
-        toast.success("تم بدء جلسة استشارية ذكية جديدة 🟢");
+        toast.success("New intelligent advisory session initialized! 🟢");
       }
     } catch (err) {
-      toast.error("فشل بدء محادثة جديدة");
+      toast.error("Failed to initialize new session");
     }
   }
 
   // Delete chat session
   async function handleDeleteChat(id: string, e: React.MouseEvent) {
     e.stopPropagation();
-    if (!confirm("هل أنت متأكد من حذف هذه المحادثة بالكامل من السجل؟")) return;
+    if (!confirm("Are you sure you want to permanently delete this session from your history?")) return;
 
     try {
       const res = await fetch(`/api/admin/ai/conversations?id=${id}`, {
@@ -104,10 +104,10 @@ export default function AIBusinessAssistant() {
           const remaining = conversations.filter(c => c.id !== id);
           setActiveConvId(remaining.length > 0 ? remaining[0].id : null);
         }
-        toast.success("تم حذف المحادثة بنجاح 🔴");
+        toast.success("Advisory session deleted! 🔴");
       }
     } catch (err) {
-      toast.error("فشل حذف المحادثة");
+      toast.error("Failed to delete session");
     }
   }
 
@@ -124,7 +124,7 @@ export default function AIBusinessAssistant() {
         const res = await fetch("/api/admin/ai/conversations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: "محادثة استشارية جديدة" })
+          body: JSON.stringify({ title: "New Advisory Session" })
         });
         if (res.ok) {
           const newChat = await res.json();
@@ -132,11 +132,11 @@ export default function AIBusinessAssistant() {
           targetConvId = newChat.id;
           setActiveConvId(newChat.id);
         } else {
-          toast.error("فشل إنشاء جلسة للمحادثة");
+          toast.error("Failed to create conversation session");
           return;
         }
       } catch (err) {
-        toast.error("خطأ في الاتصال بالخادم");
+        toast.error("Server connection error");
         return;
       }
     }
@@ -166,7 +166,7 @@ export default function AIBusinessAssistant() {
       });
 
       if (!response.ok) {
-        throw new Error("فشل توليد الرد من الذكاء الاصطناعي");
+        throw new Error("Failed to generate response from AI");
       }
 
       const reader = response.body?.getReader();
@@ -193,7 +193,7 @@ export default function AIBusinessAssistant() {
           return {
             ...c,
             messages: [...c.messages, assistantMsg],
-            title: c.title === "محادثة استشارية جديدة" 
+            title: c.title === "New Advisory Session" 
               ? textToSend.split(" ").slice(0, 4).join(" ") + "..." 
               : c.title
           };
@@ -204,7 +204,7 @@ export default function AIBusinessAssistant() {
 
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "حدث خطأ غير متوقع");
+      toast.error(err.message || "An unexpected error occurred");
     } finally {
       setIsLoading(false);
       setIsTyping(false);
@@ -213,49 +213,48 @@ export default function AIBusinessAssistant() {
 
   // Quick Action AI Tools
   const aiTools = [
-    { label: "حلل المنصة بالكامل", prompt: "قم بإجراء تحليل شامل وشامل للمنصة بالكامل بناءً على بيانات الداتا بيز المتاحة، واستخرج أفضل مؤشرات الأداء الحالية ونقاط القوة والضعف ومقترحات التحسين.", icon: Brain, color: "from-[#D6004B] to-[#ff0059]" },
-    { label: "أفضل فرصة ربح حالياً", prompt: "ما هي أفضل فرصة ربح وتدفق مالي فوري يمكنني تحقيقها بناءً على منتجاتي الرقمية والكورسات الحالية ومعدلات الشراء؟ اعطني أفكاراً ملموسة وعروضاً محددة.", icon: Zap, color: "from-amber-500 to-orange-600" },
-    { label: "حلل أداء الكورسات", prompt: "حلل أداء الكورسات التعليمية واشتركات الطلاب ومعدل تقدمهم، واقترح استراتيجيات لزيادة التفاعل وإكمال الدروس داخل الأكاديمية.", icon: BookOpen, color: "from-blue-500 to-indigo-600" },
-    { label: "حلل المنتجات الرقمية", prompt: "أجرِ تقييماً لجميع المنتجات الرقمية بالمتجر، والأسعار الحالية وحجم المبيعات لكل منتج، واقترح تحسينات تسعيرية ذكية لزيادة الإقبال.", icon: Package, color: "from-emerald-500 to-teal-600" },
-    { label: "اقترح Funnel مبيعات", prompt: "اقترح قمع بيع متكامل وعالي التحويل (High-converting marketing funnel) يجمع بين منتجاتي الرقمية والكورسات بطريقة ذكية تزيد من القيمة الشرائية لـ Bump Offer و Upsells.", icon: Target, color: "from-purple-500 to-pink-600" },
-    { label: "اكتشف مشاكل التحويل", prompt: "افحص معدل التحويل ونسبة التخلي عن الدفع والطلبات الفاشلة والمعلقة بالداتا بيز، وحدد المشاكل أو المعوقات التي تواجه العملاء واقترح حلولاً تقنية وتسويقية.", icon: AlertTriangle, color: "from-rose-500 to-red-600" },
-    { label: "اقترح حملة تسويقية", prompt: "اقترح حملة تسويقية متكاملة (مثال: إعلانات تيك توك وتويتر، حملات إيميل، كوبونات تخفيض) لتنشيط المبيعات وزيادة الإيرادات في الـ 7 أيام القادمة.", icon: Flame, color: "from-orange-500 to-red-500" },
-    { label: "حلل سلوك الطلاب", prompt: "حلل إحصائيات تقييمات الكورسات وسلوك الطلاب وإكمال الدروس، واقترح تحسينات لتجربة الطالب لرفع الرضا ومعدل النجاح.", icon: Award, color: "from-cyan-500 to-sky-600" }
+    { label: "Analyze Platform", prompt: "Conduct a comprehensive and deep audit of the entire store based on the active database parameters. Extract conversion insights, acquisition channels performance, and structural improvements.", icon: Brain, color: "from-[#D6004B] to-[#ff0059]" },
+    { label: "Max Profit Strategy", prompt: "Identify the absolute best instant profit opportunities and cashflow triggers based on my active digital products, enrollment rates, and completed orders. Provide specific bundle proposals.", icon: Zap, color: "from-amber-500 to-orange-600" },
+    { label: "LMS Academy Review", prompt: "Review my academy courses, student enrollment metrics, and lesson completion trends. Propose actionable retention strategies to increase student graduation rates.", icon: BookOpen, color: "from-blue-500 to-indigo-600" },
+    { label: "Audit Digital Files", prompt: "Evaluate the price points, sales counts, and failure rates of all digital products in my store. Recommend pricing adjustments or value-addons to scale sales velocity.", icon: Package, color: "from-emerald-500 to-teal-600" },
+    { label: "Design Funnel", prompt: "Design a high-converting marketing funnel that combines my digital files and academic courses. Structure a concrete bump offer and upsell logic to maximize AOV.", icon: Target, color: "from-purple-500 to-pink-600" },
+    { label: "Check Drop-offs", prompt: "Review checkout abandonment ratios, failed payment intentions, and student drop-off hotspots. Detail clear technical and performance marketing remediations.", icon: AlertTriangle, color: "from-rose-500 to-red-600" },
+    { label: "Propose Promo Campaign", prompt: "Draft a complete 7-day marketing campaign (incorporating TikTok/Facebook ads structure, email sequences, and discount codes) to rapidly accelerate store volume.", icon: Flame, color: "from-orange-500 to-red-500" },
+    { label: "Student Engagement", prompt: "Examine student review scores, watch durations, and study streaks. Recommend enhancements to the student learn page to boost course completion.", icon: Award, color: "from-cyan-500 to-sky-600" }
   ];
 
   // Quick prompt presets for suggestions
   const promptsPresets = [
-    "كيف يمكنني زيادة متوسط قيمة الطلب (AOV) بنسبة 30%؟",
-    "اقترح فكرة باقة (Bundle) لربط حزم الأتمتة بالكورسات التعليمية.",
-    "صغ لي سيناريو بريد إلكتروني تلقائي لاسترجاع السلال المتروكة.",
-    "حلل معدل الشراء المتكرر للعملاء واقترح استراتيجية ولاء."
+    "How can I increase the Average Order Value (AOV) by 30%?",
+    "Propose a Bundle idea connecting automation packages with academic courses.",
+    "Draft an automated email sequence to recover abandoned carts.",
+    "Analyze customer retention rate and suggest a loyalty strategy."
   ];
 
-  // Custom premium Markdown/Arabic Formatter
+  // Custom premium Markdown/English Formatter
   function formatAIText(text: string) {
     if (!text) return "";
     
-    // Convert newlines to breaks
     const lines = text.split("\n");
     return lines.map((line, i) => {
       let trimmed = line.trim();
       
       // 1. Headers formatting
       if (trimmed.startsWith("###")) {
-        return <h4 key={i} className="text-sm font-alexandria font-bold text-rose-400 mt-4 mb-2">{trimmed.replace("###", "")}</h4>;
+        return <h4 key={i} className="text-sm font-sans font-bold text-rose-400 mt-4 mb-2">{trimmed.replace("###", "")}</h4>;
       }
       if (trimmed.startsWith("##")) {
-        return <h3 key={i} className="text-base font-alexandria font-black text-white mt-5 mb-2.5 pb-1 border-b border-white/5">{trimmed.replace("##", "")}</h3>;
+        return <h3 key={i} className="text-base font-sans font-black text-white mt-5 mb-2.5 pb-1 border-b border-white/5">{trimmed.replace("##", "")}</h3>;
       }
       if (trimmed.startsWith("#")) {
-        return <h2 key={i} className="text-lg font-alexandria font-black text-[#D6004B] mt-6 mb-3">{trimmed.replace("#", "")}</h2>;
+        return <h2 key={i} className="text-lg font-sans font-black text-[#D6004B] mt-6 mb-3">{trimmed.replace("#", "")}</h2>;
       }
 
       // 2. Unordered lists formatting
       if (trimmed.startsWith("-") || trimmed.startsWith("*")) {
         const bulletText = trimmed.slice(1).trim();
         return (
-          <ul key={i} className="list-disc list-inside text-zinc-300 text-xs py-0.5 pr-4 space-y-1">
+          <ul key={i} className="list-disc list-inside text-zinc-300 text-xs py-0.5 pl-4 space-y-1">
             <li>{bulletText}</li>
           </ul>
         );
@@ -264,7 +263,7 @@ export default function AIBusinessAssistant() {
       // 3. Numbers/Ordered lists formatting
       if (/^\d+\./.test(trimmed)) {
         return (
-          <ol key={i} className="list-decimal list-inside text-zinc-300 text-xs py-0.5 pr-4 space-y-1">
+          <ol key={i} className="list-decimal list-inside text-zinc-300 text-xs py-0.5 pl-4 space-y-1">
             <li>{trimmed.replace(/^\d+\./, "").trim()}</li>
           </ol>
         );
@@ -293,7 +292,7 @@ export default function AIBusinessAssistant() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row h-[calc(100vh-140px)] min-h-[550px] bg-[#050505] rounded-3xl border border-white/5 overflow-hidden shadow-2xl relative font-cairo">
+    <div className="flex flex-col lg:flex-row h-[calc(100vh-140px)] min-h-[550px] bg-[#050505] rounded-3xl border border-white/5 overflow-hidden shadow-2xl relative font-sans text-left" dir="ltr">
       
       {/* 🔴 Sidebar Panel - AI Conversations History */}
       <AnimatePresence>
@@ -303,19 +302,19 @@ export default function AIBusinessAssistant() {
             animate={{ width: 320, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="h-full bg-[#08080c] border-l border-white/5 flex flex-col shrink-0 relative z-30"
+            className="h-full bg-[#08080c] border-r border-white/5 flex flex-col shrink-0 relative z-30"
           >
             {/* Sidebar Header */}
             <div className="p-5 border-b border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Brain className="w-5 h-5 text-[#D6004B]" />
-                <h3 className="text-xs font-black font-alexandria text-white">جلسات الأعمال الذكية</h3>
+                <h3 className="text-xs font-black text-white uppercase tracking-wider">Advisory Sessions</h3>
               </div>
               
               <button
                 onClick={handleStartNewChat}
-                className="p-2 bg-[#D6004B]/10 hover:bg-[#D6004B] text-[#D6004B] hover:text-white rounded-xl transition-all cursor-pointer"
-                title="بدء جلسة جديدة"
+                className="p-2 bg-[#D6004B]/10 hover:bg-[#D6004B] text-[#D6004B] hover:text-white rounded-xl transition-all cursor-pointer border border-transparent"
+                title="Start New Session"
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -326,11 +325,11 @@ export default function AIBusinessAssistant() {
               {loadingChats ? (
                 <div className="py-12 flex flex-col items-center justify-center gap-2">
                   <Loader2 className="w-6 h-6 text-zinc-600 animate-spin" />
-                  <span className="text-[10px] text-zinc-500 font-bold">جاري تحميل السجل...</span>
+                  <span className="text-[10px] text-zinc-500 font-bold">Loading history...</span>
                 </div>
               ) : conversations.length === 0 ? (
                 <div className="py-12 text-center text-zinc-600 text-xs">
-                  لا توجد محادثات سابقة مسجلة. ابدأ الآن!
+                  No previous advisory sessions found. Start a new one!
                 </div>
               ) : (
                 conversations.map((conv) => {
@@ -351,13 +350,13 @@ export default function AIBusinessAssistant() {
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <MessageSquare className={cn("w-4 h-4 shrink-0", isActive ? "text-[#D6004B]" : "text-zinc-500")} />
-                        <p className="text-xs font-bold truncate pr-1 text-right">{conv.title}</p>
+                        <p className="text-xs font-bold truncate pl-1 text-left">{conv.title}</p>
                       </div>
                       
                       <button
                         onClick={(e) => handleDeleteChat(conv.id, e)}
                         className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-zinc-500 hover:text-red-400 rounded-lg transition-all"
-                        title="حذف الجلسة"
+                        title="Delete Session"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -379,17 +378,17 @@ export default function AIBusinessAssistant() {
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-2 bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-400 hover:text-white rounded-xl transition-all cursor-pointer"
-              title="القائمة الجانبية"
+              title="Toggle Sidebar"
             >
-              <ChevronLeft className={cn("w-4 h-4 transition-transform", sidebarOpen ? "rotate-180" : "")} />
+              <ChevronLeft className={cn("w-4 h-4 transition-transform", sidebarOpen ? "" : "rotate-180")} />
             </button>
 
             <div>
-              <h2 className="text-xs md:text-sm font-black font-alexandria text-white flex items-center gap-1.5">
-                مساعد النمو والاستشارة الذكي (AI Assistant)
+              <h2 className="text-xs md:text-sm font-black text-white flex items-center gap-1.5 uppercase tracking-wide">
+                Smart Growth & Advisory AI Assistant
                 <Sparkles className="w-4 h-4 text-[#D6004B]" />
               </h2>
-              <p className="text-[10px] text-zinc-500 font-bold mt-0.5">موظف استشاري ذكي يحلل أرقام المنصة، مبيعاتك، ونشاط طلابك ويقترح باقات تسويقية.</p>
+              <p className="text-[10px] text-zinc-500 font-bold mt-0.5">Intelligent advisory officer analyzing database metrics, sales figures, and student logs to suggest marketing options.</p>
             </div>
           </div>
 
@@ -413,31 +412,31 @@ export default function AIBusinessAssistant() {
                   <div className="absolute inset-0 bg-[#D6004B] rounded-2xl blur-xl opacity-30 -z-10 group-hover:opacity-50 transition-opacity" />
                 </div>
                 
-                <h1 className="text-xl md:text-2xl font-black font-alexandria text-white">
-                  مرحباً بك في مركز الاستشارة والنمو الذكي
+                <h1 className="text-xl md:text-2xl font-black text-white tracking-tight">
+                  Welcome to the Smart Growth Advisory Hub
                 </h1>
-                <p className="text-xs text-zinc-400 max-w-lg mx-auto leading-relaxed">
-                  أنا مستشارك المالي والتسويقي، مرتبط بجميع مبيعاتك وكورساتك وطلابك مباشرة. حدد أي أداة بالأسفل أو اسألني مباشرة!
+                <p className="text-xs text-zinc-400 max-w-lg mx-auto leading-relaxed font-semibold">
+                  I am your performance marketing and finance advisor, directly connected to your store sales, courses, and students. Trigger any analysis tool below or write to me directly!
                 </p>
               </div>
 
               {/* Grid of smart AI quick tools */}
               <div className="space-y-3">
-                <h3 className="text-xs font-black font-alexandria text-zinc-500 uppercase tracking-widest text-right">أدوات التحليل والنمو الذكية</h3>
+                <h3 className="text-xs font-black text-zinc-500 uppercase tracking-widest text-left">Smart Growth & Analysis Toolkits</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                   {aiTools.map((tool) => (
                     <button
                       key={tool.label}
                       onClick={() => handleSendMessage(tool.prompt)}
                       disabled={isLoading}
-                      className="p-4 rounded-3xl bg-[#09090d]/80 border border-white/5 hover:border-[#D6004B]/40 transition-all text-right relative overflow-hidden group shadow-md hover:shadow-xl hover:shadow-[#D6004B]/5 cursor-pointer text-xs font-bold font-alexandria active:scale-95"
+                      className="p-4 rounded-3xl bg-[#09090d]/80 border border-white/5 hover:border-[#D6004B]/40 transition-all text-left relative overflow-hidden group shadow-md hover:shadow-xl hover:shadow-[#D6004B]/5 cursor-pointer text-xs font-bold active:scale-95 border border-transparent"
                     >
-                      <div className="absolute top-0 left-0 w-16 h-16 rounded-full blur-2xl opacity-10 bg-gradient-to-br from-[#D6004B] to-purple-600 pointer-events-none" />
+                      <div className="absolute top-0 right-0 w-16 h-16 rounded-full blur-2xl opacity-10 bg-gradient-to-br from-[#D6004B] to-purple-600 pointer-events-none" />
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-white/5 mb-3 group-hover:bg-[#D6004B]/10 transition-colors">
                         <tool.icon className="w-4 h-4 text-zinc-400 group-hover:text-[#D6004B] transition-colors" />
                       </div>
                       <p className="text-white text-xs font-bold mb-1 leading-snug">{tool.label}</p>
-                      <span className="text-[9px] text-zinc-500 font-semibold group-hover:text-zinc-400 transition-colors">تشغيل الأداة ←</span>
+                      <span className="text-[9px] text-zinc-500 font-semibold group-hover:text-zinc-400 transition-colors">Run Tool ←</span>
                     </button>
                   ))}
                 </div>
@@ -445,13 +444,13 @@ export default function AIBusinessAssistant() {
 
               {/* Grid of suggestion prompt templates */}
               <div className="space-y-3">
-                <h3 className="text-xs font-black font-alexandria text-zinc-500 uppercase tracking-widest text-right">أفكار واستشارات سريعة</h3>
+                <h3 className="text-xs font-black text-zinc-500 uppercase tracking-widest text-left">Advisory Prompt Presets</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {promptsPresets.map((preset) => (
                     <button
                       key={preset}
                       onClick={() => setInputMessage(preset)}
-                      className="p-3.5 bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-white/10 rounded-2xl text-right text-xs text-zinc-300 hover:text-white transition-all cursor-pointer font-bold leading-relaxed"
+                      className="p-3.5 bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-white/10 rounded-2xl text-left text-xs text-zinc-300 hover:text-white transition-all cursor-pointer font-bold leading-relaxed"
                     >
                       {preset}
                     </button>
@@ -471,10 +470,10 @@ export default function AIBusinessAssistant() {
                   <div
                     key={index}
                     className={cn(
-                      "flex gap-4 p-5 rounded-3xl border relative",
+                      "flex gap-4 p-5 rounded-3xl border relative text-left",
                       isUser 
-                        ? "bg-white/[0.01] border-white/5 text-right flex-row-reverse" 
-                        : "bg-[#09090d]/80 border-white/5 text-right flex-row"
+                        ? "bg-white/[0.01] border-white/5 flex-row" 
+                        : "bg-[#09090d]/80 border-white/5 flex-row"
                     )}
                   >
                     {/* User / Bot Avatar Icon */}
@@ -488,14 +487,14 @@ export default function AIBusinessAssistant() {
                     </div>
 
                     <div className="space-y-2 flex-1 min-w-0">
-                      <p className="text-[10px] font-black tracking-widest uppercase text-zinc-500 font-alexandria">
-                        {isUser ? "أنت (الأدمن)" : "مستشار النمو الذكي"}
+                      <p className="text-[10px] font-black tracking-widest uppercase text-zinc-500">
+                        {isUser ? "You (Admin)" : "Smart Growth Advisor"}
                       </p>
                       
                       {isUser ? (
                         <p className="text-white text-xs font-bold leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                       ) : (
-                        <div className="space-y-1 font-cairo">
+                        <div className="space-y-1 font-sans">
                           {formatAIText(msg.content)}
                         </div>
                       )}
@@ -509,18 +508,18 @@ export default function AIBusinessAssistant() {
           {/* Render Active Streaming AI response */}
           {streamingText && (
             <div className="max-w-4xl mx-auto space-y-6">
-              <div className="flex gap-4 p-5 rounded-3xl border bg-[#09090d]/80 border-white/5 text-right flex-row">
+              <div className="flex gap-4 p-5 rounded-3xl border bg-[#09090d]/80 border-white/5 text-left flex-row">
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-lg bg-gradient-to-tr from-[#D6004B] to-purple-600 text-white">
                   <Brain className="w-4 h-4 animate-pulse" />
                 </div>
                 
                 <div className="space-y-2 flex-1 min-w-0">
-                  <p className="text-[10px] font-black tracking-widest uppercase text-zinc-500 font-alexandria flex items-center gap-1.5">
-                    جاري التفكير والكتابة...
+                  <p className="text-[10px] font-black tracking-widest uppercase text-zinc-500 flex items-center gap-1.5">
+                    Thinking & generating...
                     <Loader2 className="w-3 h-3 text-[#D6004B] animate-spin" />
                   </p>
                   
-                  <div className="space-y-1 font-cairo">
+                  <div className="space-y-1 font-sans">
                     {formatAIText(streamingText)}
                   </div>
                 </div>
@@ -531,13 +530,13 @@ export default function AIBusinessAssistant() {
           {/* Rendering AI Typing status */}
           {isTyping && !streamingText && (
             <div className="max-w-4xl mx-auto space-y-6">
-              <div className="flex gap-4 p-5 rounded-3xl border bg-[#09090d]/80 border-white/5 text-right flex-row">
+              <div className="flex gap-4 p-5 rounded-3xl border bg-[#09090d]/80 border-white/5 text-left flex-row">
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-lg bg-gradient-to-tr from-[#D6004B] to-purple-600 text-white">
                   <Brain className="w-4 h-4 animate-bounce" />
                 </div>
                 
                 <div className="space-y-2 flex-1 min-w-0">
-                  <p className="text-[10px] font-black tracking-widest uppercase text-zinc-500 font-alexandria">جاري الاتصال بالداتا وتحليل الأرقام...</p>
+                  <p className="text-[10px] font-black tracking-widest uppercase text-zinc-500">Connecting to database and compiling telemetry...</p>
                   
                   <div className="flex items-center gap-1.5 py-2">
                     <span className="w-2 h-2 rounded-full bg-[#D6004B] animate-bounce" />
@@ -557,28 +556,28 @@ export default function AIBusinessAssistant() {
           <div className="max-w-4xl mx-auto flex items-center gap-3 bg-white/5 border border-white/5 rounded-2xl p-1.5 focus-within:border-[#D6004B]/40 focus-within:ring-1 focus-within:ring-[#D6004B]/20 transition-all">
             <input
               type="text"
-              placeholder={isLoading ? "الذكاء الاصطناعي يقوم بالتفكير والتوليد حالياً..." : "اسأل مساعد النمو الذكي عن استراتيجيات أو أفكار مبيعات..."}
+              placeholder={isLoading ? "AI is thinking and generating details..." : "Ask the Smart Advisor for performance strategies or marketing ideas..."}
               value={inputMessage}
               disabled={isLoading}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSendMessage();
               }}
-              className="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 text-xs px-3 text-white placeholder-zinc-500 text-right"
-              dir="rtl"
+              className="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 text-xs px-3 text-white placeholder-zinc-500 text-left"
+              dir="ltr"
             />
             
             <button
               onClick={() => handleSendMessage()}
               disabled={isLoading || !inputMessage.trim()}
               className={cn(
-                "p-3 rounded-xl transition-all cursor-pointer active:scale-95 flex items-center justify-center shrink-0",
+                "p-3 rounded-xl transition-all cursor-pointer active:scale-95 flex items-center justify-center shrink-0 border border-transparent",
                 inputMessage.trim() && !isLoading
                   ? "bg-[#D6004B] text-white hover:bg-[#ff0059] shadow-lg shadow-[#D6004B]/25"
                   : "bg-white/5 text-zinc-500 cursor-not-allowed"
               )}
             >
-              <Send className="w-4 h-4 -rotate-90" />
+              <Send className="w-4 h-4" />
             </button>
           </div>
         </footer>

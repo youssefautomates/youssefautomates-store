@@ -35,7 +35,7 @@ export interface Product {
   price_usd?: number;
   original_price_usd?: number | null;
   discount_pct: number | null;
-  status: "نشط" | "مسودة" | "مخفي";
+  status: "نشط" | "مسودة" | "مخفي" | "Active" | "Draft" | "Hidden";
   is_featured: boolean;
   image_url: string;
   file_url: string | null;

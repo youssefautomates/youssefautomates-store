@@ -73,7 +73,7 @@ export default function MarketingPage() {
         setLoadingPixels(false);
       })
       .catch(() => {
-        toast.error("فشل تحميل إعدادات بيكسل التتبع");
+        toast.error("Failed to load tracking pixel settings");
         setLoadingPixels(false);
       });
 
@@ -97,11 +97,11 @@ export default function MarketingPage() {
           setTableMissing(false);
         }
       } else {
-        throw new Error(data.error || "فشل تحميل الكوبونات");
+        throw new Error(data.error || "Failed to load coupons");
       }
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "حدث خطأ أثناء تحميل الكوبونات");
+      toast.error(err.message || "An error occurred while loading coupons");
     } finally {
       setLoadingCoupons(false);
     }
@@ -151,10 +151,10 @@ export default function MarketingPage() {
       });
       
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "فشل الحفظ");
-      toast.success("تم حفظ إعدادات بيكسل التتبع بنجاح");
+      if (!res.ok) throw new Error(data.error || "Failed to save settings");
+      toast.success("Tracking pixel settings saved successfully!");
     } catch (err: any) {
-      toast.error(err.message || "حدث خطأ أثناء حفظ التتبع");
+      toast.error(err.message || "An error occurred while saving pixels");
     } finally {
       setSavingPixels(false);
     }
@@ -163,7 +163,7 @@ export default function MarketingPage() {
   const handleCreateCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCoupon.code) {
-      toast.error("يرجى إدخال رمز الكوبون");
+      toast.error("Please enter the coupon code");
       return;
     }
 
@@ -183,9 +183,9 @@ export default function MarketingPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "فشل إنشاء الكوبون");
+      if (!res.ok) throw new Error(data.error || "Failed to create coupon");
 
-      toast.success(`تم إنشاء كود الخصم ${data.coupon.code} بنجاح!`);
+      toast.success(`Discount coupon ${data.coupon.code} created successfully!`);
       // Reset form
       setNewCoupon({
         code: "",
@@ -197,25 +197,25 @@ export default function MarketingPage() {
       });
       fetchCoupons();
     } catch (err: any) {
-      toast.error(err.message || "فشل إنشاء الكوبون");
+      toast.error(err.message || "Failed to create coupon");
     } finally {
       setSubmittingCoupon(false);
     }
   };
 
   const handleDeleteCoupon = async (id: string, code: string) => {
-    if (!confirm(`هل أنت متأكد من حذف كود الخصم ${code}؟`)) return;
+    if (!confirm(`Are you sure you want to delete coupon ${code}?`)) return;
 
     try {
       const res = await fetch(`/api/admin/coupons?id=${id}`, {
         method: "DELETE",
       });
 
-      if (!res.ok) throw new Error("فشل حذف الكوبون");
-      toast.success(`تم حذف كود الخصم ${code} بنجاح`);
+      if (!res.ok) throw new Error("Failed to delete coupon");
+      toast.success(`Discount coupon ${code} deleted successfully!`);
       fetchCoupons();
     } catch (err: any) {
-      toast.error(err.message || "حدث خطأ أثناء الحذف");
+      toast.error(err.message || "An error occurred while deleting");
     }
   };
 
@@ -238,12 +238,12 @@ export default function MarketingPage() {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 p-2 md:p-8 font-cairo">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 p-2 md:p-8 font-sans text-left" dir="ltr">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-alexandria font-black text-white mb-3">التسويق والكوبونات الذكية</h1>
-          <p className="text-zinc-400">إدارة أكواد الخصم الترويجية وتتبع بيكسل التحويل في منصة واحدة فاخرة</p>
+          <h1 className="text-4xl font-extrabold text-white mb-3">Marketing & Smart Coupons</h1>
+          <p className="text-zinc-400">Manage promotional discount codes and tracking pixels in one unified luxury workspace.</p>
         </div>
 
         {/* Tab Switcher */}
@@ -257,7 +257,7 @@ export default function MarketingPage() {
             }`}
           >
             <Ticket className="w-4 h-4" />
-            إدارة الكوبونات الخصم
+            Manage Coupons
           </button>
           <button
             onClick={() => setActiveTab("pixels")}
@@ -268,7 +268,7 @@ export default function MarketingPage() {
             }`}
           >
             <Target className="w-4 h-4" />
-            أكواد التتبع والبيكسل
+            Tracking Pixels
           </button>
         </div>
       </div>
@@ -291,8 +291,8 @@ export default function MarketingPage() {
                   <Ticket className="w-6 h-6 text-rose-500" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">إجمالي الكوبونات</p>
-                  <h3 className="text-2xl font-alexandria font-black text-white mt-1">{coupons.length}</h3>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Total Coupons</p>
+                  <h3 className="text-2xl font-extrabold text-white mt-1">{coupons.length}</h3>
                 </div>
               </div>
 
@@ -302,8 +302,8 @@ export default function MarketingPage() {
                   <CheckCircle2 className="w-6 h-6 text-emerald-500" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">كوبونات نشطة</p>
-                  <h3 className="text-2xl font-alexandria font-black text-white mt-1">{activeCount}</h3>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Active Coupons</p>
+                  <h3 className="text-2xl font-extrabold text-white mt-1">{activeCount}</h3>
                 </div>
               </div>
 
@@ -313,8 +313,8 @@ export default function MarketingPage() {
                   <Calendar className="w-6 h-6 text-amber-500" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">منتهية / مستهلكة</p>
-                  <h3 className="text-2xl font-alexandria font-black text-white mt-1">{expiredCount}</h3>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Expired / Depleted</p>
+                  <h3 className="text-2xl font-extrabold text-white mt-1">{expiredCount}</h3>
                 </div>
               </div>
 
@@ -324,8 +324,8 @@ export default function MarketingPage() {
                   <BarChart3 className="w-6 h-6 text-indigo-500" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">إجمالي مرات الاستخدام</p>
-                  <h3 className="text-2xl font-alexandria font-black text-white mt-1">{totalUses}</h3>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Total Usage Count</p>
+                  <h3 className="text-2xl font-extrabold text-white mt-1">{totalUses}</h3>
                 </div>
               </div>
             </div>
@@ -333,10 +333,9 @@ export default function MarketingPage() {
             {tableMissing ? (
               <div className="bg-rose-950/20 border border-rose-900/30 rounded-[2rem] p-8 flex flex-col items-center text-center max-w-2xl mx-auto">
                 <ShieldAlert className="w-16 h-16 text-rose-500 mb-4 animate-pulse" />
-                <h3 className="text-2xl font-alexandria font-bold text-white mb-2">يتطلب إعداد قاعدة البيانات</h3>
+                <h3 className="text-2xl font-extrabold text-white mb-2">Database Setup Required</h3>
                 <p className="text-zinc-400 text-sm leading-relaxed mb-6">
-                  لم يتم إنشاء جدول الكوبونات (`coupons`) في قاعدة بيانات Supabase الخاصة بك حتى الآن. 
-                  يرجى تشغيل السكريبت البرمجي التالي في محرر SQL (SQL Editor) داخل لوحة تحكم Supabase لتفعيله فوراً:
+                  The coupons table has not been created in your Supabase database yet. Please run the following SQL script inside the Supabase SQL Editor to enable coupons immediately:
                 </p>
                 <div className="bg-[#07070b] border border-white/5 rounded-xl p-4 w-full font-mono text-left text-xs text-rose-300 overflow-x-auto mb-6 select-all max-h-[150px]">
                   {`CREATE TABLE public.coupons (\n    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n    code TEXT UNIQUE NOT NULL,\n    discount_percent INTEGER NOT NULL CHECK (discount_percent > 0 AND discount_percent <= 100),\n    max_uses INTEGER NOT NULL DEFAULT 100,\n    used_count INTEGER NOT NULL DEFAULT 0,\n    expiry_date TIMESTAMP WITH TIME ZONE,\n    applies_to_type TEXT NOT NULL DEFAULT 'all',\n    applies_to_id TEXT,\n    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()\n);\n\nALTER TABLE public.coupons ENABLE ROW LEVEL SECURITY;\n\nCREATE POLICY "Allow public read coupons" ON public.coupons FOR SELECT USING (true);\nCREATE POLICY "Allow admin manage coupons" ON public.coupons FOR ALL USING (true);\n\nALTER TABLE public.orders ADD COLUMN IF NOT EXISTS coupon_code TEXT;`}
@@ -345,7 +344,7 @@ export default function MarketingPage() {
                   onClick={fetchCoupons}
                   className="h-11 px-6 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
                 >
-                  لقد قمت بتشغيل السكريبت، تحقق مجدداً
+                  I've run the script, check again
                 </button>
               </div>
             ) : (
@@ -354,29 +353,28 @@ export default function MarketingPage() {
                 {/* Create Coupon Card */}
                 <div className="lg:col-span-4 bg-[#0a0a0f] border border-white/5 rounded-[2rem] p-6 md:p-8 relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#ff0f53] to-[#ff00b3]" />
-                  <h3 className="text-xl font-alexandria font-bold text-white mb-6 flex items-center gap-2">
+                  <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                     <Plus className="w-5 h-5 text-rose-500" />
-                    إنشاء كود خصم جديد
+                    Create New Coupon
                   </h3>
 
                   <form onSubmit={handleCreateCoupon} className="space-y-4">
                     <div className="space-y-2">
-                      <Label className="text-zinc-400 text-xs font-bold">كود الخصم (Coupon Code)</Label>
+                      <Label className="text-zinc-400 text-xs font-bold">Coupon Code</Label>
                       <Input
                         value={newCoupon.code}
                         onChange={e => setNewCoupon({ ...newCoupon, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") })}
-                        placeholder="مثال: BLACKFRIDAY"
+                        placeholder="e.g. BLACKFRIDAY"
                         className="h-11 bg-white/5 border-white/10 text-white font-mono text-left uppercase text-sm"
                         maxLength={18}
                         required
-                        dir="ltr"
                       />
-                      <p className="text-[10px] text-zinc-500">حروف إنجليزية وأرقام فقط بدون مسافات.</p>
+                      <p className="text-[10px] text-zinc-500">Alphanumeric English characters only, no spaces.</p>
                     </div>
 
                     <div className="space-y-2">
                       <Label className="text-zinc-400 text-xs font-bold flex justify-between">
-                        <span>نسبة الخصم</span>
+                        <span>Discount Percentage</span>
                         <span className="text-rose-400 font-bold">{newCoupon.discount_percent}%</span>
                       </Label>
                       <div className="flex items-center gap-4">
@@ -401,7 +399,7 @@ export default function MarketingPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label className="text-zinc-400 text-xs font-bold">الحد الأقصى للاستخدام</Label>
+                        <Label className="text-zinc-400 text-xs font-bold">Maximum Uses</Label>
                         <Input
                           type="number"
                           min="1"
@@ -412,33 +410,33 @@ export default function MarketingPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-zinc-400 text-xs font-bold">تاريخ الانتهاء (اختياري)</Label>
+                        <Label className="text-zinc-400 text-xs font-bold">Expiry Date (Optional)</Label>
                         <Input
                           type="date"
                           value={newCoupon.expiry_date}
                           onChange={e => setNewCoupon({ ...newCoupon, expiry_date: e.target.value })}
-                          className="h-11 bg-white/5 border-white/10 text-white text-xs cursor-pointer text-right"
+                          className="h-11 bg-white/5 border-white/10 text-white text-xs cursor-pointer text-left"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-zinc-400 text-xs font-bold">تطبيق الخصم على</Label>
+                      <Label className="text-zinc-400 text-xs font-bold">Apply Discount To</Label>
                       <select
                         value={newCoupon.applies_to_type}
                         onChange={e => setNewCoupon({ ...newCoupon, applies_to_type: e.target.value as any, applies_to_id: "" })}
                         className="w-full h-11 rounded-xl bg-white/5 border border-white/10 px-3 text-xs text-zinc-300 focus:outline-none focus:border-rose-500 cursor-pointer"
                       >
-                        <option value="all" className="bg-[#0a0a0f] text-white">كل المتجر (الكل)</option>
-                        <option value="product" className="bg-[#0a0a0f] text-white">منتج رقمي محدد</option>
-                        <option value="course" className="bg-[#0a0a0f] text-white">كورس / قسم محدد</option>
+                        <option value="all" className="bg-[#0a0a0f] text-white">Entire Store (All Products)</option>
+                        <option value="product" className="bg-[#0a0a0f] text-white">Specific Digital Product</option>
+                        <option value="course" className="bg-[#0a0a0f] text-white">Specific LMS Course</option>
                       </select>
                     </div>
 
                     {newCoupon.applies_to_type !== "all" && (
                       <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
                         <Label className="text-zinc-400 text-xs font-bold">
-                          {newCoupon.applies_to_type === "course" ? "اختر الكورس المستهدف" : "اختر المنتج الرقمي المستهدف"}
+                          {newCoupon.applies_to_type === "course" ? "Select Target LMS Course" : "Select Target Digital Product"}
                         </Label>
                         <select
                           value={newCoupon.applies_to_id}
@@ -446,14 +444,14 @@ export default function MarketingPage() {
                           className="w-full h-11 rounded-xl bg-white/5 border border-white/10 px-3 text-xs text-zinc-300 focus:outline-none focus:border-rose-500 cursor-pointer"
                           required
                         >
-                          <option value="" className="bg-[#0a0a0f] text-zinc-500">اختر من القائمة...</option>
+                          <option value="" className="bg-[#0a0a0f] text-zinc-500">Select from list...</option>
                           {availableItems
-                            .filter(item => item.type === newCoupon.applies_to_type)
-                            .map(item => (
-                              <option key={item.id} value={item.id} className="bg-[#0a0a0f] text-white">
-                                {item.title}
-                              </option>
-                            ))}
+                              .filter(item => item.type === newCoupon.applies_to_type)
+                              .map(item => (
+                                <option key={item.id} value={item.id} className="bg-[#0a0a0f] text-white">
+                                  {item.title}
+                                </option>
+                              ))}
                         </select>
                       </div>
                     )}
@@ -468,35 +466,35 @@ export default function MarketingPage() {
                       ) : (
                         <Plus className="w-4 h-4" />
                       )}
-                      إنشاء وتفعيل الكوبون
+                      Create & Activate Coupon
                     </button>
                   </form>
                 </div>
 
                 {/* Coupons List Table */}
                 <div className="lg:col-span-8 bg-[#0a0a0f] border border-white/5 rounded-[2rem] p-6 md:p-8 relative overflow-hidden">
-                  <h3 className="text-xl font-alexandria font-bold text-white mb-6 flex items-center gap-2">
+                  <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                     <Tag className="w-5 h-5 text-rose-500" />
-                    الكوبونات النشطة والسجل المالي
+                    Active Coupons Ledger
                   </h3>
 
                   {coupons.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 text-center text-zinc-500">
                       <Ticket className="w-12 h-12 text-zinc-700 mb-4 animate-bounce" />
-                      <p className="text-sm">لا توجد أكواد خصم نشطة حالياً.</p>
-                      <p className="text-xs text-zinc-600 mt-1">ابدأ بإنشاء أول كود خصم في المتجر من الجانب الأيمن!</p>
+                      <p className="text-sm">No active discount coupons found.</p>
+                      <p className="text-xs text-zinc-600 mt-1">Start by creating your first discount coupon from the left panel!</p>
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-right text-xs text-zinc-300">
+                      <table className="w-full text-left text-xs text-zinc-300">
                         <thead>
                           <tr className="border-b border-white/5 text-zinc-500 font-bold h-10">
-                            <th className="pb-3 text-right">كود الخصم</th>
-                            <th className="pb-3 text-center">الخصم</th>
-                            <th className="pb-3 text-center">الاستخدام</th>
-                            <th className="pb-3 text-center">شروط التطبيق</th>
-                            <th className="pb-3 text-center">الصلاحية</th>
-                            <th className="pb-3 text-left">إجراءات</th>
+                            <th className="pb-3 text-left">Coupon Code</th>
+                            <th className="pb-3 text-center">Discount</th>
+                            <th className="pb-3 text-center">Usage</th>
+                            <th className="pb-3 text-center">Applicability</th>
+                            <th className="pb-3 text-center">Expiry</th>
+                            <th className="pb-3 text-right">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -517,15 +515,15 @@ export default function MarketingPage() {
                                     </span>
                                     {isInactive && (
                                       <span className="text-[9px] bg-red-950/55 text-red-400 border border-red-900/30 px-1.5 py-0.5 rounded font-black scale-95">
-                                        غير نشط
+                                        Inactive
                                       </span>
                                     )}
                                   </div>
                                 </td>
                                 <td className="py-4 text-center">
-                                  <span className="inline-flex items-center gap-0.5 font-alexandria font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 text-xs">
+                                  <span className="inline-flex items-center gap-0.5 font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 text-xs">
                                     <Percent className="w-3 h-3" />
-                                    {coupon.discount_percent}-
+                                    {coupon.discount_percent}% Off
                                   </span>
                                 </td>
                                 <td className="py-4 text-center">
@@ -545,15 +543,15 @@ export default function MarketingPage() {
                                 <td className="py-4 text-center">
                                   {coupon.applies_to_type === "all" ? (
                                     <span className="text-zinc-400 bg-white/5 px-2 py-1 rounded text-[10px]">
-                                      كل المتجر 🌐
+                                      Entire Store 🌐
                                     </span>
                                   ) : (
                                     <div className="flex flex-col items-center gap-0.5 max-w-[140px] mx-auto">
                                       <span className="text-zinc-500 text-[9px] block">
-                                        {coupon.applies_to_type === "course" ? "كورس 📚" : "منتج رقمي 📦"}
+                                        {coupon.applies_to_type === "course" ? "Course 📚" : "Product 📦"}
                                       </span>
                                       <span className="text-rose-300 font-bold block truncate w-full text-center" title={targetName || ""}>
-                                        {targetName || "مخصص"}
+                                        {targetName || "Custom"}
                                       </span>
                                     </div>
                                   )}
@@ -561,17 +559,17 @@ export default function MarketingPage() {
                                 <td className="py-4 text-center">
                                   {coupon.expiry_date ? (
                                     <span className={`font-mono text-[10px] ${isExpired ? "text-red-400 line-through" : "text-zinc-400"}`}>
-                                      {new Date(coupon.expiry_date).toLocaleDateString("ar-EG", { day: "numeric", month: "short", year: "numeric" })}
+                                      {new Date(coupon.expiry_date).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}
                                     </span>
                                   ) : (
-                                    <span className="text-zinc-600">بلا انتهاء ♾️</span>
+                                    <span className="text-zinc-600">Never Expires ♾️</span>
                                   )}
                                 </td>
-                                <td className="py-4 text-left">
+                                <td className="py-4 text-right">
                                   <button
                                     onClick={() => handleDeleteCoupon(coupon.id, coupon.code)}
                                     className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
-                                    title="حذف الكوبون"
+                                    title="Delete Coupon"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -607,11 +605,11 @@ export default function MarketingPage() {
                     <Target className="w-6 h-6 text-blue-500" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-alexandria font-bold text-white">Meta Pixel</h3>
-                    <p className="text-sm text-zinc-500 mt-1">تتبع أحداث فيسبوك وانستجرام</p>
+                    <h3 className="text-2xl font-bold text-white">Meta Pixel</h3>
+                    <p className="text-sm text-zinc-500 mt-1">Track Facebook & Instagram conversion events</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                <div className="flex items-center space-x-2">
                   <Switch 
                     checked={settings.metaPixelEnabled}
                     onCheckedChange={(c) => setSettings({...settings, metaPixelEnabled: c})}
@@ -622,11 +620,11 @@ export default function MarketingPage() {
 
               <div className="space-y-6 relative z-10">
                 <div className="space-y-3">
-                  <Label className="text-zinc-300 font-bold">Pixel ID (معرف البيكسل)</Label>
+                  <Label className="text-zinc-300 font-bold">Pixel ID</Label>
                   <Input 
                     value={settings.metaPixelId}
                     onChange={(e) => setSettings({...settings, metaPixelId: e.target.value})}
-                    placeholder="مثال: 123456789012345"
+                    placeholder="e.g. 123456789012345"
                     className="h-12 bg-white/5 border-white/10 text-white font-mono text-left focus:border-blue-500 focus:ring-blue-500/20"
                     dir="ltr"
                   />
@@ -635,8 +633,8 @@ export default function MarketingPage() {
                 <div className="bg-blue-500/5 border border-blue-500/10 rounded-xl p-4 flex gap-3">
                   <Activity className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
                   <div className="text-sm text-blue-100/70 leading-relaxed">
-                    <p className="font-bold text-blue-300 mb-1">الأحداث التي يتم تتبعها تلقائياً:</p>
-                    PageView, ViewContent, AddToCart, InitiateCheckout, Purchase (مع إرسال قيمة الطلب والعملة).
+                    <p className="font-bold text-blue-300 mb-1">Events tracked automatically:</p>
+                    PageView, ViewContent, AddToCart, InitiateCheckout, Purchase (including order value and currency parameters).
                   </div>
                 </div>
               </div>
@@ -652,11 +650,11 @@ export default function MarketingPage() {
                     <Target className="w-6 h-6 text-pink-500" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-alexandria font-bold text-white">TikTok Pixel</h3>
-                    <p className="text-sm text-zinc-500 mt-1">تتبع التحويلات من إعلانات تيك توك</p>
+                    <h3 className="text-2xl font-bold text-white">TikTok Pixel</h3>
+                    <p className="text-sm text-zinc-500 mt-1">Track conversion events from TikTok advertisements</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                <div className="flex items-center space-x-2">
                   <Switch 
                     checked={settings.tiktokPixelEnabled}
                     onCheckedChange={(c) => setSettings({...settings, tiktokPixelEnabled: c})}
@@ -667,11 +665,11 @@ export default function MarketingPage() {
 
               <div className="space-y-6 relative z-10">
                 <div className="space-y-3">
-                  <Label className="text-zinc-300 font-bold">Pixel ID (معرف البيكسل)</Label>
+                  <Label className="text-zinc-300 font-bold">Pixel ID</Label>
                   <Input 
                     value={settings.tiktokPixelId}
                     onChange={(e) => setSettings({...settings, tiktokPixelId: e.target.value})}
-                    placeholder="مثال: C1234567890ABCDEF"
+                    placeholder="e.g. C1234567890ABCDEF"
                     className="h-12 bg-white/5 border-white/10 text-white font-mono text-left focus:border-pink-500 focus:ring-pink-500/20"
                     dir="ltr"
                   />
@@ -680,8 +678,8 @@ export default function MarketingPage() {
                 <div className="bg-pink-500/5 border border-pink-500/10 rounded-xl p-4 flex gap-3">
                   <Activity className="w-5 h-5 text-pink-400 shrink-0 mt-0.5" />
                   <div className="text-sm text-pink-100/70 leading-relaxed">
-                    <p className="font-bold text-pink-300 mb-1">الأحداث المدمجة مسبقاً:</p>
-                    Pageview, ViewContent, AddToCart, InitiateCheckout, CompletePayment (مع البيانات الكاملة).
+                    <p className="font-bold text-pink-300 mb-1">Pre-integrated Events:</p>
+                    PageView, ViewContent, AddToCart, InitiateCheckout, CompletePayment (including complete event metadata).
                   </div>
                 </div>
               </div>
@@ -695,7 +693,7 @@ export default function MarketingPage() {
                 className="h-12 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-emerald-600/10 hover:shadow-emerald-600/20"
               >
                 {savingPixels ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-5 h-5" />}
-                حفظ إعدادات التتبع والبيكسل
+                Save Pixel Settings
               </button>
             </div>
           </motion.div>
@@ -708,10 +706,9 @@ export default function MarketingPage() {
           <CheckCircle2 className="w-6 h-6 text-emerald-500" />
         </div>
         <div>
-          <h4 className="text-xl font-alexandria font-bold text-emerald-400 mb-2">منصة إدارة تسويق فائقة الأمان والذكاء</h4>
+          <h4 className="text-xl font-bold text-emerald-400 mb-2">High-Security Intelligent Marketing Hub</h4>
           <p className="text-emerald-100/60 leading-relaxed max-w-3xl">
-            تمنحك الأداة إمكانية توليد كوبونات ترويجية ديناميكية وتوزيعها بشكل آمن على مستوى المتجر بأكمله أو تخصيصها لمنتجات وكورسات محددة تلقائياً. 
-            تتم عملية التحقق من الأكواد وحساب الخصم في خادم الخفاء (Server-Side) لحمايتك بالكامل من محاولات التلاعب بالأسعار أو الهجمات البرمجية.
+            This tool enables you to generate dynamic promotional coupons and securely distribute them store-wide or restrict them to specific assets. Coupon verification and calculation are executed Server-Side to protect your checkout entirely against client price tampering or programmatic attacks.
           </p>
         </div>
       </div>

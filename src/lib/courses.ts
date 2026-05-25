@@ -10,7 +10,7 @@ export interface Course {
   isFeatured: boolean;
   tag: string;
   category: "الأتمتة" | "الذكاء الاصطناعي" | "صناعة المحتوى" | "التسويق" | "الدورات المجانية";
-  level: "مبتدئ" | "متوسط" | "متقدم";
+  level: "مبتدئ" | "متوسط" | "متقدم" | "Beginner" | "Intermediate" | "Advanced";
 }
 
 export const COURSE_CATEGORIES = [

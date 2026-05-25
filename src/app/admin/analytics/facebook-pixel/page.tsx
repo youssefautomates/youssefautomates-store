@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { Target, Sparkles, RefreshCw } from "lucide-react";
-import { formatPrice } from "@/lib/pricing";
+import { formatPrice as formatPriceRaw } from "@/lib/pricing";
+const formatPrice = (price: number, currency: any) => formatPriceRaw(price, currency).replace("ج.م", "L.E");
 
 interface Order {
   id: string;

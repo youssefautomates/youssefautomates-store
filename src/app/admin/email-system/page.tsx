@@ -30,7 +30,7 @@ export default function EmailSystemDiagnosticsPage() {
   
   // Test email state
   const [testEmail, setTestEmail] = useState("youssefmostafabusiness@gmail.com");
-  const [testSubject, setTestSubject] = useState("🧪 اختبار تسليم البريد الإلكتروني | Youssef Automates");
+  const [testSubject, setTestSubject] = useState("🧪 Email Delivery Test | Youssef Automates");
   const [sendingTest, setSendingTest] = useState(false);
   const [dispatchLogs, setDispatchLogs] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<"dns" | "spam" | "send" | "logs">("dns");
@@ -39,20 +39,20 @@ export default function EmailSystemDiagnosticsPage() {
 
   // Mock deliverability analytics stats
   const stats = [
-    { name: "معدل التسليم الإجمالي", value: "100%", sub: "Resend Secure Relay", icon: ShieldCheck, color: "text-emerald-400 bg-emerald-950/40 border-emerald-900/30" },
-    { name: "نسبة فتح البريد (Open Rate)", value: "48.2%", sub: "متوسط الـ 30 يوماً الماضية", icon: Eye, color: "text-rose-400 bg-rose-950/40 border-rose-900/30" },
-    { name: "نسبة النقر على الروابط", value: "22.6%", sub: "روابط التحميل والكورسات", icon: MousePointerClick, color: "text-sky-400 bg-sky-950/40 border-sky-900/30" },
-    { name: "الارتداد (Bounce Rate)", value: "0.0%", sub: "حسابات وهمية أو غير نشطة", icon: XCircle, color: "text-zinc-500 bg-zinc-950/40 border-zinc-900/30" },
-    { name: "شكاوى السبام (Complaints)", value: "0.0%", sub: "حظر أو شكاوى العملاء", icon: Flag, color: "text-zinc-500 bg-zinc-950/40 border-zinc-900/30" },
+    { name: "Overall Delivery Rate", value: "100%", sub: "Resend Secure Relay", icon: ShieldCheck, color: "text-emerald-400 bg-emerald-950/40 border-emerald-900/30" },
+    { name: "Open Rate", value: "48.2%", sub: "Average of past 30 days", icon: Eye, color: "text-rose-400 bg-rose-950/40 border-rose-900/30" },
+    { name: "Click-Through Rate (CTR)", value: "22.6%", sub: "Downloads & Academy Links", icon: MousePointerClick, color: "text-sky-400 bg-sky-950/40 border-sky-900/30" },
+    { name: "Bounce Rate", value: "0.0%", sub: "Invalid or inactive emails", icon: XCircle, color: "text-zinc-500 bg-zinc-950/40 border-zinc-900/30" },
+    { name: "Spam Complaints", value: "0.0%", sub: "Complaints & hard blocks", icon: Flag, color: "text-zinc-500 bg-zinc-950/40 border-zinc-900/30" },
   ];
 
   // Outbound Header Checklist
   const mandatoryHeaders = [
-    { name: "Message-ID", desc: "المعرف الفريد للمرسل يمنع التزييف", status: "متوافق", value: "diag-[id]@youssefautomates.com" },
-    { name: "List-Unsubscribe", desc: "ترويسة إلغاء الاشتراك التلقائي في Gmail/Outlook", status: "متوافق", value: "<mailto:unsubscribe@youssefautomates.com>" },
-    { name: "Auto-Submitted", desc: "تصنيف الرسالة كمعاملة تلقائية لمنع الردود التلقائية", status: "متوافق", value: "auto-generated" },
-    { name: "Precedence", desc: "يخبر خوادم البريد بنوع المعاملة لمنع الفلاتر", status: "متوافق", value: "bulk" },
-    { name: "MIME-Version", desc: "إصدار ترميز المحتوى التفاعلي", status: "متوافق", value: "1.0" },
+    { name: "Message-ID", desc: "Unique message identifier prevents spoofing", status: "Compliant", value: "diag-[id]@youssefautomates.com" },
+    { name: "List-Unsubscribe", desc: "Automatic list unsubscribe header for Gmail/Outlook", status: "Compliant", value: "<mailto:unsubscribe@youssefautomates.com>" },
+    { name: "Auto-Submitted", desc: "Identifies automated emails to suppress auto-replies", status: "Compliant", value: "auto-generated" },
+    { name: "Precedence", desc: "Declares bulk precedence classification to receiving servers", status: "Compliant", value: "bulk" },
+    { name: "MIME-Version", desc: "Multipurpose Internet Mail Extensions standard version", status: "Compliant", value: "1.0" },
   ];
 
   useEffect(() => {
@@ -66,35 +66,35 @@ export default function EmailSystemDiagnosticsPage() {
       const data = await res.json();
       if (data.success) {
         setReport(data.report);
-        toast.success("تم الانتهاء من فحص التوصيلية وقوانين DNS بنجاح!");
+        toast.success("Connectivity audit and DNS record checks completed successfully!");
       } else {
-        toast.error("حدث خطأ أثناء إجراء الفحص: " + data.error);
+        toast.error("An error occurred during verification: " + data.error);
       }
     } catch (err: any) {
-      toast.error("فشل الاتصال بخادم الفحص.");
+      toast.error("Failed to connect to the verification server.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleSendTestEmail = async () => {
-    if (!testEmail) return toast.error("يرجى إدخال البريد الإلكتروني للمستلم أولاً");
+    if (!testEmail) return toast.error("Please enter the recipient email address first");
     setSendingTest(true);
     setDispatchLogs([]);
     
     const logs = [
-      `[${new Date().toLocaleTimeString()}] 📡 تهيئة الاتصال ببوابة إرسال Resend Relay Secure...`,
-      `[${new Date().toLocaleTimeString()}] 🔍 فحص صلاحيات النطاق المرسل: delivery@youssefautomates.com`,
+      `[${new Date().toLocaleTimeString()}] 📡 Initializing connection to Resend Relay Secure SMTP gateway...`,
+      `[${new Date().toLocaleTimeString()}] 🔍 Verifying sending authorization for domain: delivery@youssefautomates.com`,
     ];
     setDispatchLogs([...logs]);
 
     try {
       await new Promise(r => setTimeout(r, 1000));
-      logs.push(`[${new Date().toLocaleTimeString()}] 🛠️ حقن الترويسات الإجبارية لمنع السبام (List-Unsubscribe, Precedence)...`);
+      logs.push(`[${new Date().toLocaleTimeString()}] 🛠️ Injecting anti-spam headers (List-Unsubscribe, Precedence, Auto-Submitted)...`);
       setDispatchLogs([...logs]);
 
       await new Promise(r => setTimeout(r, 1200));
-      logs.push(`[${new Date().toLocaleTimeString()}] 🧪 توليد النسخة النصية البديلة (Plain-Text version) لتخفيض Spam Score...`);
+      logs.push(`[${new Date().toLocaleTimeString()}] 🧪 Generating fallback plain-text version to minimize Spam Score...`);
       setDispatchLogs([...logs]);
 
       const response = await fetch("/api/admin/email-diagnostics", {
@@ -106,20 +106,20 @@ export default function EmailSystemDiagnosticsPage() {
 
       await new Promise(r => setTimeout(r, 800));
       if (data.success) {
-        logs.push(`[${new Date().toLocaleTimeString()}] 🚀 تم تسليم الرسالة للخادم بنجاح!`);
-        logs.push(`[${new Date().toLocaleTimeString()}] 💳 معرّف المعاملة الفريد: ${data.messageId}`);
-        logs.push(`[${new Date().toLocaleTimeString()}] 🟢 التتبع نشط (تتبع فتح الرسائل والارتداد 100%)`);
+        logs.push(`[${new Date().toLocaleTimeString()}] 🚀 Message successfully dispatched to remote SMTP relay server!`);
+        logs.push(`[${new Date().toLocaleTimeString()}] 💳 Unique message transaction ID: ${data.messageId}`);
+        logs.push(`[${new Date().toLocaleTimeString()}] 🟢 Real-time telemetry active (100% open & bounce tracking)`);
         setDispatchLogs([...logs]);
-        toast.success("تم إرسال البريد التشخيصي بنجاح! تفقد بريدك الوارد.");
+        toast.success("Diagnostic test email dispatched successfully! Please check your inbox.");
       } else {
-        logs.push(`[${new Date().toLocaleTimeString()}] ❌ فشل تسليم الرسالة: ${data.error}`);
+        logs.push(`[${new Date().toLocaleTimeString()}] ❌ Message delivery failed: ${data.error}`);
         setDispatchLogs([...logs]);
-        toast.error("فشل إرسال البريد التشخيصي.");
+        toast.error("Failed to dispatch diagnostic test email.");
       }
     } catch (err: any) {
-      logs.push(`[${new Date().toLocaleTimeString()}] ❌ استثناء غير متوقع: ${err.message}`);
+      logs.push(`[${new Date().toLocaleTimeString()}] ❌ Unexpected SMTP exception: ${err.message}`);
       setDispatchLogs([...logs]);
-      toast.error("حدث خطأ استثنائي أثناء الإرسال.");
+      toast.error("An exceptional error occurred during dispatch.");
     } finally {
       setSendingTest(false);
     }
@@ -129,7 +129,7 @@ export default function EmailSystemDiagnosticsPage() {
     navigator.clipboard.writeText(text);
     setCopiedText(id);
     setTimeout(() => setCopiedText(null), 2000);
-    toast.success("تم النسخ إلى الحافظة!");
+    toast.success("Copied to clipboard!");
   };
 
   const renderDnsRow = (title: string, check: any, id: string) => {
@@ -151,7 +151,7 @@ export default function EmailSystemDiagnosticsPage() {
               {check.status === "missing" && <XCircle className="w-4 h-4" />}
             </div>
             <div>
-              <span className="font-alexandria font-bold text-xs md:text-sm text-white block">{title}</span>
+              <span className="font-bold text-xs md:text-sm text-white block">{title}</span>
               <span className="text-[10px] text-zinc-500 font-bold block mt-0.5">{check.details}</span>
             </div>
           </div>
@@ -162,7 +162,7 @@ export default function EmailSystemDiagnosticsPage() {
                 onClick={() => setExpandedSection(isExpanded ? null : id)}
                 className="h-8 px-2.5 rounded bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white text-[10px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
               >
-                <span>{isExpanded ? "إخفاء التفاصيل" : "عرض السجل"}</span>
+                <span>{isExpanded ? "Hide Details" : "Show Record"}</span>
                 {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </button>
             )}
@@ -174,12 +174,13 @@ export default function EmailSystemDiagnosticsPage() {
                   ? "bg-amber-950 text-amber-400 border-amber-900/30"
                   : "bg-red-950 text-red-400 border-red-900/30"
             )}>
-              {check.status === "valid" && "نشط وسليم"}
-              {check.status === "strong" && "نشط وقوي"}
-              {check.status === "weak" && "نشط وضعيف"}
-              {check.status === "warning" && "به تحذير"}
-              {check.status === "missing" && "غير موجود"}
+              {check.status === "valid" && "Active & Valid"}
+              {check.status === "strong" && "Active & Strong"}
+              {check.status === "weak" && "Active & Weak"}
+              {check.status === "warning" && "Warning"}
+              {check.status === "missing" && "Missing"}
             </span>
+
           </div>
         </div>
 
@@ -187,7 +188,7 @@ export default function EmailSystemDiagnosticsPage() {
           <div className="mt-4 p-4 rounded-xl bg-black/60 border border-white/5 space-y-2 relative">
             <button 
               onClick={() => copyToClipboard(check.records.join("\n"), id)}
-              className="absolute top-3 left-3 p-1.5 rounded hover:bg-white/5 text-zinc-500 hover:text-white transition-colors"
+              className="absolute top-3 right-3 p-1.5 rounded hover:bg-white/5 text-zinc-500 hover:text-white transition-colors cursor-pointer"
             >
               {copiedText === id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
             </button>
@@ -202,16 +203,16 @@ export default function EmailSystemDiagnosticsPage() {
   };
 
   return (
-    <div className="space-y-8 pb-32">
+    <div className="space-y-8 pb-32 text-left font-sans animate-in fade-in slide-in-from-bottom-4 duration-700" dir="ltr">
       {/* HEADER */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-white/5 pb-6 gap-4">
         <div>
-          <h1 className="text-3xl font-alexandria font-black text-white flex items-center gap-2.5">
+          <h1 className="text-3xl font-extrabold text-white flex items-center gap-2.5">
             <Mail className="w-8 h-8 text-rose-500" />
-            نظام تشخيص تسليم البريد الإلكتروني
+            Email Deliverability & Diagnostic Suite
           </h1>
           <p className="text-zinc-400 text-sm mt-1">
-            مراقبة قوانين الـ DNS، تقييم الاسبام، تتبع تسليم الرسائل ونسب الفتح والارتداد للنطاق الموثق.
+            Monitor DNS authorization protocols, analyze spam metrics, track message delivery states, and audit bounce rates.
           </p>
         </div>
         
@@ -220,16 +221,16 @@ export default function EmailSystemDiagnosticsPage() {
             type="text" 
             value={domain} 
             onChange={(e) => setDomain(e.target.value)} 
-            placeholder="مثال: domains.com" 
-            className="bg-white/5 border border-white/5 rounded-xl py-2 px-4 text-sm w-full md:w-56"
+            placeholder="e.g. domains.com" 
+            className="bg-white/5 border border-white/5 rounded-xl py-2 px-4 text-sm w-full md:w-56 text-white"
           />
           <button 
             onClick={runDiagnostics} 
             disabled={loading}
             className="h-10 px-5 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-800 text-white rounded-xl font-bold flex items-center gap-2 text-xs transition-all shrink-0 cursor-pointer"
           >
-            {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            <span>إعادة الفحص المباشر</span>
+            <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+            <span>Trigger Real-Time Audit</span>
           </button>
         </div>
       </div>
@@ -239,13 +240,13 @@ export default function EmailSystemDiagnosticsPage() {
         {stats.map((stat, i) => (
           <div key={i} className="bg-[#0a0a0f] border border-white/5 rounded-2xl p-4 flex flex-col justify-between space-y-4 shadow-xl">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-zinc-500 font-bold font-cairo">{stat.name}</span>
+              <span className="text-[10px] text-zinc-500 font-bold">{stat.name}</span>
               <div className={cn("p-1.5 rounded-lg border", stat.color)}>
                 <stat.icon className="w-4 h-4" />
               </div>
             </div>
             <div className="space-y-0.5">
-              <span className="text-2xl font-alexandria font-black text-white tracking-tighter">{stat.value}</span>
+              <span className="text-2xl font-black text-white tracking-tighter">{stat.value}</span>
               <span className="text-[9px] text-zinc-500 block font-medium">{stat.sub}</span>
             </div>
           </div>
@@ -262,19 +263,19 @@ export default function EmailSystemDiagnosticsPage() {
             <div className="bg-[#0a0a0f] border border-white/5 rounded-3xl p-6 text-center space-y-6 shadow-2xl relative overflow-hidden">
               <div className="absolute w-48 h-48 bg-rose-500/5 rounded-full blur-[60px] -top-20 -right-20 pointer-events-none" />
               
-              <h2 className="text-xs font-alexandria font-bold text-zinc-400 uppercase tracking-widest border-b border-white/5 pb-3">
-                معدل أمان البريد من الفلاتر (Spam Score)
+              <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-white/5 pb-3">
+                Spam Filter Deliverability Rating
               </h2>
 
               <div className="relative w-40 h-40 mx-auto flex items-center justify-center rounded-full border-4 border-dashed border-rose-500/20">
                 <div className="absolute inset-2 bg-rose-600/5 rounded-full border-4 border-rose-500/30 flex flex-col items-center justify-center">
-                  <span className="text-4xl font-alexandria font-black text-white">{report.spamScore}</span>
-                  <span className="text-[10px] text-zinc-500 font-bold mt-1">من 10.0 نقاط</span>
+                  <span className="text-4xl font-black text-white">{report.spamScore}</span>
+                  <span className="text-[10px] text-zinc-500 font-bold mt-1">out of 10.0 points</span>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <span className="text-sm font-bold text-white block">حالة صندوق الوارد المتوقعة:</span>
+                <span className="text-sm font-bold text-white block">Predicted Inbox Placement:</span>
                 <span className={cn(
                   "text-xs font-black uppercase tracking-wider block",
                   report.spamScore >= 8.5 ? "text-emerald-400" : report.spamScore >= 6.0 ? "text-amber-400" : "text-red-400"
@@ -286,13 +287,13 @@ export default function EmailSystemDiagnosticsPage() {
 
             {/* SENDER REPUTATION INDICATORS */}
             <div className="bg-[#0a0a0f] border border-white/5 rounded-3xl p-6 space-y-6 shadow-2xl">
-              <h2 className="text-xs font-alexandria font-bold text-zinc-400 uppercase tracking-widest border-b border-white/5 pb-3">
-                مؤشرات السمعة لدى خوادم الاستقبال
+              <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-white/5 pb-3">
+                Receiver Domain Reputation Indices
               </h2>
 
               <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <span className="text-xs text-zinc-400 font-bold">سمعة النطاق في Gmail (Postmaster)</span>
+                <div className="flex items-center justify-between border-b border-white/5 pb-3 text-xs">
+                  <span className="text-zinc-400 font-bold">Domain Reputation on Gmail (Postmaster)</span>
                   <span className={cn(
                     "text-[10px] font-black px-2 py-0.5 rounded border uppercase",
                     report.reputation.gmail.includes("High") 
@@ -302,8 +303,8 @@ export default function EmailSystemDiagnosticsPage() {
                     {report.reputation.gmail}
                   </span>
                 </div>
-                <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <span className="text-xs text-zinc-400 font-bold">سمعة النطاق في Microsoft Outlook</span>
+                <div className="flex items-center justify-between border-b border-white/5 pb-3 text-xs">
+                  <span className="text-zinc-400 font-bold">Domain Reputation on Microsoft Outlook</span>
                   <span className={cn(
                     "text-[10px] font-black px-2 py-0.5 rounded border uppercase",
                     report.reputation.outlook.includes("High") 
@@ -313,16 +314,16 @@ export default function EmailSystemDiagnosticsPage() {
                     {report.reputation.outlook}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-400 font-bold">حالة القوائم السوداء (Blacklists)</span>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-zinc-400 font-bold">Real-Time Blacklist (RBL) Listings</span>
                   <span className="text-[10px] text-emerald-400 font-black bg-emerald-950/40 border border-emerald-900/30 px-2 py-0.5 rounded">
-                    {report.blacklist.status === "clean" ? "سليم (غير مدرج)" : "مدرج بقائمة"}
+                    {report.blacklist.status === "clean" ? "Clean (Not listed)" : "Listed"}
                   </span>
                 </div>
               </div>
 
               <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-zinc-500 leading-relaxed font-medium">
-                🛡️ تعتمد سمعة النطاق بشكل كلي على سلامة سجلات الـ SPF والـ DKIM بالإضافة لمستويات ارتداد الإيميل المنخفضة جداً (أقل من 1.0%).
+                🛡️ Receiver domain reputation relies entirely on valid SPF/DKIM records combined with exceptionally low bounce rates (ideally under 1.0%).
               </div>
             </div>
           </div>
@@ -339,7 +340,7 @@ export default function EmailSystemDiagnosticsPage() {
                 )}
               >
                 <Globe className="w-4 h-4" />
-                <span>فحص سجلات النطاق DNS</span>
+                <span>DNS Record Check</span>
               </button>
               <button 
                 onClick={() => setActiveTab("spam")} 
@@ -349,7 +350,7 @@ export default function EmailSystemDiagnosticsPage() {
                 )}
               >
                 <Sparkles className="w-4 h-4" />
-                <span>تحليل ترويسات وهيكل البريد</span>
+                <span>Header & Structure Audit</span>
               </button>
               <button 
                 onClick={() => setActiveTab("send")} 
@@ -359,7 +360,7 @@ export default function EmailSystemDiagnosticsPage() {
                 )}
               >
                 <Send className="w-4 h-4" />
-                <span>إرسال بريد تشخيصي تجريبي</span>
+                <span>Live Dispatch Test</span>
               </button>
             </div>
 
@@ -367,15 +368,15 @@ export default function EmailSystemDiagnosticsPage() {
             {activeTab === "dns" && (
               <div className="bg-[#0a0a0f] border border-white/5 rounded-3xl p-6 md:p-8 shadow-2xl space-y-6">
                 <div>
-                  <h2 className="text-base font-alexandria font-bold text-white">حالة تفويض النطاق الموثق (Domain DNS Check)</h2>
-                  <p className="text-zinc-500 text-xs mt-1">تفويض خوادم الاستقبال للتحقق من هوية المرسل وتجنب انتحال الشخصيات.</p>
+                  <h2 className="text-base font-bold text-white">Domain DNS Authentication Checks</h2>
+                  <p className="text-zinc-500 text-xs mt-1">Authorizing receiving servers to verify the sender identity and mitigate spoofing attempts.</p>
                 </div>
 
                 <div className="divide-y divide-white/5">
-                  {renderDnsRow("سجل تفويض المرسل (SPF Record)", report.spf, "spf")}
-                  {renderDnsRow("مفتاح التوقيع الرقمي (DKIM Signature)", report.dkim, "dkim")}
-                  {renderDnsRow("سياسة أمن النطاق (DMARC Policy)", report.dmarc, "dmarc")}
-                  {renderDnsRow("سجلات خوادم الاستقبال (MX Records)", report.mx, "mx")}
+                  {renderDnsRow("Sender Policy Framework (SPF Record)", report.spf, "spf")}
+                  {renderDnsRow("DomainKeys Identified Mail (DKIM Signature)", report.dkim, "dkim")}
+                  {renderDnsRow("DMARC Security Policy", report.dmarc, "dmarc")}
+                  {renderDnsRow("Mail Exchanger Routing (MX Records)", report.mx, "mx")}
                 </div>
               </div>
             )}
@@ -384,18 +385,18 @@ export default function EmailSystemDiagnosticsPage() {
             {activeTab === "spam" && (
               <div className="bg-[#0a0a0f] border border-white/5 rounded-3xl p-6 md:p-8 shadow-2xl space-y-6">
                 <div>
-                  <h2 className="text-base font-alexandria font-bold text-white">ترويسات البريد الصادر الذكية (Smart Outbound Headers)</h2>
-                  <p className="text-zinc-500 text-xs mt-1">المعايير المدمجة تلقائياً في خادم إرسال Youssef Automates لتخفيض Spam Score.</p>
+                  <h2 className="text-base font-bold text-white">Smart Outbound Delivery Headers</h2>
+                  <p className="text-zinc-500 text-xs mt-1">Anti-spam indicators automatically embedded in the Youssef Automates outbound relay to decrease spam score.</p>
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-right text-zinc-400">
+                  <table className="w-full text-sm text-left text-zinc-400">
                     <thead className="text-xs text-white uppercase bg-white/5">
                       <tr>
-                        <th className="px-4 py-3 rounded-r-xl">الترويسة (Header)</th>
-                        <th className="px-4 py-3">الوصف الفني</th>
-                        <th className="px-4 py-3">القيمة المحقونة</th>
-                        <th className="px-4 py-3 rounded-l-xl text-left">الحالة</th>
+                        <th className="px-4 py-3 rounded-l-xl">Header Field</th>
+                        <th className="px-4 py-3">Technical Purpose</th>
+                        <th className="px-4 py-3">Injected Value</th>
+                        <th className="px-4 py-3 rounded-r-xl text-right">Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -404,7 +405,7 @@ export default function EmailSystemDiagnosticsPage() {
                           <td className="px-4 py-3.5 font-bold text-white font-mono text-xs">{hdr.name}</td>
                           <td className="px-4 py-3.5 text-xs">{hdr.desc}</td>
                           <td className="px-4 py-3.5 font-mono text-[10px] text-rose-400">{hdr.value}</td>
-                          <td className="px-4 py-3.5 text-left">
+                          <td className="px-4 py-3.5 text-right">
                             <span className="bg-emerald-950 text-emerald-400 border border-emerald-900/30 px-2 py-0.5 rounded text-[10px] font-bold">
                               {hdr.status}
                             </span>
@@ -421,30 +422,30 @@ export default function EmailSystemDiagnosticsPage() {
             {activeTab === "send" && (
               <div className="bg-[#0a0a0f] border border-white/5 rounded-3xl p-6 md:p-8 shadow-2xl space-y-6">
                 <div>
-                  <h2 className="text-base font-alexandria font-bold text-white">إرسال بريد تشخيصي مباشر (Live Dispatch Test)</h2>
-                  <p className="text-zinc-500 text-xs mt-1">توليد وإرسال بريد إلكتروني حقيقي واختبار وصوله إلى صندوق الوارد ومراقبة ترويساته.</p>
+                  <h2 className="text-base font-bold text-white">Live SMTP Dispatch Test</h2>
+                  <p className="text-zinc-500 text-xs mt-1">Generate and dispatch a real email message to test inbox placement, SPF alignment, and head-end metadata ingestion.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs font-bold text-zinc-400">البريد الإلكتروني المستهدف (To)</label>
+                    <label className="text-xs font-bold text-zinc-400">Recipient Email Address (To)</label>
                     <input 
                       type="email" 
                       value={testEmail} 
                       onChange={(e) => setTestEmail(e.target.value)} 
                       placeholder="to@example.com" 
-                      className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm"
+                      className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm text-white"
                     />
                   </div>
                   
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs font-bold text-zinc-400">عنوان البريد (Subject)</label>
+                    <label className="text-xs font-bold text-zinc-400">Subject Title</label>
                     <input 
                       type="text" 
                       value={testSubject} 
                       onChange={(e) => setTestSubject(e.target.value)} 
-                      placeholder="عنوان بريد الاختبار..." 
-                      className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm"
+                      placeholder="Enter subject title..." 
+                      className="bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm text-white"
                     />
                   </div>
                 </div>
@@ -456,16 +457,16 @@ export default function EmailSystemDiagnosticsPage() {
                     className="h-11 px-6 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-800 text-white rounded-xl font-bold flex items-center gap-2 text-xs cursor-pointer transition-colors"
                   >
                     {sendingTest ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    <span>إرسال بريد الاختبار الفوري 🚀</span>
+                    <span>Dispatch Live SMTP Test 🚀</span>
                   </button>
                   
                   <a 
                     href="https://www.mail-tester.com" 
                     target="_blank" 
                     rel="noreferrer" 
-                    className="h-11 px-6 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl font-bold flex items-center gap-2 text-xs transition-colors"
+                    className="h-11 px-6 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl font-bold flex items-center gap-2 text-xs transition-colors cursor-pointer"
                   >
-                    <span>فتح موقع Mail-Tester الخارجي</span>
+                    <span>Launch Mail-Tester External Suite</span>
                   </a>
                 </div>
 
@@ -474,7 +475,7 @@ export default function EmailSystemDiagnosticsPage() {
                   <div className="space-y-3 pt-4 border-t border-white/5">
                     <span className="text-xs font-bold text-zinc-400 flex items-center gap-1.5">
                       <Terminal className="w-4 h-4 text-rose-500" />
-                      سيرفر إرسال البريد - البث الحي للعمليات (SMTP Live Logs):
+                      Outbound SMTP Relay - Live Activity Logs:
                     </span>
                     <div className="bg-black border border-white/5 p-4 rounded-xl font-mono text-[11px] space-y-1.5 text-zinc-400 overflow-y-auto max-h-56 scrollbar-thin scrollbar-thumb-zinc-800">
                       {dispatchLogs.map((log, i) => (
@@ -494,7 +495,7 @@ export default function EmailSystemDiagnosticsPage() {
       ) : (
         <div className="p-20 text-center bg-[#0a0a0f] border border-white/5 rounded-3xl space-y-4">
           <Database className="w-16 h-16 text-zinc-700 mx-auto animate-pulse" />
-          <p className="text-zinc-500 font-bold text-sm">جاري جلب إعدادات وبوابة الاتصال وتفويض النطاق...</p>
+          <p className="text-zinc-500 font-bold text-sm">Fetching SMTP connection configuration and domain DNS delegation states...</p>
         </div>
       )}
     </div>
