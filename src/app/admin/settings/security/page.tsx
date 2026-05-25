@@ -1,19 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldCheck, Loader2, ArrowUpRight, CheckCircle2, Lock, Eye, AlertTriangle } from "lucide-react";
-import { motion } from "framer-motion";
+import { ShieldCheck, Lock, Clock, Activity, Ban } from "lucide-react";
 
 export default function SecuritySettings() {
   const [sessions, setSessions] = useState([
-    { id: 1, device: "Windows Chrome (صاحب الحساب)", ip: "197.34.120.45", date: "نشط حالياً", active: true },
-    { id: 2, device: "iPhone 15 Safari", ip: "197.34.120.90", date: "منذ ساعتين", active: false }
+    { id: 1, device: "Windows Chrome (Owner Account)", ip: "197.34.120.45", date: "Active Now", active: true },
+    { id: 2, device: "iPhone 15 Safari", ip: "197.34.120.90", date: "2 hours ago", active: false }
   ]);
 
   const activityLog = [
-    { action: "تسجيل دخول ناجح", user: "يوسف أحمد", ip: "197.34.120.45", date: "منذ 10 دقائق", status: "success" },
-    { action: "تعديل بيانات المنتج رقم #809", user: "يوسف أحمد", ip: "197.34.120.45", date: "منذ ساعة", status: "success" },
-    { action: "تنزيل تقرير الإيرادات السنوي", user: "يوسف أحمد", ip: "197.34.120.45", date: "منذ 4 ساعات", status: "success" }
+    { action: "Successful Login Verification", user: "Youssef Mostafa", ip: "197.34.120.45", date: "10 minutes ago", status: "success" },
+    { action: "Modified Digital Product #809 Details", user: "Youssef Mostafa", ip: "197.34.120.45", date: "1 hour ago", status: "success" },
+    { action: "Exported Annual Gross Sales Report", user: "Youssef Mostafa", ip: "197.34.120.45", date: "4 hours ago", status: "success" }
   ];
 
   const handleRevoke = (id: number) => {
@@ -21,17 +20,17 @@ export default function SecuritySettings() {
   };
 
   return (
-    <div className="space-y-8 font-cairo text-zinc-100 min-h-screen pb-16">
+    <div className="space-y-8 font-sans text-zinc-100 min-h-screen pb-16">
       
       {/* Header */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 pb-6 border-b border-white/5">
         <div>
-          <h1 className="text-3xl font-alexandria font-black tracking-tight text-white flex items-center gap-3">
-            حماية وأمن النظام
-            <ShieldCheck className="w-8 h-8 text-rose-500" />
+          <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-3">
+            System Security & Auditing
+            <ShieldCheck className="w-6 h-6 text-rose-500" />
           </h1>
-          <p className="text-zinc-500 text-sm mt-1">
-            مراقبة الجلسات النشطة، سجل عمليات المشرفين، وإعدادات الوصول الآمن لمتجر Youssef Automates.
+          <p className="text-zinc-500 text-xs mt-1">
+            Monitor active sessions, administrator audit logs, and secure access configurations for Youssef Automates.
           </p>
         </div>
       </div>
@@ -40,29 +39,29 @@ export default function SecuritySettings() {
         
         {/* Sessions Control */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="rounded-3xl bg-[#09090b]/60 border border-white/5 p-6 shadow-2xl space-y-6">
-            <h3 className="font-alexandria font-bold text-sm text-white flex items-center gap-2">
+          <div className="rounded-2xl bg-[#09090e] border border-white/5 p-6 shadow-2xl space-y-6">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
               <Lock className="w-4 h-4 text-rose-500" />
-              الجلسات النشطة والمصرح لها
+              Active & Authorized Sessions
             </h3>
             
             <div className="space-y-4">
               {sessions.map((session) => (
-                <div key={session.id} className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-between">
+                <div key={session.id} className="p-4 rounded-xl bg-white/[0.01] border border-white/5 flex items-center justify-between">
                   <div>
                     <h4 className="text-xs font-bold text-white">{session.device}</h4>
-                    <p className="text-[10px] text-zinc-500 mt-1">عنوان IP: {session.ip} · نشاط: {session.date}</p>
+                    <p className="text-[10px] text-zinc-500 mt-1 font-semibold">IP Address: {session.ip} · Activity: {session.date}</p>
                   </div>
                   {session.active ? (
-                    <span className="text-[10px] font-bold px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      الجلسة الحالية
+                    <span className="text-[9px] font-bold px-3 py-1 rounded-full bg-emerald-500/5 text-emerald-400 border border-emerald-500/10 uppercase tracking-wider">
+                      Current Session
                     </span>
                   ) : (
                     <button
                       onClick={() => handleRevoke(session.id)}
-                      className="text-[10px] font-bold px-3 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all"
+                      className="text-[9px] font-bold px-3 py-1 rounded-full bg-red-500/5 text-red-400 border border-red-500/10 hover:bg-red-500 hover:text-white transition-all uppercase tracking-wider"
                     >
-                      إنهاء الجلسة
+                      Revoke Access
                     </button>
                   )}
                 </div>
@@ -71,16 +70,19 @@ export default function SecuritySettings() {
           </div>
 
           {/* Activity Log */}
-          <div className="rounded-3xl bg-[#09090b]/60 border border-white/5 p-6 shadow-2xl space-y-6">
-            <h3 className="font-alexandria font-bold text-sm text-white">سجل العمليات الآمن (Activity Log)</h3>
-            <div className="space-y-4">
+          <div className="rounded-2xl bg-[#09090e] border border-white/5 p-6 shadow-2xl space-y-6">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-rose-500" />
+              Secure Action Audit Log
+            </h3>
+            <div className="space-y-3">
               {activityLog.map((log, i) => (
-                <div key={i} className="flex justify-between items-center p-3 rounded-2xl bg-white/[0.01] hover:bg-white/[0.02] transition-all">
+                <div key={i} className="flex justify-between items-center p-3.5 rounded-xl bg-white/[0.01] hover:bg-white/[0.02] transition-all border border-transparent hover:border-white/5">
                   <div>
                     <p className="text-xs font-bold text-white">{log.action}</p>
-                    <p className="text-[10px] text-zinc-500 mt-0.5">بواسطة: {log.user} · عنوان IP: {log.ip}</p>
+                    <p className="text-[10px] text-zinc-500 mt-1 font-semibold">By: {log.user} · IP Address: {log.ip}</p>
                   </div>
-                  <span className="text-[10px] text-zinc-400 font-bold">{log.date}</span>
+                  <span className="text-[9px] text-zinc-400 font-bold font-mono">{log.date}</span>
                 </div>
               ))}
             </div>
@@ -88,26 +90,31 @@ export default function SecuritySettings() {
         </div>
 
         {/* Permissions Side Card */}
-        <div className="rounded-3xl bg-[#09090b]/60 border border-white/5 p-6 shadow-2xl flex flex-col justify-between">
-          <div>
-            <h3 className="font-alexandria font-bold text-sm text-white mb-6">صلاحيات الوصول والتحكم</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed mb-6">
-              حسابك الحالي يمتلك صلاحيات المشرف العام الكاملة (Super Admin) والتي تتيح إرسال عمليات الدفع وإلغائها وإدارة قواعد البيانات الرقمية بالكامل.
-            </p>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center p-3 rounded-2xl bg-white/[0.02]">
-                <span className="text-xs text-zinc-400">حالة التحقق الثنائي</span>
-                <span className="text-xs font-bold text-emerald-400">مفعّل ونشط</span>
+        <div className="rounded-2xl bg-[#09090e] border border-white/5 p-6 shadow-2xl flex flex-col justify-between h-fit">
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Access & Control Level</h3>
+              <p className="text-xs text-zinc-500 leading-relaxed mt-2 font-semibold">
+                Your current account holds full Super Admin capabilities. This grants permission to process payment intentions, trigger webhook deliveries, and execute database write operations.
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex justify-between items-center p-3 rounded-xl bg-white/[0.01] text-xs font-semibold">
+                <span className="text-zinc-500">2FA Security Status</span>
+                <span className="text-emerald-400 font-bold">Enabled & Verified</span>
               </div>
-              <div className="flex justify-between items-center p-3 rounded-2xl bg-white/[0.02]">
-                <span className="text-xs text-zinc-400">أمن النقل (SSL)</span>
-                <span className="text-xs font-bold text-zinc-300">أعلى درجات التشفير</span>
+              <div className="flex justify-between items-center p-3 rounded-xl bg-white/[0.01] text-xs font-semibold">
+                <span className="text-zinc-500">SSL Encrypted Channel</span>
+                <span className="text-zinc-300 font-bold">256-bit Encrypted</span>
               </div>
             </div>
           </div>
-          <div className="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/10 mt-6">
-            <p className="text-[10px] text-rose-400 leading-relaxed font-bold">
-              ⚠️ تنبيه: يرجى عدم تسجيل الدخول مطلقاً من شبكات اتصال عامة غير مشفرة لضمان أمن مبيعات متجرك الرقمي.
+
+          <div className="p-4 rounded-xl bg-rose-500/5 border border-rose-500/10 mt-8">
+            <p className="text-[10px] text-rose-400 leading-relaxed font-bold flex gap-1.5 items-start">
+              <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+              <span>SECURITY NOTICE: Never authenticate or manage settings from public, unencrypted connections.</span>
             </p>
           </div>
         </div>
