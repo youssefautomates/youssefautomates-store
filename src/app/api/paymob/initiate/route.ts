@@ -193,6 +193,94 @@ export async function POST(req: Request) {
       exchange_rate: userCurrency === "USD" ? exchangeRate : null
     });
 
+    if (expectedPriceEGP === 0) {
+      // 100% Free Promo Code Flow!
+      // Update order status to completed directly
+      await supabaseAdmin.from("orders").update({ status: "completed", payment_id: "FREE_COUPON" }).eq("id", dbOrder.id);
+
+      // Increment coupon count if used
+      if (couponCode) {
+        try {
+          const { data: cData } = await supabaseAdmin
+            .from("coupons")
+            .select("id, used_count")
+            .eq("code", couponCode.trim().toUpperCase())
+            .maybeSingle();
+          if (cData) {
+            await supabaseAdmin
+              .from("coupons")
+              .update({ used_count: cData.used_count + 1 })
+              .eq("id", cData.id);
+            console.log(`[PAYMOB_INITIATE] ✅ Successfully incremented usage for coupon: ${couponCode}`);
+          }
+        } catch (couponErr) {
+          console.error(`[PAYMOB_INITIATE] ❌ Coupon increment exception:`, couponErr);
+        }
+      }
+
+      // Increment sales count
+      await supabaseAdmin
+        .from("products")
+        .update({ sales: (dbItem.sales || 0) + 1 })
+        .eq("id", dbItem.id);
+      console.log(`[PAYMOB_INITIATE] 📈 Sales incremented for product: ${dbItem.title}`);
+
+      // LMS Auto-enrollment logic if it's a course
+      if (isCourseItem) {
+        console.log(`[PAYMOB_INITIATE] 🎓 Dynamic Auto-enrollment triggered...`);
+        try {
+          const { getCoursesList, enrollUser } = await import("@/lib/coursesDb");
+          const coursesList = await getCoursesList();
+          
+          const matchedCourse = coursesList.find(c => 
+            c.title.toLowerCase().includes(dbItem.title?.toLowerCase()) || 
+            dbItem.title?.toLowerCase().includes(c.title.toLowerCase())
+          ) || coursesList[0];
+
+          if (matchedCourse) {
+            let userId = dbOrder.customer_id;
+            if (!userId || userId === "anonymous") {
+              const { data: profile } = await supabaseAdmin
+                .from("profiles")
+                .select("id")
+                .eq("email", email)
+                .maybeSingle();
+              
+              userId = profile?.id || "usr-student-" + Math.random().toString(36).substring(2, 11);
+            }
+
+            console.log(`[PAYMOB_INITIATE] 🎓 Enrolling user ${userId} in course: ${matchedCourse.title}`);
+            await enrollUser(userId, matchedCourse.id, {
+              email: email,
+              name: `${firstName} ${lastName}`
+            });
+            console.log(`[PAYMOB_INITIATE] 🎓 Auto-enrollment completed successfully`);
+          }
+        } catch (enrollErr) {
+          console.error(`[PAYMOB_INITIATE] ❌ Auto-enrollment error:`, enrollErr);
+        }
+      }
+
+      // Deliver Emails
+      try {
+        const { sendOrderEmail } = await import("@/lib/email/sendOrderEmail");
+        const orderForEmail = {
+          ...dbOrder,
+          status: "completed",
+          payment_id: "FREE_COUPON"
+        };
+        console.log(`[PAYMOB_INITIATE] 📧 Sending FREE order activation email to: ${email}`);
+        await sendOrderEmail([orderForEmail], email, `${firstName} ${lastName}`, userCurrency);
+      } catch (emailErr: any) {
+        console.error(`[PAYMOB_INITIATE] ❌ Exception during FREE email delivery:`, emailErr.message);
+      }
+
+      return NextResponse.json({
+        success: true,
+        orderId: dbOrder.id
+      });
+    }
+
     const safeFirstName = (firstName || "Test").replace(/[^a-zA-Z\u0600-\u06FF]/g, "");
     const safeLastName = (lastName || "User").replace(/[^a-zA-Z\u0600-\u06FF]/g, "");
     const safeEmail = email || "test@example.com";
