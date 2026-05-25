@@ -40,8 +40,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { name: "Manage Courses", href: "/admin/courses", icon: BookOpen },
         { name: "Course Categories", href: "/admin/categories?tab=courses", icon: LayoutGrid },
         { name: "Students List", href: "/admin/courses/students", icon: Users },
-        { name: "Issued Certificates", href: "/admin/courses/certificates", icon: Award },
-        { name: "Media Library", href: "/admin/media", icon: Video }
+        { name: "Issued Certificates", href: "/admin/courses/certificates", icon: Award }
       ]
     },
     {
