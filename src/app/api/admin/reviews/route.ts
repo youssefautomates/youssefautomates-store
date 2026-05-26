@@ -25,30 +25,40 @@ export interface Review {
 }
 
 export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const productId = url.searchParams.get("productId");
-  
-  let reviews: Review[] = await getKV(REVIEWS_KEY) || [];
-  
-  // Filter out any seeded reviews to keep ONLY the manually added ones
-  const userReviews = reviews.filter(r => r.id && !r.id.startsWith("seed-") && !r.id.startsWith("seeded-"));
-  if (userReviews.length !== reviews.length) {
-    // Permanently write the cleaned list back to KV to purge seeded reviews
-    await setKV(REVIEWS_KEY, userReviews);
-    reviews = userReviews;
+  try {
+    const url = new URL(req.url);
+    const productId = url.searchParams.get("productId");
+    
+    let reviews: Review[] = await getKV(REVIEWS_KEY) || [];
+    
+    // Filter out any seeded reviews to keep ONLY the manually added ones
+    const userReviews = reviews.filter(r => {
+      if (!r || !r.id) return false;
+      const idStr = String(r.id);
+      return !idStr.startsWith("seed-") && !idStr.startsWith("seeded-");
+    });
+    
+    if (userReviews.length !== reviews.length) {
+      // Permanently write the cleaned list back to KV to purge seeded reviews
+      await setKV(REVIEWS_KEY, userReviews);
+      reviews = userReviews;
+    }
+    
+    if (productId) {
+      // Public fetch: filter by productId and only show non-hidden
+      const productReviews = reviews.filter(r => r.productId === productId && !r.isHidden);
+      // Sort newest first
+      productReviews.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return NextResponse.json(productReviews);
+    }
+    
+    // Admin fetch: sort newest first
+    reviews.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return NextResponse.json(reviews);
+  } catch (err: any) {
+    console.error("[Reviews API] GET Exception:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
-  
-  if (productId) {
-    // Public fetch: filter by productId and only show non-hidden
-    const productReviews = reviews.filter(r => r.productId === productId && !r.isHidden);
-    // Sort newest first
-    productReviews.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    return NextResponse.json(productReviews);
-  }
-  
-  // Admin fetch: sort newest first
-  reviews.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  return NextResponse.json(reviews);
 }
 
 export async function POST(req: Request) {

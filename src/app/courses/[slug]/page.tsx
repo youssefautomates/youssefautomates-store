@@ -455,7 +455,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                     <div className="space-y-5">
                       <div className="flex items-baseline justify-between">
                         <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest font-alexandria">استثمار الانضمام للقسم</span>
-                        {coursePricing && coursePricing.original_price > 0 && (
+                        {coursePricing && coursePricing.original_price > coursePricing.price && (
                           <span className="text-xs text-zinc-500 line-through font-alexandria">بدلاً من {formatPrice(coursePricing.original_price, currency)}</span>
                         )}
                       </div>
@@ -463,9 +463,9 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                         <span className="text-3xl font-alexandria font-black text-white">
                           {coursePricing ? (coursePricing.price === 0 ? "مجاني" : formatPrice(coursePricing.price, currency)) : ""}
                         </span>
-                        {coursePricing && coursePricing.original_price > 0 && (
-                          <span className="text-xs text-emerald-400 font-bold ml-1 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
-                            وفر {Math.round(((coursePricing.original_price - coursePricing.price) / coursePricing.original_price) * 100)}%
+                        {coursePricing && coursePricing.original_price > coursePricing.price && (
+                          <span className="text-xs text-emerald-400 font-bold ml-1 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md animate-pulse">
+                            وفر {coursePricing.discount_pct}%
                           </span>
                         )}
                       </div>
@@ -474,7 +474,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                         href={course.price === 0 ? `/learn/${course.slug}/${firstLessonSlug}` : `/checkout/${course.id}`}
                         className="w-full h-14 bg-gradient-to-r from-[#D6004B] via-[#ff1d6b] to-[#D6004B] text-white rounded-2xl font-black text-lg shadow-[0_10px_30px_rgba(214,0,75,0.4)] transition-all flex items-center justify-center gap-2.5 active:scale-98 cursor-pointer font-cairo animate-pulse-glow"
                       >
-                        <span>{course.price === 0 ? "احصل على الدورة مجاناً" : "احصل على الدورة"}</span>
+                        <span>{course.price === 0 ? "ابدأ مجاناً 🎁" : (coursePricing && coursePricing.original_price > coursePricing.price) ? `اشترك الآن - خصم ${coursePricing.discount_pct}%` : "اشترك الآن"}</span>
                         <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
                       </Link>
 
@@ -948,21 +948,26 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    <div className="flex items-baseline gap-2">
+                    <div className="flex items-center gap-2 justify-center mb-2 flex-wrap">
                       <span className="text-3xl sm:text-4xl font-alexandria font-black text-white">
                         {coursePricing ? (coursePricing.price === 0 ? "مجاني" : formatPrice(coursePricing.price, currency)) : ""}
                       </span>
-                      {coursePricing && coursePricing.original_price > 0 && (
-                        <span className="text-sm text-zinc-500 line-through font-alexandria">{formatPrice(coursePricing.original_price, currency)}</span>
+                      {coursePricing && coursePricing.original_price > coursePricing.price && (
+                        <>
+                          <span className="text-sm text-zinc-500 line-through font-alexandria">{formatPrice(coursePricing.original_price, currency)}</span>
+                          <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md animate-pulse">
+                            وفر {coursePricing.discount_pct}%
+                          </span>
+                        </>
                       )}
                     </div>
 
                     <div className="space-y-4">
                       <Link
                         href={course.price === 0 ? `/learn/${course.slug}/${firstLessonSlug}` : `/checkout/${course.id}`}
-                        className="w-full h-14 bg-[#D6004B] hover:bg-[#b0003d] text-white rounded-2xl font-bold text-base shadow-[0_10px_30px_rgba(214,0,75,0.3)] transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer font-cairo"
+                        className="w-full h-14 bg-gradient-to-r from-[#D6004B] via-[#ff1d6b] to-[#D6004B] text-white rounded-2xl font-black text-lg shadow-[0_10px_30px_rgba(214,0,75,0.4)] transition-all flex items-center justify-center gap-2.5 active:scale-98 cursor-pointer font-cairo animate-pulse-glow"
                       >
-                        <span>{course.price === 0 ? "احصل على الدورة مجاناً" : "احصل على الدورة"}</span>
+                        <span>{course.price === 0 ? "ابدأ مجاناً 🎁" : (coursePricing && coursePricing.original_price > coursePricing.price) ? `اشترك الآن - خصم ${coursePricing.discount_pct}%` : "اشترك الآن"}</span>
                         <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
                       </Link>
 
@@ -1184,11 +1189,11 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                           </div>
 
                           <div className="pt-3 border-t border-white/5 flex items-center justify-between">
-                            <div className="flex items-baseline gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-lg font-alexandria font-black text-white">
                                 {itemPricing.price === 0 ? "مجاني" : formatPrice(itemPricing.price, currency)}
                               </span>
-                              {itemPricing.original_price > 0 && (
+                              {itemPricing.original_price > itemPricing.price && (
                                 <span className="text-[10px] text-zinc-500 line-through font-alexandria">{formatPrice(itemPricing.original_price, currency)}</span>
                               )}
                             </div>
@@ -1343,7 +1348,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
               href={course.price === 0 ? `/learn/${course.slug}/${firstLessonSlug}` : `/checkout/${course.id}`}
               className="h-12 px-5 bg-gradient-to-r from-[#D6004B] via-[#ff1d6b] to-[#D6004B] text-white rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-1 transition-all shadow-[0_4px_20px_rgba(214,0,75,0.45)] font-cairo flex-grow max-w-[240px] active:scale-95 animate-pulse-glow"
             >
-              <span>{course.price === 0 ? "ابدأ مجاناً 🎁" : (coursePricing && coursePricing.original_price > 0 && coursePricing.original_price > coursePricing.price) ? `اشترك الآن - خصم ${Math.round(((coursePricing.original_price - coursePricing.price) / coursePricing.original_price) * 100)}%` : "اشترك الآن"}</span>
+              <span>{course.price === 0 ? "ابدأ مجاناً 🎁" : (coursePricing && coursePricing.original_price > coursePricing.price) ? `اشترك الآن - خصم ${coursePricing.discount_pct}%` : "اشترك الآن"}</span>
               <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
             </Link>
             {course.price > 0 && (
@@ -1443,14 +1448,14 @@ function MobileCourseView({
       `}} />
 
       {/* Dynamic Urgency / Scarcity Banner */}
-      {!isEnrolled && (
-        <div className="bg-gradient-to-r from-amber-500/20 via-[#D6004B]/20 to-pink-500/20 border border-[#D6004B]/35 rounded-2xl p-3 flex items-center justify-between text-right text-xs text-white gap-2 shadow-[0_0_25px_rgba(214,0,75,0.2)] mt-2">
+      {!isEnrolled && coursePricing && coursePricing.original_price > coursePricing.price && (
+        <div className="bg-gradient-to-r from-amber-500/20 via-[#D6004B]/20 to-pink-500/20 border border-[#D6004B]/35 rounded-2xl p-3 flex items-center justify-between text-right text-xs text-white gap-2 shadow-[0_0_25px_rgba(214,0,75,0.2)] mt-2 animate-bounce-subtle">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
             </span>
-            <span className="font-bold text-[10px] sm:text-xs">عرض لفترة محدودة: خصم {course.original_price > 0 ? Math.round(((course.original_price - course.price) / course.original_price) * 100) : 40}% مفعل حالياً!</span>
+            <span className="font-bold text-[10px] sm:text-xs">عرض لفترة محدودة: خصم {coursePricing.discount_pct}% مفعل حالياً!</span>
           </div>
           <div className="bg-[#D6004B] text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider animate-pulse shrink-0">
             سارع بالاشتراك
@@ -1586,9 +1591,9 @@ function MobileCourseView({
            <div className="space-y-5">
              <div className="flex items-center justify-between">
                <span className="text-[10px] text-zinc-400 font-bold font-alexandria uppercase tracking-wider">سعر الاستثمار الحالي</span>
-               {course.original_price > 0 && (
-                  <span className="text-xs text-zinc-500 line-through font-alexandria">بدلاً من {formatPrice(coursePricing?.original_price || 0, currency)}</span>
-               )}
+               {coursePricing && coursePricing.original_price > coursePricing.price && (
+                   <span className="text-xs text-zinc-500 line-through font-alexandria">بدلاً من {formatPrice(coursePricing.original_price, currency)}</span>
+                )}
              </div>
              
              <div className="flex items-baseline justify-between gap-2">
@@ -1596,11 +1601,11 @@ function MobileCourseView({
                  <span className="text-2xl sm:text-3xl font-alexandria font-black text-white">
                     {coursePricing ? (coursePricing.price === 0 ? "مجاني" : formatPrice(coursePricing.price, currency)) : ""}
                  </span>
-                 {course.original_price > 0 && (
-                   <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
-                      وفر {coursePricing ? Math.round(((coursePricing.original_price - coursePricing.price) / coursePricing.original_price) * 100) : 0}%
-                   </span>
-                 )}
+                 {coursePricing && coursePricing.original_price > coursePricing.price && (
+                    <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md animate-pulse">
+                       وفر {coursePricing.discount_pct}%
+                    </span>
+                  )}
                </div>
                <span className="text-[8.5px] text-zinc-400">وصول كامل مدى الحياة</span>
              </div>
@@ -1609,7 +1614,7 @@ function MobileCourseView({
                href={course.price === 0 ? `/learn/${course.slug}/${firstLessonSlug}` : `/checkout/${course.id}`}
                className="w-full h-14 bg-gradient-to-r from-[#D6004B] via-[#ff1d6b] to-[#D6004B] text-white rounded-xl font-black text-base sm:text-lg shadow-[0_10px_30px_rgba(214,0,75,0.4)] transition-all flex items-center justify-center gap-2.5 active:scale-98 cursor-pointer font-cairo animate-pulse-glow"
              >
-               <span>{course.price === 0 ? "احصل على الدورة مجاناً" : "احصل على الدورة"}</span>
+               <span>{course.price === 0 ? "ابدأ مجاناً 🎁" : (coursePricing && coursePricing.original_price > coursePricing.price) ? `اشترك الآن - خصم ${coursePricing.discount_pct}%` : "اشترك الآن"}</span>
                <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
              </Link>
               {course.price > 0 && onAddToCart && (
@@ -2001,7 +2006,7 @@ function MobileCourseView({
              href={course.price === 0 ? `/learn/${course.slug}/${firstLessonSlug}` : `/checkout/${course.id}`}
              className="w-full h-13 bg-gradient-to-r from-[#D6004B] via-[#ff1d6b] to-[#D6004B] text-white rounded-xl font-black text-sm sm:text-base shadow-[0_10px_25px_rgba(214,0,75,0.35)] transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer font-cairo animate-pulse-glow"
            >
-              <span>{course.price === 0 ? "احصل على الدورة مجاناً" : "احصل على الدورة"}</span>
+              <span>{course.price === 0 ? "ابدأ مجاناً 🎁" : (coursePricing && coursePricing.original_price > coursePricing.price) ? `اشترك الآن - خصم ${coursePricing.discount_pct}%` : "اشترك الآن"}</span>
              <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
            </Link>
         </div>
