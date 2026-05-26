@@ -928,7 +928,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                 <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-transparent via-[#D6004B] to-transparent animate-pulse" />
                 
                 <span className="text-[10px] text-zinc-500 font-bold block uppercase tracking-widest mb-2 font-alexandria">
-                  {isEnrolled ? "بوابة الطالب" : "استثمار الانضمام للدورة"}
+                  {isEnrolled ? "بوابة الطالب" : "انضم للدورة الآن"}
                 </span>
 
                 {isEnrolled ? (
@@ -948,17 +948,21 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    <div className="flex items-center gap-2 justify-center mb-2 flex-wrap">
-                      <span className="text-3xl sm:text-4xl font-alexandria font-black text-white">
-                        {coursePricing ? (coursePricing.price === 0 ? "مجاني" : formatPrice(coursePricing.price, currency)) : ""}
-                      </span>
+                    <div className="flex flex-col items-center justify-center text-center gap-2 mb-4 bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+                      <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest font-alexandria">استثمار الانضمام للدورة</span>
+                      <div className="flex items-baseline gap-2 justify-center flex-wrap">
+                        <span className="text-4xl sm:text-5xl font-alexandria font-black text-white tracking-tight">
+                          {coursePricing ? (coursePricing.price === 0 ? "مجاني" : formatPrice(coursePricing.price, currency)) : ""}
+                        </span>
+                      </div>
                       {coursePricing && coursePricing.original_price > coursePricing.price && (
-                        <>
-                          <span className="text-sm text-zinc-500 line-through font-alexandria">{formatPrice(coursePricing.original_price, currency)}</span>
-                          <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md animate-pulse">
+                        <div className="flex items-center gap-2 justify-center text-xs font-cairo">
+                          <span className="text-zinc-500 line-through font-alexandria">{formatPrice(coursePricing.original_price, currency)}</span>
+                          <span className="text-zinc-500 font-medium">بدلاً من</span>
+                          <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md animate-pulse">
                             وفر {coursePricing.discount_pct}%
                           </span>
-                        </>
+                        </div>
                       )}
                     </div>
 

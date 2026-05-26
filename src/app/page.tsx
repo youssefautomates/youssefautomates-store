@@ -365,11 +365,11 @@ export default function Home() {
                 return (
                   <div
                     key={course.slug}
-                    className="group bg-[#09090e] border border-[#1b1b24]/60 hover:border-[#D6004B]/40 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between hover:-translate-y-1 transition-all duration-300 h-full relative cursor-pointer"
+                    className="group bg-gradient-to-b from-[#0e0e16] to-[#07070c] border border-white/5 hover:border-[#D6004B]/30 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between hover:-translate-y-1.5 transition-all duration-300 h-full relative cursor-pointer hover:shadow-[0_20px_40px_-12px_rgba(214,0,75,0.15)]"
                     onClick={() => router.push(`/courses/${course.slug}`)}
                   >
                     {/* Course Card Top Banner */}
-                    <div className="relative h-48 bg-zinc-900 overflow-hidden border-b border-[#1b1b24]/60">
+                    <div className="relative h-48 bg-zinc-950 overflow-hidden border-b border-white/5">
                       {course.image_url && (
                         <img 
                           src={course.image_url} 
@@ -377,28 +377,42 @@ export default function Home() {
                           className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#09090e] via-[#09090e]/20 to-transparent" />
-                      <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
-                        <Badge className="bg-[#D6004B] text-white border-none font-cairo text-[9px] py-0.5 px-2.5 rounded shadow-lg uppercase tracking-wider font-black">
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#07070c] via-transparent to-black/30" />
+                      
+                      {/* Left Badge (Category) */}
+                      <div className="absolute top-4 left-4 z-20">
+                        <span className="bg-black/50 backdrop-blur-md text-white border border-white/10 font-cairo text-[9px] font-bold py-1 px-3 rounded-lg shadow-lg">
                           {course.category}
-                        </Badge>
+                        </span>
                       </div>
-                      <div className="absolute top-4 right-4 z-30">
+
+                      {/* Discount Badge on Image */}
+                      {coursePricing && coursePricing.original_price > coursePricing.price && (
+                        <div className="absolute bottom-3 right-3 z-20">
+                          <span className="bg-emerald-500 text-white font-black text-[9px] font-alexandria py-1 px-2.5 rounded-lg shadow-md animate-pulse">
+                            وفر {coursePricing.discount_pct}%
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Right Wishlist Button */}
+                      <div className="absolute top-4 right-4 z-30 bg-black/40 backdrop-blur-md rounded-lg p-1.5 border border-white/10 hover:bg-black/60 transition-colors">
                         <WishlistButton itemId={course.id} itemType="course" size={16} />
                       </div>
                     </div>
 
                     {/* Course Card Body */}
                     <div className="p-6 flex-1 flex flex-col justify-between">
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-[10px] text-zinc-500 font-bold">
+                      <div className="space-y-4">
+                        {/* Info Bar */}
+                        <div className="flex items-center justify-between text-[10px] text-zinc-400 font-bold bg-white/[0.02] border border-white/5 rounded-xl px-3 py-2">
                           <div className="flex items-center gap-3">
                             <span className="flex items-center gap-1">
                               <BookOpen className="w-3.5 h-3.5 text-[#D6004B]" />
                               {course.lessons_count || 0} دروس
                             </span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3.5 h-3.5 text-[#D6004B]" />
+                            <span className="flex items-center gap-1 border-r border-white/10 pr-3">
+                              <Clock className="w-3.5 h-3.5 text-amber-500" />
                               {course.duration_hours || 0} ساعة
                             </span>
                           </div>
@@ -418,20 +432,22 @@ export default function Home() {
                         </p>
                       </div>
 
-                      <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between">
+                      <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between">
+                        {/* Price Display */}
                         <div className="flex flex-col">
-                          {coursePricing.original_price > 0 && (
-                            <span className="text-[10px] text-zinc-500 line-through mb-0.5">
+                          {coursePricing.original_price > coursePricing.price && (
+                            <span className="text-[10px] text-zinc-500 line-through mb-0.5 font-alexandria">
                               {formatPrice(coursePricing.original_price, currency)}
                             </span>
                           )}
                           <div className="flex items-baseline gap-0.5">
-                            <span className="text-xl font-alexandria font-black text-[#D6004B]">
+                            <span className="text-lg sm:text-xl font-alexandria font-black text-white">
                               {coursePricing.price === 0 ? "مجاني" : formatPrice(coursePricing.price, currency)}
                             </span>
                           </div>
                         </div>
 
+                        {/* Actions */}
                         <div className="flex gap-2 items-center">
                           <button
                             onClick={(e) => {
@@ -444,11 +460,11 @@ export default function Home() {
                               } as any);
                               toast.success("تم إضافة الكورس للسلة بنجاح");
                             }}
-                            className="h-10 w-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 text-white hover:bg-[#D6004B]/10 hover:border-[#D6004B]/30 hover:text-[#D6004B] transition-all shrink-0 group/cart"
+                            className="h-10 w-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 text-white hover:bg-[#D6004B] hover:border-[#D6004B] hover:shadow-[0_0_15px_rgba(214,0,75,0.4)] transition-all shrink-0 group/cart duration-300"
                           >
                             <ShoppingCart className="w-4 h-4 group-hover/cart:scale-110 transition-transform" />
                           </button>
-                          <div className="h-10 px-4 bg-[#D6004B] hover:bg-[#b0003d] text-white rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition-all shadow-[0_4px_12px_rgba(214,0,75,0.15)] group-hover:scale-[1.02] active:scale-98 shrink-0">
+                          <div className="h-10 px-4 bg-[#D6004B] hover:bg-[#b0003d] text-white rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition-all shadow-[0_4px_12px_rgba(214,0,75,0.15)] group-hover:scale-[1.02] group-hover:shadow-[0_0_20px_rgba(214,0,75,0.4)] active:scale-98 shrink-0 duration-300">
                             <span>احصل على الكورس</span>
                             <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform rtl:rotate-180" />
                           </div>
