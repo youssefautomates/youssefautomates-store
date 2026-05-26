@@ -74,11 +74,16 @@ function ShowcaseVideoCard({ video, onClick }: ShowcaseVideoCardProps) {
   );
 }
 
-function ShowcaseModalPlayer({ video }: { video: ShowcaseVideo }) {
-  const [signedUrl, setSignedUrl] = useState<string>("");
-  const [loading, setLoading] = useState(true);
+function ShowcaseModalPlayer({ video, preFetchedUrl }: { video: ShowcaseVideo; preFetchedUrl?: string }) {
+  const [signedUrl, setSignedUrl] = useState<string>(preFetchedUrl || "");
+  const [loading, setLoading] = useState(!preFetchedUrl);
 
   useEffect(() => {
+    if (preFetchedUrl) {
+      setSignedUrl(preFetchedUrl);
+      setLoading(false);
+      return;
+    }
     const vidId = video.videoId || video.id;
     if (vidId) {
       fetch(`/api/video/showcase?videoId=${vidId}`)
@@ -93,7 +98,7 @@ function ShowcaseModalPlayer({ video }: { video: ShowcaseVideo }) {
     } else {
       setLoading(false);
     }
-  }, [video.id, video.videoId]);
+  }, [video.id, video.videoId, preFetchedUrl]);
 
   if (loading) {
     return (
@@ -105,13 +110,18 @@ function ShowcaseModalPlayer({ video }: { video: ShowcaseVideo }) {
   }
 
   const embedUrl = signedUrl || video.playbackUrl;
-  const finalSrc = `${embedUrl}${embedUrl.includes('?') ? '&' : '?'}autoplay=true&muted=false`;
+  let finalSrc = embedUrl;
+  if (finalSrc.includes("autoplay=false")) {
+    finalSrc = finalSrc.replace("autoplay=false", "autoplay=true");
+  } else {
+    finalSrc = `${finalSrc}${finalSrc.includes('?') ? '&' : '?'}autoplay=true`;
+  }
 
   return (
     <iframe 
       src={finalSrc}
       className="w-full h-full border-0 object-cover"
-      allow="autoplay; encrypted-media"
+      allow="autoplay; encrypted-media; picture-in-picture"
       allowFullScreen
       referrerPolicy="origin"
     />
@@ -176,6 +186,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
 
   const [activeShowcaseVideo, setActiveShowcaseVideo] = useState<ShowcaseVideo | null>(null);
   const [activePreviewLesson, setActivePreviewLesson] = useState<LmsLesson | null>(null);
+  const [showcaseUrls, setShowcaseUrls] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function loadData() {
@@ -192,6 +203,23 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
       
       // Stop blocking the page load here so content appears fast
       setIsLoading(false);
+
+      // Pre-fetch all showcase video URLs in parallel for instant synchronous autoplay on click
+      if (c.showcase_videos && Array.isArray(c.showcase_videos)) {
+        c.showcase_videos.forEach((vid: any) => {
+          const vidId = vid.videoId || vid.id;
+          if (vidId) {
+            fetch(`/api/video/showcase?videoId=${vidId}`)
+              .then(res => res.json())
+              .then(data => {
+                if (data.url) {
+                  setShowcaseUrls(prev => ({ ...prev, [vidId]: data.url }));
+                }
+              })
+              .catch(() => {});
+          }
+        });
+      }
 
       // Fetch all secondary page details in parallel
       const promoVideoPromise = c.promo_video_id
@@ -1298,7 +1326,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                   <X className="w-5 h-5" />
                 </button>
                 {/* Secure Video Player */}
-                <ShowcaseModalPlayer video={activeShowcaseVideo} />
+                <ShowcaseModalPlayer video={activeShowcaseVideo} preFetchedUrl={showcaseUrls[activeShowcaseVideo.videoId || activeShowcaseVideo.id]} />
               </motion.div>
             </motion.div>
           )}
