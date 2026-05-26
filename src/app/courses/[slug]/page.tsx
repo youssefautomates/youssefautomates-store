@@ -599,7 +599,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                       onClick={() => setActiveTab('reviews')}
                       className={`px-5 py-3 font-alexandria text-xs sm:text-sm font-bold transition-all relative shrink-0 select-none cursor-pointer ${activeTab === 'reviews' ? 'text-[#D6004B]' : 'text-zinc-400 hover:text-white'}`}
                     >
-                      <span>آراء ومراجعات الطلاب ({reviewsCount})</span>
+                      <span>آراء الطلاب</span>
                       {activeTab === 'reviews' && (
                         <motion.div layoutId="activeTabIndicator" className="absolute bottom-0 inset-x-0 h-[2px] bg-[#D6004B]" />
                       )}
@@ -1959,7 +1959,7 @@ function MobileCourseView({
                  className="space-y-4"
                >
                  <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                   <h3 className="text-xs font-alexandria font-bold text-white">آراء ومراجعات الطلاب</h3>
+                    <h3 className="text-xs font-alexandria font-bold text-white">آراء الطلاب</h3>
                    <div className="flex items-center gap-1 text-xs">
                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
                      <span className="text-white font-bold">{averageRating} / 5.0</span>
