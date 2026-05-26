@@ -540,9 +540,9 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
               
               {/* Left Column: Visuals & Description */}
               <motion.div 
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: "easeOut" }}
+                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                 className="w-full lg:w-[62%] space-y-8"
               >
                 {/* Main Viewer */}
@@ -787,9 +787,9 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
 
               {/* Right Column: Pricing & Conversion */}
               <motion.div 
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: "easeOut", delay: 0.15 }}
+                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
                 className="w-full lg:w-[38%] lg:sticky lg:top-32 space-y-6 md:space-y-8"
               >
                 <div className="bg-[#0c0c12] p-5 sm:p-8 md:p-10 lg:p-12 rounded-3xl md:rounded-[2.5rem] lg:rounded-[3rem] border border-white/10 shadow-2xl relative overflow-hidden">

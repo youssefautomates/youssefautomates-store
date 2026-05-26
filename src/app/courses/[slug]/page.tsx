@@ -353,9 +353,9 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
               
               {/* Right Col: Course Title, Badges under Video, Tabbed details */}
               <motion.div 
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: "easeOut" }}
+                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                 className="lg:col-span-8 space-y-6"
               >
                 <Link
@@ -930,9 +930,9 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
 
               {/* Left Col: Enroll CTA Card (Sticky Desktop, hidden lg:block) */}
               <motion.div 
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: "easeOut", delay: 0.15 }}
+                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
                 className="lg:col-span-4 hidden lg:block bg-[#0a0a0f] border border-white/5 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden lg:sticky lg:top-28"
               >
                 <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-transparent via-[#D6004B] to-transparent animate-pulse" />

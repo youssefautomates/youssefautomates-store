@@ -365,20 +365,22 @@ export default function Home() {
                 return (
                   <motion.div
                     key={course.slug}
-                    initial={{ opacity: 0, y: 25 }}
+                    initial={{ opacity: 0, y: 40 }}
                     whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.5, delay: idx * 0.05 }}
-                    className="group bg-gradient-to-b from-[#0e0e16] to-[#07070c] border border-white/5 hover:border-[#D6004B]/30 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between hover:-translate-y-1.5 transition-all duration-300 h-full relative cursor-pointer hover:shadow-[0_20px_40px_-12px_rgba(214,0,75,0.15)]"
+                    viewport={{ once: true, margin: "-60px" }}
+                    transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: idx * 0.05 }}
+                    className="group bg-gradient-to-b from-[#0e0e16] to-[#07070c] border border-white/5 hover:border-[#D6004B]/50 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between hover:-translate-y-3 transition-all duration-300 h-full relative cursor-pointer hover:shadow-[0_30px_60px_-15px_rgba(214,0,75,0.25)]"
                     onClick={() => router.push(`/courses/${course.slug}`)}
                   >
+                    {/* Glow Light Sweep Shimmer Effect */}
+                    <div className="absolute inset-0 w-[50%] h-full bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 -translate-x-[200%] group-hover:translate-x-[350%] transition-transform duration-1000 ease-out pointer-events-none z-10" />
                     {/* Course Card Top Banner */}
                     <div className="relative h-48 bg-zinc-950 overflow-hidden border-b border-white/5">
                       {course.image_url && (
                         <img 
                           src={course.image_url} 
                           alt={course.title} 
-                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-112 transition-transform duration-700 ease-out"
                         />
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-[#07070c] via-transparent to-black/30" />
@@ -412,16 +414,16 @@ export default function Home() {
                         <div className="flex items-center justify-between text-[10px] text-zinc-400 font-bold bg-white/[0.02] border border-white/5 rounded-xl px-3 py-2">
                           <div className="flex items-center gap-3">
                             <span className="flex items-center gap-1">
-                              <BookOpen className="w-3.5 h-3.5 text-[#D6004B]" />
+                              <BookOpen className="w-3.5 h-3.5 text-[#D6004B] transition-transform duration-300 ease-out group-hover/item:scale-120 group-hover/item:-rotate-6" />
                               {course.lessons_count || 0} دروس
                             </span>
                             <span className="flex items-center gap-1 border-r border-white/10 pr-3">
-                              <Clock className="w-3.5 h-3.5 text-amber-500" />
+                              <Clock className="w-3.5 h-3.5 text-amber-500 transition-transform duration-300 ease-out group-hover/item:scale-120 group-hover/item:rotate-6" />
                               {course.duration_hours || 0} ساعة
                             </span>
                           </div>
                           <div className="flex items-center gap-1 text-yellow-400">
-                            <Star className="w-3.5 h-3.5 fill-current" />
+                            <Star className="w-3.5 h-3.5 fill-current transition-transform duration-300 ease-out group-hover:scale-120 group-hover:rotate-12" />
                             <span className="text-white text-xs">{averageRating}</span>
                             <span className="text-zinc-500 font-normal text-[9px]">({reviewsCount})</span>
                           </div>
@@ -683,18 +685,20 @@ export default function Home() {
                   return (
                     <motion.div 
                       key={product.id}
-                      initial={{ opacity: 0, y: 25 }}
+                      initial={{ opacity: 0, y: 40 }}
                       whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.5, delay: idx * 0.05 }}
+                      viewport={{ once: true, margin: "-60px" }}
+                      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: idx * 0.05 }}
                       className="group h-full"
                     >
                       <div 
                         onClick={() => router.push(`/product/${product.slug}`)}
                         onMouseEnter={() => setHoveredId(product.id)}
                         onMouseLeave={() => setHoveredId(null)}
-                        className="block relative h-full flex flex-col bg-[#09090e] border border-[#1b1b24]/60 hover:border-[#D6004B]/40 rounded-[2rem] overflow-hidden group-hover:-translate-y-1 transition-all duration-300 shadow-2xl hover:shadow-[0_20px_40px_-12px_rgba(214,0,75,0.15)] cursor-pointer"
+                        className="block relative h-full flex flex-col bg-[#09090e] border border-[#1b1b24]/60 hover:border-[#D6004B]/50 rounded-[2rem] overflow-hidden group-hover:-translate-y-3 transition-all duration-300 shadow-2xl hover:shadow-[0_30px_60px_-15px_rgba(214,0,75,0.25)] cursor-pointer"
                       >
+                        {/* Glow Light Sweep Shimmer Effect */}
+                        <div className="absolute inset-0 w-[50%] h-full bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 -translate-x-[200%] group-hover:translate-x-[350%] transition-transform duration-1000 ease-out pointer-events-none z-10" />
                         {/* Media Area */}
                         <div className="relative w-full aspect-video overflow-hidden border-b border-white/5">
                           <ProductMedia 
