@@ -17,6 +17,7 @@ import {
   LessonNote 
 } from "@/lib/coursesDb";
 import { supabaseClient } from "@/lib/supabaseClient";
+import { trackMetaEvent } from "@/lib/metaPixel";
 
 interface SecureVideoPlayerProps {
   lessonId: string;
@@ -102,6 +103,7 @@ export default function SecureVideoPlayer({
 
   // Sync control refs to prevent redundant database writes
   const lastSyncTimeRef = useRef<number>(-1);
+  const videoMilestonesRef = useRef<Set<number>>(new Set());
 
   // Double-tap Mobile Seek Gesture States
   const lastTapRef = useRef<{ time: number; x: number }>({ time: 0, x: 0 });
@@ -174,6 +176,7 @@ export default function SecureVideoPlayer({
     initPlayer();
     fetchNotes();
     setHasStarted(false);
+    videoMilestonesRef.current.clear();
   }, [lessonId]);
 
   // 3. Smart Recommendations Fetching
@@ -522,6 +525,20 @@ export default function SecureVideoPlayer({
               recordWatchSecond(time);
               if (!isNaN(dur) && dur > 0) {
                 setDuration(dur);
+                
+                // Track 25%, 50%, and 75% watch milestones
+                const progressPercent = Math.round((time / dur) * 100);
+                const milestones = [25, 50, 75];
+                milestones.forEach(m => {
+                  if (progressPercent >= m && !videoMilestonesRef.current.has(m)) {
+                    videoMilestonesRef.current.add(m);
+                    trackMetaEvent("WatchMilestone", {
+                      lesson_id: lessonId,
+                      course_id: courseId,
+                      progress: m
+                    }, `milestone_${lessonId}_${m}`);
+                  }
+                });
               }
 
               // Auto-sync progress to database every 10 seconds
@@ -540,12 +557,14 @@ export default function SecureVideoPlayer({
           } else if (eventName === "play" || eventName === "player:play") {
             setIsPlaying(true);
             setHasStarted(true);
+            trackMetaEvent("PlayVideo", { lesson_id: lessonId, course_id: courseId }, `play_${lessonId}_${Date.now()}`);
             if (duration > 0) {
               await syncProgress(currentTime, duration);
             }
           } else if (eventName === "pause" || eventName === "player:pause") {
             setIsPlaying(false);
             setPauseCount(prev => prev + 1);
+            trackMetaEvent("PauseVideo", { lesson_id: lessonId, course_id: courseId }, `pause_${lessonId}_${Date.now()}`);
             if (duration > 0) {
               await syncProgress(currentTime, duration);
             }
@@ -585,6 +604,7 @@ export default function SecureVideoPlayer({
     setIsPlaying(false);
     setShowEndedOverlay(true);
     await syncProgress(duration || currentTime, duration || currentTime, true);
+    trackMetaEvent("CompleteVideo", { lesson_id: lessonId, course_id: courseId }, `ended_${lessonId}`);
     onLessonComplete();
   };
 

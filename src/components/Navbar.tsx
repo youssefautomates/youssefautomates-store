@@ -19,19 +19,25 @@ export function Navbar() {
   const router = useRouter();
 
   const [user, setUser] = useState<any>(null);
+  const [imgError, setImgError] = useState(false);
 
   const isHomePage = pathname === "/";
+
+  const profileImageUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || user?.user_metadata?.profile_image;
+  const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split("@")[0] || "طالب مميز";
 
   // Check and listen for auth session state changes in real-time
   useEffect(() => {
     // 1. Initial retrieval
     supabaseClient.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      setImgError(false);
     });
 
     // 2. Listen to state changes
     const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
+      setImgError(false);
     });
 
     return () => {
@@ -225,6 +231,31 @@ export function Navbar() {
               {/* Integrated Auth CTA Actions for Desktop */}
               {user ? (
                 <div className="hidden md:flex items-center gap-4">
+                  {/* User Details / Avatar based on presence */}
+                  {profileImageUrl && !imgError ? (
+                    <div className="relative group shrink-0 select-none">
+                      <img 
+                        src={profileImageUrl} 
+                        alt={userName}
+                        onError={() => setImgError(true)}
+                        className="w-8 h-8 rounded-full object-cover border border-rose-500/30 shadow-[0_0_10px_rgba(214,0,75,0.25)] hover:scale-105 transition-transform duration-300"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex flex-col text-right font-cairo select-none shrink-0">
+                      <div className="flex items-center gap-1.5 justify-end">
+                        <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                          <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+                          مستخدم نشط
+                        </span>
+                        <span className="text-xs font-bold text-white leading-tight">{userName}</span>
+                      </div>
+                      <span className="text-[9px] text-zinc-500 leading-none mt-0.5" dir="ltr">{user.email}</span>
+                    </div>
+                  )}
+
+                  <span className="text-white/10 text-xs select-none">|</span>
+
                   {/* Logout link */}
                   <button
                     onClick={handleLogout}
@@ -244,11 +275,6 @@ export function Navbar() {
                     <ChevronLeft className="w-3.5 h-3.5 relative z-10 group-hover:-translate-x-0.5 transition-transform" />
                     <div className="absolute inset-0 bg-gradient-to-r from-rose-600 to-orange-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                   </Link>
-
-                  {/* Optional user avatar */}
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-rose-600 to-orange-500 flex items-center justify-center font-alexandria font-bold text-white text-[10px] select-none shadow-[0_0_10px_rgba(214,0,75,0.35)]">
-                    {(user.user_metadata?.full_name || user.email || "U").substring(0, 1).toUpperCase()}
-                  </div>
                 </div>
               ) : (
                 <div className="hidden md:flex items-center gap-4">
@@ -305,6 +331,43 @@ export function Navbar() {
             >
               <div className="p-4 rounded-2xl bg-[#0a0a0f]/95 backdrop-blur-xl border border-white/10 shadow-[0_20px_40px_rgba(0,0,0,0.5)]">
                 <div className="flex flex-col gap-1">
+                  {/* Top Profile Card in Mobile Menu */}
+                  {user ? (
+                    <div className="p-4 mb-3 rounded-2xl bg-white/[0.02] border border-white/5 relative overflow-hidden group select-none">
+                      <div className="absolute inset-0 bg-gradient-to-tr from-rose-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      <div className="flex items-center gap-3.5 relative z-10 text-right">
+                        {profileImageUrl && !imgError && (
+                          <img
+                            src={profileImageUrl}
+                            alt={userName}
+                            onError={() => setImgError(true)}
+                            className="w-12 h-12 rounded-xl object-cover border border-rose-500/30 shadow-md shrink-0"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-alexandria font-bold text-white truncate leading-tight mb-1.5">{userName}</p>
+                          <p className="text-[10px] text-zinc-500 truncate leading-none mb-2" dir="ltr">{user.email}</p>
+                          <div className="flex justify-end">
+                            <span className="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-bold px-2 py-0.5 rounded-md">
+                              <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+                              مستخدم نشط
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 mb-3 rounded-2xl bg-white/[0.02] border border-white/5 relative overflow-hidden flex items-center gap-3.5 text-right select-none">
+                      <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 shrink-0">
+                        <User className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-alexandria font-bold text-white leading-tight mb-1">مرحباً بك في المنصة</p>
+                        <p className="text-[10px] text-zinc-400 font-cairo">سجل دخولك للاستفادة الكاملة</p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Home link in mobile */}
                   <Link
                     href="/"

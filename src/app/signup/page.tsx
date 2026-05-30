@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Mail, Lock, User, Loader2, ArrowLeft, ShieldCheck, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { trackCompleteRegistration, trackMetaEvent } from "@/lib/metaPixel";
 
 const COUNTRY_CODES = [
   { code: "+20", name: "مصر (Egypt)", flag: "🇪🇬" },
@@ -106,6 +107,7 @@ export default function SignupPage() {
         console.error("Signup error:", error);
         toast.error(error.message || "حدث خطأ أثناء إنشاء الحساب. حاول مرة أخرى.");
       } else {
+        trackCompleteRegistration();
         toast.success("تم إنشاء حسابك وتفعيله بنجاح! مرحباً بك.");
         if (data?.session) {
           router.push("/dashboard");
@@ -287,6 +289,7 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={isLoading}
+              onClick={() => trackMetaEvent("Lead", { content_name: "signup_button_click" })}
               className="w-full group h-14 bg-[#D6004B] hover:bg-[#b0003d] text-white rounded-2xl font-bold text-base shadow-[0_10px_30px_rgba(214,0,75,0.3)] transition-all hover:-translate-y-0.5 active:scale-98 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:pointer-events-none mt-2"
             >
               {isLoading ? (

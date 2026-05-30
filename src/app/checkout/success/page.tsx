@@ -29,6 +29,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useCart } from "@/context/CartContext";
+import { trackPurchase, trackLead } from "@/lib/metaPixel";
 
 function FloatingParticle({ delay, x, size }: { delay: number; x: number; size: number }) {
   return (
@@ -169,15 +170,14 @@ function SuccessContent() {
 
           // Facebook and TikTok purchase triggers
           if (!data.alreadyDelivered && typeof window !== "undefined") {
-            if ((window as any).fbq) {
-              (window as any).fbq("track", "Purchase", {
-                value: data.orderValue,
-                currency: data.currency,
-                content_name: data.productTitle,
-                content_ids: [id],
-                content_type: "product",
-              });
-            }
+            // High-Performance Unified Meta Purchase tracking (Pixel + CAPI)
+            trackPurchase(
+              id,
+              data.productTitle || "منتجك الرقمي",
+              [id],
+              Number(data.orderValue) || 0,
+              data.currency || "EGP"
+            );
             if ((window as any).ttq) {
               (window as any).ttq.track("CompletePayment", {
                 value: data.orderValue,

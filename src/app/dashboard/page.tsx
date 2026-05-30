@@ -24,9 +24,12 @@ export default function DashboardPage() {
   const router = useRouter();
   
   const [user, setUser] = useState<any>(null);
+  const [imgError, setImgError] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("courses");
+
+  const profileImageUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || user?.user_metadata?.profile_image;
 
   // Dynamic user data states
   const [enrolledCourses, setEnrolledCourses] = useState<(LmsCourse & { progress: number; completedCount: number; totalCount: number; firstLessonSlug: string; lastLessonSlug?: string })[]>([]);
@@ -67,6 +70,7 @@ export default function DashboardPage() {
       }
       
       setUser(session.user);
+      setImgError(false);
       const name = session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split("@")[0] || "طالب مميز";
       setProfileName(name);
       setFullName(name);
@@ -843,16 +847,30 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          <div className="hidden lg:flex items-center gap-4 bg-white/[0.01] border border-white/5 rounded-2xl p-4 relative overflow-hidden group">
+          <div className="hidden lg:flex flex-col gap-2 bg-white/[0.01] border border-white/5 rounded-2xl p-4 relative overflow-hidden group select-none">
             {/* Subtle glow on hover */}
             <div className="absolute inset-0 bg-gradient-to-tr from-rose-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-rose-600 via-pink-600 to-orange-500 flex items-center justify-center font-alexandria font-black text-white shadow-lg shrink-0 group-hover:scale-105 transition-transform duration-300">
-              {profileName.substring(0, 2).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0 z-10 text-right">
-              <p className="text-sm font-alexandria font-bold text-white truncate leading-tight mb-1.5">{profileName}</p>
-              <p className="text-[9px] text-zinc-500 truncate leading-none" dir="ltr">{user?.email}</p>
+            <div className="flex items-center gap-4 relative z-10">
+              {profileImageUrl && !imgError && (
+                <img
+                  src={profileImageUrl}
+                  alt={profileName}
+                  onError={() => setImgError(true)}
+                  className="w-12 h-12 rounded-xl object-cover border border-rose-500/30 shadow-lg shrink-0 group-hover:scale-105 transition-transform duration-300"
+                />
+              )}
+              
+              <div className="flex-1 min-w-0 text-right">
+                <p className="text-sm font-alexandria font-bold text-white truncate leading-tight mb-1.5">{profileName}</p>
+                <p className="text-[9px] text-zinc-500 truncate leading-none mb-2" dir="ltr">{user?.email}</p>
+                <div className="flex justify-end">
+                  <span className="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-bold px-2 py-0.5 rounded-md">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    طالب مميز
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 

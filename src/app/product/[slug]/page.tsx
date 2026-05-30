@@ -21,6 +21,7 @@ import { supabase } from "@/lib/supabase";
 import { type Product, calcDiscount } from "@/lib/products";
 import { useCart } from "@/context/CartContext";
 import { resolveUserCurrency, resolveProductPrice, formatPrice, type Currency } from "@/lib/pricing";
+import { trackViewContent, trackInitiateCheckout, trackAddToCart, trackLead } from "@/lib/metaPixel";
 
 // ── Helper: Unpack Tags ───────────────────────────────────────────────
 function unpackProduct(p: Product) {
@@ -145,21 +146,16 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
         
         // Pixel Tracking
         if (typeof window !== "undefined") {
-          if (window.fbq) {
-            window.fbq('track', 'ViewContent', {
-              content_name: unpacked.title,
-              content_ids: [unpacked.id],
-              content_type: 'product',
-              value: unpacked.price,
-              currency: 'EGP'
-            });
-          }
+          const pricing = resolveProductPrice(data as any, currency);
+          const price = pricing ? pricing.price : unpacked.price;
+          trackViewContent(unpacked.id, unpacked.title, price, currency, "product");
+          
           if (window.ttq) {
             window.ttq.track('ViewContent', {
-              contents: [{ content_id: unpacked.id, content_name: unpacked.title, price: unpacked.price, quantity: 1 }],
+              contents: [{ content_id: unpacked.id, content_name: unpacked.title, price: price, quantity: 1 }],
               content_type: 'product',
-              value: unpacked.price,
-              currency: 'EGP'
+              value: price,
+              currency: currency
             });
           }
         }
@@ -443,6 +439,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                   <div className="space-y-2">
                     <Link
                       href={`/checkout/${product.id}`}
+                      onClick={() => trackInitiateCheckout(product.id, product.title, productPricing?.price ?? product.price, currency, "product")}
                       className="w-full h-14 inline-flex items-center justify-center gap-2 bg-[#D6004B] hover:bg-[#ff0059] text-white font-alexandria font-black text-sm sm:text-base rounded-xl transition-all shadow-[0_12px_30px_rgba(214,0,75,0.35)] active:scale-95 group"
                     >
                       شراء الآن (تحميل فوري)
@@ -450,11 +447,15 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                     </Link>
 
                     <button
-                      onClick={() => addToCart({
-                        ...product,
-                        price: productPricing?.price ?? product.price,
-                        original_price: productPricing?.original_price ?? product.original_price,
-                      } as any)}
+                      onClick={() => {
+                        const price = productPricing?.price ?? product.price;
+                        addToCart({
+                          ...product,
+                          price: price,
+                          original_price: productPricing?.original_price ?? product.original_price,
+                        } as any);
+                        trackAddToCart(product.id, product.title, price, currency, "product");
+                      }}
                       className="w-full h-12 inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white font-alexandria font-black text-xs sm:text-sm rounded-xl border border-white/10 transition-all active:scale-95"
                     >
                       <ShoppingCart className="w-4 h-4" />
@@ -830,6 +831,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                     <div className="space-y-2.5 md:space-y-4 pt-1 md:pt-4">
                       <Link
                         href={`/checkout/${product.id}`}
+                        onClick={() => trackInitiateCheckout(product.id, product.title, productPricing?.price ?? product.price, currency, "product")}
                         className="w-full h-12 sm:h-16 md:h-20 inline-flex items-center justify-center gap-2 md:gap-4 bg-[#D6004B] hover:bg-[#ff0059] text-white font-alexandria font-black text-sm sm:text-lg md:text-2xl rounded-xl md:rounded-[2rem] transition-all shadow-[0_15px_40px_rgba(214,0,75,0.35)] hover:shadow-[0_20px_50px_rgba(214,0,75,0.5)] active:scale-95 group"
                       >
                         شراء الآن (تحميل فوري)
@@ -837,11 +839,15 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                       </Link>
 
                       <button
-                        onClick={() => addToCart({
-                          ...product,
-                          price: productPricing?.price ?? product.price,
-                          original_price: productPricing?.original_price ?? product.original_price,
-                        } as any)}
+                        onClick={() => {
+                          const price = productPricing?.price ?? product.price;
+                          addToCart({
+                            ...product,
+                            price: price,
+                            original_price: productPricing?.original_price ?? product.original_price,
+                          } as any);
+                          trackAddToCart(product.id, product.title, price, currency, "product");
+                        }}
                         className="w-full h-10 sm:h-14 md:h-16 inline-flex items-center justify-center gap-2 md:gap-3 bg-white/5 hover:bg-white/10 text-white font-alexandria font-black text-xs sm:text-base md:text-lg rounded-xl md:rounded-[1.5rem] border border-white/10 transition-all active:scale-95"
                       >
                         <ShoppingCart className="w-3.5 h-3.5 md:w-5 md:h-5" />
@@ -902,17 +908,22 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
           </div>
           <div className="flex gap-2 flex-1">
             <button
-              onClick={() => addToCart({
-                ...product,
-                price: productPricing?.price ?? product.price,
-                original_price: productPricing?.original_price ?? product.original_price,
-              } as any)}
+              onClick={() => {
+                const price = productPricing?.price ?? product.price;
+                addToCart({
+                  ...product,
+                  price: price,
+                  original_price: productPricing?.original_price ?? product.original_price,
+                } as any);
+                trackAddToCart(product.id, product.title, price, currency, "product");
+              }}
               className="h-11 w-11 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl flex items-center justify-center active:scale-90 shrink-0 transition-colors"
             >
               <ShoppingCart className="w-4 h-4" />
             </button>
             <Link
               href={`/checkout/${product.id}`}
+              onClick={() => trackInitiateCheckout(product.id, product.title, productPricing?.price ?? product.price, currency, "product")}
               className="flex-1 h-11 bg-[#D6004B] text-white font-alexandria font-black text-sm rounded-xl flex items-center justify-center gap-1.5 active:scale-95 shadow-[0_10px_30px_rgba(214,0,75,0.3)]"
             >
               شراء فوري

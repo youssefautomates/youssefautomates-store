@@ -576,6 +576,33 @@ export async function POST(req: Request) {
     const chargedAmountEgp = orders.reduce((sum, o) => sum + (Number(o.charged_amount_egp) || 0), 0);
     const exchangeRate = baseOrder.exchange_rate || null;
 
+    // Dispatch Unified Server-Side Meta CAPI Purchase event in parallel
+    try {
+      const orderValue = currency === "USD" ? originalAmountUsd : chargedAmountEgp;
+      const productIds = resolvedProducts.map(p => String(p.id));
+      const productTitle = resolvedProducts.map(p => p.title).join(" + ");
+      
+      const clientIp = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "127.0.0.1";
+      const clientUserAgent = req.headers.get("user-agent") || "";
+      
+      // Fire backend CAPI conversion event asynchronously
+      import("@/lib/metaCapiServer").then(({ trackServerPurchase }) => {
+        trackServerPurchase({
+          transactionId: baseOrder.id,
+          price: Number(orderValue) || 0,
+          currency,
+          productTitle,
+          productIds,
+          customerEmail: customerEmail.toLowerCase().trim(),
+          clientIp: clientIp.split(",")[0].trim(),
+          clientUserAgent,
+          eventSourceUrl: req.url
+        }).catch(err => console.error("[VERIFY] Server CAPI trigger promise rejection:", err));
+      });
+    } catch (capiErr: any) {
+      console.error("[VERIFY] Failed to invoke Server-Side CAPI tracking:", capiErr.message);
+    }
+
     return NextResponse.json({ 
       success: true, 
       productTitle: resolvedProducts.map(p => p.title).join(" + "),

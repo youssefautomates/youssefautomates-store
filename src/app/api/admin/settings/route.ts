@@ -5,12 +5,17 @@ import { cookies } from "next/headers";
 const MARKETING_KEY = "marketing_settings";
 
 export async function GET() {
-  const settings = await getKV(MARKETING_KEY) || {
+  const defaultSettings = {
     metaPixelId: "",
     metaPixelEnabled: false,
+    metaCapiToken: "",
+    metaCapiEnabled: false,
+    metaCapiTestCode: "",
     tiktokPixelId: "",
     tiktokPixelEnabled: false
   };
+  const saved = await getKV(MARKETING_KEY);
+  const settings = saved ? { ...defaultSettings, ...saved } : defaultSettings;
   console.log("[Settings API] GET Returning:", JSON.stringify(settings));
   return NextResponse.json(settings);
 }

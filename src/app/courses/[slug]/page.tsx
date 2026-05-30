@@ -7,9 +7,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Sparkles, BookOpen, Clock, ArrowLeft, Star, 
   CheckCircle2, ChevronDown, Award, PlayCircle, ShieldCheck, 
-  Loader2, Play, Users, Check, AlertCircle, HelpCircle, Zap, VolumeX, Volume2, X, ShoppingCart
+  Loader2, Play, Users, Check, AlertCircle, HelpCircle, Zap, VolumeX, Volume2, X, ShoppingCart, FileText
 } from "lucide-react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import { getCourseBySlug, checkEnrollment, getCoursesList, type LmsCourse, type LmsSection, type LmsLesson } from "@/lib/coursesDb";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { ProductReviews } from "@/components/ProductReviews";
@@ -525,85 +526,98 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                 </div>
 
                 {/* Blue Box: Glassmorphism badges row (Directly under the video container) */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="bg-white/[0.02] border border-white/5 p-3.5 rounded-2xl flex items-center gap-3">
-                    <Clock className="w-5 h-5 text-orange-500 shrink-0" />
-                    <div className="flex flex-col">
-                      <span className="text-[10px] text-zinc-500 font-bold">المدة الكلية</span>
-                      <span className="text-xs sm:text-sm text-white font-bold">
-                        {course.duration_hours >= 1
-                          ? `${course.duration_hours} ساعة`
-                          : course.duration_hours > 0
-                          ? `${Math.round(course.duration_hours * 60)} دقيقة`
-                          : `${totalLessons > 0 ? '—' : '0 ساعة'}`
-                        }
-                      </span>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Card 1: Duration */}
+                  <div className="bg-[#0b0b12]/60 border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center min-h-[140px] hover:border-[#D6004B]/30 hover:bg-[#0b0b12]/80 transition-all shadow-lg select-none">
+                    <Clock className="w-6 h-6 text-rose-500 mb-2 shrink-0" />
+                    <span className="text-[11px] text-zinc-400 font-bold mb-1 font-cairo">المدة</span>
+                    <span className="text-base sm:text-lg text-white font-alexandria font-black mb-1 leading-none">
+                      {course.duration_hours >= 1
+                        ? `${course.duration_hours} س`
+                        : course.duration_hours > 0
+                        ? `${Math.round(course.duration_hours * 60)} د`
+                        : "0 س"
+                      }
+                    </span>
+                    <span className="text-[10px] text-zinc-500 font-medium font-cairo">إجمالي الوقت</span>
+                  </div>
+
+                  {/* Card 2: Lectures */}
+                  <div className="bg-[#0b0b12]/60 border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center min-h-[140px] hover:border-[#D6004B]/30 hover:bg-[#0b0b12]/80 transition-all shadow-lg select-none">
+                    <BookOpen className="w-6 h-6 text-rose-500 mb-2 shrink-0" />
+                    <span className="text-[11px] text-zinc-400 font-bold mb-1 font-cairo">المحاضرات</span>
+                    <span className="text-base sm:text-lg text-white font-alexandria font-black mb-1 leading-none">
+                      {totalLessons > 0 ? totalLessons : course.lessons_count}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 font-medium font-cairo">دروس مسجلة</span>
+                  </div>
+
+                  {/* Card 3: Rating */}
+                  <div className="bg-[#0b0b12]/60 border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center min-h-[140px] hover:border-[#D6004B]/30 hover:bg-[#0b0b12]/80 transition-all shadow-lg select-none">
+                    <Star className="w-6 h-6 text-yellow-400 fill-current mb-2 shrink-0 animate-pulse" />
+                    <span className="text-[11px] text-zinc-400 font-bold mb-1 font-cairo">التقييم</span>
+                    <span className="text-base sm:text-lg text-white font-alexandria font-black mb-0.5 leading-none">
+                      {averageRating}
+                    </span>
+                    <div className="flex items-center justify-center gap-0.5 mt-0.5">
+                      {Array.from({ length: 5 }).map((_, i) => {
+                        const starValue = i + 1;
+                        const isFilled = starValue <= Math.round(Number(averageRating));
+                        return (
+                          <Star 
+                            key={i} 
+                            className={cn(
+                              "w-2.5 h-2.5 shrink-0",
+                              isFilled ? "text-yellow-400 fill-current" : "text-zinc-700"
+                            )} 
+                          />
+                        );
+                      })}
                     </div>
                   </div>
-                  <div className="bg-white/[0.02] border border-white/5 p-3.5 rounded-2xl flex items-center gap-3">
-                    <BookOpen className="w-5 h-5 text-[#D6004B] shrink-0" />
-                    <div className="flex flex-col">
-                      <span className="text-[10px] text-zinc-500 font-bold">المحاضرات</span>
-                      <span className="text-xs sm:text-sm text-white font-bold">{totalLessons > 0 ? `${totalLessons} محاضرة` : `${course.lessons_count} محاضرة`}</span>
-                    </div>
-                  </div>
-                  <div className="bg-white/[0.02] border border-white/5 p-3.5 rounded-2xl flex items-center gap-3">
-                    <Star className="w-5 h-5 text-yellow-400 fill-current shrink-0" />
-                    <div className="flex flex-col">
-                      <span className="text-[10px] text-zinc-500 font-bold">تقييم الكورس</span>
-                      <span className="text-xs sm:text-sm text-white font-bold">{averageRating} / 5.0</span>
-                    </div>
-                  </div>
-                  <div className="bg-white/[0.02] border border-white/5 p-3.5 rounded-2xl flex items-center gap-3">
-                    <Award className="w-5 h-5 text-emerald-500 shrink-0" />
-                    <div className="flex flex-col">
-                      <span className="text-[10px] text-zinc-500 font-bold">الشهادة</span>
-                      <span className="text-xs sm:text-sm text-white font-bold">معتمدة رقمياً</span>
-                    </div>
+
+                  {/* Card 4: Certificate */}
+                  <div className="bg-[#0b0b12]/60 border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center min-h-[140px] hover:border-[#D6004B]/30 hover:bg-[#0b0b12]/80 transition-all shadow-lg select-none">
+                    <Award className="w-6 h-6 text-emerald-500 mb-2 shrink-0" />
+                    <span className="text-xs sm:text-sm text-white font-alexandria font-black mb-1.5 leading-none">شهادة الإتمام</span>
+                    <span className="text-[10px] text-zinc-500 font-medium font-cairo">بعد إكمال الكورس</span>
                   </div>
                 </div>
 
                 {/* Green Box: Tabbed Detail Navigation Layer */}
                 <div className="border-t border-white/5 pt-6 space-y-6">
                   
-                  {/* Tab switches: Certificate is added between Curriculum and Reviews */}
-                  <div className="flex items-center justify-start overflow-x-auto border-b border-white/5 pb-2 gap-1 md:gap-2 scrollbar-none">
-                    <button
-                      onClick={() => setActiveTab('overview')}
-                      className={`px-5 py-3 font-alexandria text-xs sm:text-sm font-bold transition-all relative shrink-0 select-none cursor-pointer ${activeTab === 'overview' ? 'text-[#D6004B]' : 'text-zinc-400 hover:text-white'}`}
-                    >
-                      <span>نظرة عامة عن الكورس</span>
-                      {activeTab === 'overview' && (
-                        <motion.div layoutId="activeTabIndicator" className="absolute bottom-0 inset-x-0 h-[2px] bg-[#D6004B]" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('curriculum')}
-                      className={`px-5 py-3 font-alexandria text-xs sm:text-sm font-bold transition-all relative shrink-0 select-none cursor-pointer ${activeTab === 'curriculum' ? 'text-[#D6004B]' : 'text-zinc-400 hover:text-white'}`}
-                    >
-                      <span>منهاج الدروس ({totalLessons})</span>
-                      {activeTab === 'curriculum' && (
-                        <motion.div layoutId="activeTabIndicator" className="absolute bottom-0 inset-x-0 h-[2px] bg-[#D6004B]" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('certificate')}
-                      className={`px-5 py-3 font-alexandria text-xs sm:text-sm font-bold transition-all relative shrink-0 select-none cursor-pointer ${activeTab === 'certificate' ? 'text-[#D6004B]' : 'text-zinc-400 hover:text-white'}`}
-                    >
-                      <span>الشهادة المعتمدة</span>
-                      {activeTab === 'certificate' && (
-                        <motion.div layoutId="activeTabIndicator" className="absolute bottom-0 inset-x-0 h-[2px] bg-[#D6004B]" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('faq')}
-                      className={`px-5 py-3 font-alexandria text-xs sm:text-sm font-bold transition-all relative shrink-0 select-none cursor-pointer ${activeTab === 'faq' ? 'text-[#D6004B]' : 'text-zinc-400 hover:text-white'}`}
-                    >
-                      <span>الأسئلة الشائعة</span>
-                      {activeTab === 'faq' && (
-                        <motion.div layoutId="activeTabIndicator" className="absolute bottom-0 inset-x-0 h-[2px] bg-[#D6004B]" />
-                      )}
-                    </button>
+                  {/* Tab switches: centered premium tab bar with icons */}
+                  <div className="flex items-center justify-around border-b border-white/5 pb-2 w-full">
+                    {[
+                      { id: 'overview', label: 'الوصف', icon: FileText },
+                      { id: 'curriculum', label: 'المنهج', icon: BookOpen },
+                      { id: 'certificate', label: 'الشهادة', icon: Award },
+                      { id: 'faq', label: 'الأسئلة', icon: HelpCircle }
+                    ].map((tab) => {
+                      const TabIcon = tab.icon;
+                      const isActive = activeTab === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveTab(tab.id as any)}
+                          className={cn(
+                            "flex flex-col items-center justify-center gap-1.5 py-3 transition-all relative cursor-pointer font-alexandria font-bold text-xs sm:text-sm flex-1 text-center select-none cursor-pointer",
+                            isActive ? "text-[#D6004B]" : "text-zinc-400 hover:text-white"
+                          )}
+                        >
+                          <TabIcon className={cn("w-5 h-5 mb-0.5", isActive ? "text-[#D6004B]" : "text-zinc-500")} />
+                          <span>{tab.label}</span>
+                          {isActive && (
+                            <motion.div 
+                              layoutId="activeTabIndicator" 
+                              className="absolute bottom-0 h-[3px] bg-[#D6004B] rounded-full w-12" 
+                              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
 
                   {/* Tab Contents */}
@@ -1532,11 +1546,12 @@ function MobileCourseView({
       </div>
 
       {/* 3. Small Stats Grid */}
-      <div className="grid grid-cols-4 gap-1.5">
-         <div className="bg-white/[0.02] border border-white/5 rounded-xl p-2 flex flex-col items-center justify-center text-center">
-           <Clock className="w-3.5 h-3.5 text-orange-500 mb-1" />
-           <span className="text-[7.5px] text-zinc-500 font-bold">المدة</span>
-           <span className="text-[9.5px] text-white font-bold">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+         {/* Card 1: Duration */}
+         <div className="bg-[#0b0b12]/60 border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center min-h-[120px] hover:border-[#D6004B]/30 hover:bg-[#0b0b12]/80 transition-all shadow-lg select-none">
+           <Clock className="w-5 h-5 text-rose-500 mb-1.5 shrink-0" />
+           <span className="text-[10px] text-zinc-400 font-bold mb-0.5 font-cairo">المدة</span>
+           <span className="text-sm text-white font-alexandria font-black mb-0.5 leading-none">
              {course.duration_hours >= 1
                ? `${course.duration_hours} س`
                : course.duration_hours > 0
@@ -1544,21 +1559,48 @@ function MobileCourseView({
                : (totalLessons > 0 ? '—' : '0 س')
              }
            </span>
+           <span className="text-[9px] text-zinc-500 font-medium font-cairo">إجمالي الوقت</span>
          </div>
-         <div className="bg-white/[0.02] border border-white/5 rounded-xl p-2 flex flex-col items-center justify-center text-center">
-           <BookOpen className="w-3.5 h-3.5 text-[#D6004B] mb-1" />
-           <span className="text-[7.5px] text-zinc-500 font-bold">المحاضرات</span>
-           <span className="text-[9.5px] text-white font-bold">{totalLessons > 0 ? totalLessons : course.lessons_count}</span>
+
+         {/* Card 2: Lectures */}
+         <div className="bg-[#0b0b12]/60 border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center min-h-[120px] hover:border-[#D6004B]/30 hover:bg-[#0b0b12]/80 transition-all shadow-lg select-none">
+           <BookOpen className="w-5 h-5 text-rose-500 mb-1.5 shrink-0" />
+           <span className="text-[10px] text-zinc-400 font-bold mb-0.5 font-cairo">المحاضرات</span>
+           <span className="text-sm text-white font-alexandria font-black mb-0.5 leading-none">
+             {totalLessons > 0 ? totalLessons : course.lessons_count}
+           </span>
+           <span className="text-[9px] text-zinc-500 font-medium font-cairo">دروس مسجلة</span>
          </div>
-         <div className="bg-white/[0.02] border border-white/5 rounded-xl p-2 flex flex-col items-center justify-center text-center">
-           <Star className="w-3.5 h-3.5 text-yellow-400 fill-current mb-1" />
-           <span className="text-[7.5px] text-zinc-500 font-bold">التقييم</span>
-           <span className="text-[9.5px] text-white font-bold">{averageRating}</span>
+
+         {/* Card 3: Rating */}
+         <div className="bg-[#0b0b12]/60 border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center min-h-[120px] hover:border-[#D6004B]/30 hover:bg-[#0b0b12]/80 transition-all shadow-lg select-none">
+           <Star className="w-5 h-5 text-yellow-400 fill-current mb-1.5 shrink-0 animate-pulse" />
+           <span className="text-[10px] text-zinc-400 font-bold mb-0.5 font-cairo">التقييم</span>
+           <span className="text-sm text-white font-alexandria font-black mb-0.5 leading-none">
+             {averageRating}
+           </span>
+           <div className="flex items-center justify-center gap-0.5 mt-0.5">
+             {Array.from({ length: 5 }).map((_, i) => {
+               const starValue = i + 1;
+               const isFilled = starValue <= Math.round(Number(averageRating));
+               return (
+                 <Star 
+                   key={i} 
+                   className={cn(
+                     "w-2.5 h-2.5 shrink-0",
+                     isFilled ? "text-yellow-400 fill-current" : "text-zinc-700"
+                   )} 
+                 />
+               );
+             })}
+           </div>
          </div>
-         <div className="bg-white/[0.02] border border-white/5 rounded-xl p-2 flex flex-col items-center justify-center text-center">
-           <Award className="w-3.5 h-3.5 text-emerald-500 mb-1" />
-           <span className="text-[7.5px] text-zinc-500 font-bold">الشهادة</span>
-           <span className="text-[9px] text-white font-bold">معتمدة</span>
+
+         {/* Card 4: Certificate */}
+         <div className="bg-[#0b0b12]/60 border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center min-h-[120px] hover:border-[#D6004B]/30 hover:bg-[#0b0b12]/80 transition-all shadow-lg select-none">
+           <Award className="w-5 h-5 text-emerald-500 mb-1.5 shrink-0" />
+           <span className="text-xs text-white font-alexandria font-black mb-1 leading-none">شهادة الأتمام</span>
+           <span className="text-[9px] text-zinc-500 font-medium font-cairo">بعد إكمال الكورس</span>
          </div>
       </div>
 
@@ -1640,25 +1682,37 @@ function MobileCourseView({
 
       {/* 5. Mobile Tabbed Content Box */}
       <div className="bg-[#09090e] border border-white/5 rounded-2xl p-4 space-y-4">
-         {/* Tab switches */}
-         <div className="flex items-center justify-start overflow-x-auto border-b border-white/5 pb-2 gap-1 scrollbar-none">
-           {[
-             { id: 'overview', label: 'الوصف' },
-             { id: 'curriculum', label: 'المنهاج' },
-             { id: 'certificate', label: 'الشهادة' },
-             { id: 'faq', label: 'الأسئلة' }
-           ].map((tab) => (
-             <button
-               key={tab.id}
-               onClick={() => setActiveTab(tab.id as any)}
-               className={`px-3 py-2 font-alexandria text-[10.5px] font-bold transition-all relative shrink-0 select-none cursor-pointer ${activeTab === tab.id ? 'text-[#D6004B]' : 'text-zinc-400 hover:text-white'}`}
-             >
-               <span>{tab.label}</span>
-               {activeTab === tab.id && (
-                 <motion.div layoutId="activeTabIndicatorMobile" className="absolute bottom-0 inset-x-0 h-[2px] bg-[#D6004B]" />
-               )}
-             </button>
-           ))}
+         {/* Tab switches: centered premium tab bar with icons */}
+         <div className="flex items-center justify-around border-b border-white/5 pb-2 w-full">
+            {[
+              { id: 'overview', label: 'الوصف', icon: FileText },
+              { id: 'curriculum', label: 'المنهج', icon: BookOpen },
+              { id: 'certificate', label: 'الشهادة', icon: Award },
+              { id: 'faq', label: 'الأسئلة', icon: HelpCircle }
+            ].map((tab) => {
+              const TabIcon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-1.5 py-3 transition-all relative cursor-pointer font-alexandria font-bold text-xs flex-1 text-center select-none",
+                    isActive ? "text-[#D6004B]" : "text-zinc-400 hover:text-white"
+                  )}
+                >
+                  <TabIcon className={cn("w-4.5 h-4.5 mb-0.5", isActive ? "text-[#D6004B]" : "text-zinc-500")} />
+                  <span className="text-[10.5px]">{tab.label}</span>
+                  {isActive && (
+                    <motion.div 
+                      layoutId="activeTabIndicatorMobile" 
+                      className="absolute bottom-0 h-[2.5px] bg-[#D6004B] rounded-full w-10" 
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                </button>
+              );
+            })}
          </div>
 
          {/* Tab Contents */}

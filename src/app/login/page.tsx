@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Mail, Lock, Loader2, ArrowLeft, Sparkles, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { trackMetaEvent } from "@/lib/metaPixel";
 
 function LoginForm() {
   const router = useRouter();
@@ -162,6 +163,7 @@ function LoginForm() {
             <button
               type="submit"
               disabled={isLoading}
+              onClick={() => trackMetaEvent("Lead", { content_name: "login_button_click" })}
               className="w-full group h-14 bg-[#D6004B] hover:bg-[#b0003d] text-white rounded-2xl font-bold text-base shadow-[0_10px_30px_rgba(214,0,75,0.3)] transition-all hover:-translate-y-0.5 active:scale-98 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
             >
               {isLoading ? (

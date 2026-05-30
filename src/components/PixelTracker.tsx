@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import Script from "next/script";
 import { initSession, trackEvent } from "@/lib/analytics";
+import { trackMetaEvent } from "@/lib/metaPixel";
 
 declare global {
   interface Window {
@@ -46,38 +47,176 @@ export function PixelTracker({ initialSettings }: { initialSettings?: any }) {
 
     // Track Meta & TikTok PageViews on route change
     if (settings.metaPixelEnabled && settings.metaPixelId && (window as any).fbq) {
-      (window as any).fbq('track', 'PageView');
+      trackMetaEvent("PageView");
     }
     if (settings.tiktokPixelEnabled && settings.tiktokPixelId && (window as any).ttq) {
       (window as any).ttq.page();
     }
   }, [pathname, searchParams, settings]);
 
+  // 3. Visitor Type Tracker (First Time vs. Returning)
+  useEffect(() => {
+    if (!settings || !settings.metaPixelEnabled) return;
+    
+    const visited = localStorage.getItem("youssef_visited_before");
+    if (!visited) {
+      localStorage.setItem("youssef_visited_before", "true");
+      trackMetaEvent("FirstTimeVisit", { path: pathname }, `first_visit_${pathname}`);
+    } else {
+      trackMetaEvent("ReturningVisit", { path: pathname }, `returning_visit_${pathname}`);
+    }
+  }, [pathname, settings]);
+
+  // 4. Throttled Scroll Depth Tracker (50%, 90% only)
+  useEffect(() => {
+    if (!settings || !settings.metaPixelEnabled) return;
+    
+    const trackedDepths = new Set<number>();
+    
+    const handleScroll = () => {
+      const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+      if (scrollHeight <= 0) return;
+      
+      const scrollPercent = Math.round((window.scrollY / scrollHeight) * 100);
+      const milestones = [50, 90];
+      
+      for (const milestone of milestones) {
+        if (scrollPercent >= milestone && !trackedDepths.has(milestone)) {
+          trackedDepths.add(milestone);
+          trackMetaEvent("ScrollDepth", { 
+            percent: milestone, 
+            path: pathname 
+          }, `scroll_${pathname}_${milestone}`);
+        }
+      }
+    };
+    
+    let throttleTimeout: NodeJS.Timeout | null = null;
+    const throttledScroll = () => {
+      if (throttleTimeout) return;
+      throttleTimeout = setTimeout(() => {
+        handleScroll();
+        throttleTimeout = null;
+      }, 250); // 250ms throttle to maintain core page performance
+    };
+    
+    window.addEventListener("scroll", throttledScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", throttledScroll);
+      if (throttleTimeout) clearTimeout(throttleTimeout);
+    };
+  }, [pathname, settings]);
+
+  // 5. Time on Page retention tracker (30s, 2m only)
+  useEffect(() => {
+    if (!settings || !settings.metaPixelEnabled) return;
+    
+    const intervals = [30, 120]; // 30s, 2m retention milestones
+    const timers = intervals.map(seconds => {
+      return setTimeout(() => {
+        trackMetaEvent("TimeOnPage", { 
+          seconds, 
+          path: pathname 
+        }, `time_${pathname}_${seconds}`);
+      }, seconds * 1000);
+    });
+    
+    return () => {
+      timers.forEach(clearTimeout);
+    };
+  }, [pathname, settings]);
+
+  // 6. Smart Funnel Checkout Abandonment Tracker
+  useEffect(() => {
+    if (!settings || !settings.metaPixelEnabled) return;
+    
+    const isCheckoutPage = pathname.startsWith("/checkout") && !pathname.includes("/success") && !pathname.includes("/failed");
+    
+    if (pathname.includes("/checkout/success")) {
+      sessionStorage.removeItem("youssef_abandonment_flag");
+      sessionStorage.removeItem("checkout_abandoned_fired");
+      return;
+    }
+
+    if (!isCheckoutPage) {
+      return;
+    }
+
+    // Set abandonment flag
+    sessionStorage.setItem("youssef_abandonment_flag", "true");
+
+    let inactivityTimer: NodeJS.Timeout | null = null;
+    let tabLeaveTimer: NodeJS.Timeout | null = null;
+
+    const fireAbandonment = (reason: string) => {
+      const alreadyFired = sessionStorage.getItem("checkout_abandoned_fired");
+      if (alreadyFired) return;
+      
+      sessionStorage.setItem("checkout_abandoned_fired", "true");
+      trackMetaEvent("CheckoutAbandonment", { 
+        reason,
+        path: pathname 
+      }, `abandonment_${Date.now()}`);
+    };
+
+    const resetInactivity = () => {
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(() => {
+        fireAbandonment("inactivity_3min");
+      }, 3 * 60 * 1000); // 3 minutes inactivity timeout
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        // User switched tab or minimized browser. Debounce by 20s to prevent false alarms on refresh or brief transitions
+        tabLeaveTimer = setTimeout(() => {
+          fireAbandonment("tab_hidden_leave");
+        }, 20000);
+      } else {
+        if (tabLeaveTimer) clearTimeout(tabLeaveTimer);
+      }
+    };
+
+    // Event listeners to detect activity
+    window.addEventListener("mousemove", resetInactivity, { passive: true });
+    window.addEventListener("keypress", resetInactivity, { passive: true });
+    window.addEventListener("scroll", resetInactivity, { passive: true });
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Initialize inactivity timer
+    resetInactivity();
+
+    return () => {
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      if (tabLeaveTimer) clearTimeout(tabLeaveTimer);
+      window.removeEventListener("mousemove", resetInactivity);
+      window.removeEventListener("keypress", resetInactivity);
+      window.removeEventListener("scroll", resetInactivity);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [pathname, settings]);
+
   if (!settings) return null;
 
   return (
     <>
       {/* Meta Pixel */}
-      {settings.metaPixelEnabled && settings.metaPixelId && (
+      {settings.metaPixelEnabled && settings.metaPixelId && /^\d+$/.test(settings.metaPixelId) && (
         <>
-          <Script
-            id="meta-pixel-base"
-            strategy="afterInteractive"
-            dangerouslySetInnerHTML={{
-              __html: `
-                !function(f,b,e,v,n,t,s)
-                {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-                n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-                if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-                n.queue=[];t=b.createElement(e);t.async=!0;
-                t.src=v;s=b.getElementsByTagName(e)[0];
-                s.parentNode.insertBefore(t,s)}(window, document,'script',
-                'https://connect.facebook.net/en_US/fbevents.js');
-                fbq('init', '${settings.metaPixelId}');
-                fbq('track', 'PageView');
-              `,
-            }}
-          />
+          <Script id="meta-pixel-base" strategy="afterInteractive">
+            {`
+              !function(f,b,e,v,n,t,s)
+              {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+              n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+              if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+              n.queue=[];t=b.createElement(e);t.async=!0;
+              t.src=v;s=b.getElementsByTagName(e)[0];
+              s.parentNode.insertBefore(t,s)}(window, document,'script',
+              'https://connect.facebook.net/en_US/fbevents.js');
+              fbq('init', '${settings.metaPixelId}');
+              fbq('track', 'PageView');
+            `}
+          </Script>
           <noscript>
             <img 
               height="1" 
