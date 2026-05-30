@@ -3,6 +3,9 @@ import { getKV, setKV } from "@/lib/kv";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 
+// Force this route to be fully dynamic (never cached)
+export const dynamic = "force-dynamic";
+
 const REVIEWS_KEY = "product_reviews";
 
 const supabaseAdmin = createClient(
@@ -29,32 +32,30 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const productId = url.searchParams.get("productId");
     
-    let reviews: Review[] = await getKV(REVIEWS_KEY) || [];
+    const allReviews: Review[] = await getKV(REVIEWS_KEY) || [];
     
-    // Filter out any seeded reviews to keep ONLY the manually added ones
-    const userReviews = reviews.filter(r => {
+    // Filter out seeded/invalid reviews from the response (read-only, no KV write)
+    const reviews = allReviews.filter(r => {
       if (!r || !r.id) return false;
       const idStr = String(r.id);
       return !idStr.startsWith("seed-") && !idStr.startsWith("seeded-");
     });
     
-    if (userReviews.length !== reviews.length) {
-      // Permanently write the cleaned list back to KV to purge seeded reviews
-      await setKV(REVIEWS_KEY, userReviews);
-      reviews = userReviews;
-    }
+    const headers = {
+      "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    };
     
     if (productId) {
       // Public fetch: filter by productId and only show non-hidden
       const productReviews = reviews.filter(r => r.productId === productId && !r.isHidden);
       // Sort newest first
       productReviews.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      return NextResponse.json(productReviews);
+      return NextResponse.json(productReviews, { headers });
     }
     
     // Admin fetch: sort newest first
     reviews.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    return NextResponse.json(reviews);
+    return NextResponse.json(reviews, { headers });
   } catch (err: any) {
     console.error("[Reviews API] GET Exception:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });

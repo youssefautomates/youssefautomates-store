@@ -41,7 +41,7 @@ export function ProductReviews({ productId, initialReviews }: { productId: strin
       return;
     }
 
-    fetch(`/api/admin/reviews?productId=${productId}`)
+    fetch(`/api/admin/reviews?productId=${productId}&_t=${Date.now()}`, { cache: "no-store" })
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) setReviews(data);

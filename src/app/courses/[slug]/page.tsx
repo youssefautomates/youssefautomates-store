@@ -240,7 +240,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
         })
         .catch(() => {});
 
-      const reviewsPromise = fetch(`/api/admin/reviews?productId=${c.id}`)
+      const reviewsPromise = fetch(`/api/admin/reviews?productId=${c.id}&_t=${Date.now()}`, { cache: "no-store" })
         .then(res => res.json())
         .then(data => {
           if (Array.isArray(data)) {
