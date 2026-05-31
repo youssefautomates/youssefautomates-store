@@ -4,22 +4,17 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { 
-  Plus, Trash2, Edit2, Loader2, ImageIcon, 
-  Video, FileText, Image as ImageIcon2, 
-  Globe, Layout, ChevronRight, X, Save, UploadCloud, FileUp
+  Plus, Edit, Trash2, Video, Save, FileText, Link as LinkIcon, Download, 
+  AlertCircle, Loader2, Image as ImageIcon, CheckCircle, Play, X, Sparkles, UploadCloud, FileUp, Globe, ArrowLeft, ArrowRight, Package, Eye
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { generateSlug, calcDiscount, type Product } from "@/lib/products";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatPrice } from "@/lib/pricing";
+import { uploadFile, uploadPrivateFile, deletePrivateFileFromUrl } from "@/lib/upload";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import * as tus from "tus-js-client";
 
 // ── Helper: Safe Image Src ───────────────────────────────────────────
 function safeImageSrc(src: string) {
@@ -30,32 +25,46 @@ function safeImageSrc(src: string) {
 
 // ── Helper: Pack/Unpack Tags ───────────────────────────────────────────
 function unpackProduct(p: Product) {
-  // Extract ordered media: media:0:image:url, media:1:video:url, etc.
-  const mediaTags = p.tags?.filter(t => t.startsWith("media:")) || [];
-  const slides = Array(5).fill(null).map((_, i) => {
-    const tag = mediaTags.find(t => t.startsWith(`media:${i}:`));
-    if (tag) {
-      const parts = tag.split(":");
-      return { type: parts[2] as 'image' | 'video', url: parts.slice(3).join(":") };
+  const tags = p.tags || [];
+  
+  // Unpack Arabic title (double safety: check new database field or metadata tag)
+  const arabic_title = p.arabic_title || tags.find(t => t.startsWith("ar_title:"))?.replace("ar_title:", "") || "";
+  
+  // Unpack Video URL
+  const video_url = tags.find(t => t.startsWith("video:"))?.replace("video:", "") || p.video_url || "";
+  
+  // Unpack 4 gallery slots (offset by 1, since slot 0 is cover)
+  const gallery = Array(4).fill("");
+  const mediaTags = tags.filter(t => t.startsWith("media:"));
+  for (let i = 0; i < 4; i++) {
+    const mediaTag = mediaTags.find(t => t.startsWith(`media:${i + 1}:image:`));
+    if (mediaTag) {
+      gallery[i] = mediaTag.split(":").slice(3).join(":");
     }
-    // Fallback for legacy data
-    if (i === 0) {
-      const video_url = p.tags?.find(t => t.startsWith("video:"))?.replace("video:", "");
-      if (video_url) return { type: 'video' as const, url: video_url };
-      return { type: 'image' as const, url: p.image_url || "" };
+  }
+  
+  // Fallback to legacy gallery tags if no media tags exist
+  const legacyGallery = tags.filter(t => t.startsWith("gallery:")).map(t => t.replace("gallery:", ""));
+  for (let i = 0; i < 4; i++) {
+    if (!gallery[i] && legacyGallery[i]) {
+      gallery[i] = legacyGallery[i];
     }
-    const legacyGallery = p.tags?.filter(t => t.startsWith("gallery:"))?.map(t => t.replace("gallery:", "")) || [];
-    if (legacyGallery[i - 1]) return { type: 'image' as const, url: legacyGallery[i - 1] };
-    
-    return { type: 'image' as const, url: "" };
-  });
+  }
 
-  const file_type = p.tags?.find(t => t.startsWith("type:"))?.replace("type:", "") || "zip";
-  const normalTags = p.tags?.filter(t => !t.startsWith("media:") && !t.startsWith("video:") && !t.startsWith("gallery:") && !t.startsWith("type:")) || [];
+  const file_type = tags.find(t => t.startsWith("type:"))?.replace("type:", "") || p.file_type || "zip";
+  const normalTags = tags.filter(t => 
+    !t.startsWith("media:") && 
+    !t.startsWith("video:") && 
+    !t.startsWith("gallery:") && 
+    !t.startsWith("type:") &&
+    !t.startsWith("ar_title:")
+  );
   
   return {
     ...p,
-    slides,
+    arabic_title,
+    video_url,
+    gallery,
     file_type,
     displayTags: normalTags.join(", ")
   };
@@ -64,18 +73,32 @@ function unpackProduct(p: Product) {
 function packTags(form: any) {
   const tags: string[] = [];
   
-  // Pack ordered media
-  form.slides.forEach((slide: any, i: number) => {
-    if (slide.url) {
-      tags.push(`media:${i}:${slide.type}:${slide.url}`);
+  // Pack Arabic title into tags for compatibility
+  if (form.arabic_title) {
+    tags.push(`ar_title:${form.arabic_title}`);
+  }
+  
+  // Pack Cover image into slide 0
+  if (form.image_url) {
+    tags.push(`media:0:image:${form.image_url}`);
+  }
+  
+  // Pack Promo Video into tags and slide 0 if present
+  if (form.video_url) {
+    tags.push(`video:${form.video_url}`);
+    tags.push(`media:0:video:${form.video_url}`);
+  }
+  
+  // Pack gallery images as slides 1 to 4
+  form.gallery.forEach((url: string, i: number) => {
+    if (url) {
+      tags.push(`media:${i + 1}:image:${url}`);
+      tags.push(`gallery:${url}`); // legacy compat
     }
   });
 
-  // Keep legacy video:url for compatibility with existing components
-  const firstVideo = form.slides.find((s: any) => s.type === 'video' && s.url);
-  if (firstVideo) tags.push(`video:${firstVideo.url}`);
-
   if (form.file_type) tags.push(`type:${form.file_type}`);
+  
   if (form.displayTags) {
     form.displayTags.split(",").forEach((t: string) => {
       const trimmed = t.trim();
@@ -85,124 +108,426 @@ function packTags(form: any) {
   return tags;
 }
 
-// ── File Upload Hook ──────────────────────────────────────────────────
-function useFileUpload() {
-  const [uploading, setUploading] = useState(false);
+// ── Upload Validation Safety Limits ──────────────────────────────────
+const MAX_IMAGE_SIZE = 15 * 1024 * 1024; // 15MB
+const MAX_VIDEO_SIZE = 500 * 1024 * 1024; // 500MB
+const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
 
-  const upload = async (file: File, folder: string = "products") => {
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", folder);
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"];
+const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm"];
 
-      const res = await fetch("/api/admin/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Upload failed");
-
-      return data.url;
-    } catch (err: any) {
-      toast.error(`Upload failed: ${err.message}`);
-      return null;
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  return { upload, uploading };
+function validateImageFile(file: File): boolean {
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    toast.error("Invalid image type. Allowed: JPEG, PNG, WebP, GIF, SVG.");
+    return false;
+  }
+  if (file.size > MAX_IMAGE_SIZE) {
+    toast.error("Image file is too large. Maximum size is 15MB.");
+    return false;
+  }
+  return true;
 }
 
-// ── Product Form Dialog ────────────────────────────────────────────────
-function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean; onClose: () => void; onSaved: () => void; initial?: Product | null; }) {
+function validateVideoFile(file: File): boolean {
+  if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
+    toast.error("Invalid video format. Allowed: MP4, MOV, WebM.");
+    return false;
+  }
+  if (file.size > MAX_VIDEO_SIZE) {
+    toast.error("Video file is too large. Maximum size is 500MB.");
+    return false;
+  }
+  return true;
+}
+
+// ── Reorder Helper ───────────────────────────────────────────────────
+function arraySwap<T>(arr: T[], indexA: number, indexB: number): T[] {
+  const copy = [...arr];
+  const temp = copy[indexA];
+  copy[indexA] = copy[indexB];
+  copy[indexB] = temp;
+  return copy;
+}
+
+export default function AdminProductsPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<"general" | "media" | "files" | "seo">("general");
-  const { upload, uploading } = useFileUpload();
-  
+  const [view, setView] = useState<"list" | "form">("list");
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  // Form State
   const [form, setForm] = useState<any>({
-    title: "", slug: "", description: "", short_description: "",
-    price: "", original_price: "", 
+    title: "", arabic_title: "", slug: "", description: "", short_description: "",
     price_egp: "", original_price_egp: "", price_usd: "", original_price_usd: "",
-    status: "Active",
-    image_url: "", file_url: "", category: "Automation", 
-    slides: Array(5).fill(null).map(() => ({ type: 'image', url: '' })),
-    file_type: "zip", displayTags: "",
+    status: "Active", is_featured: false,
+    image_url: "", video_url: "", gallery: ["", "", "", ""],
+    file_url: "", file_type: "zip", displayTags: "",
     seo_title: "", seo_description: ""
   });
 
-  const uploadRefs = [
-    useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), 
-    useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null)
-  ];
-  const fileRef = useRef<HTMLInputElement>(null);
+  // Upload States
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
+  // Video direct Bunny upload states
+  const [bunnyUploadStatus, setBunnyUploadStatus] = useState<"Queued" | "Uploading" | "Encoding" | "Ready" | "Failed" | null>(null);
+  const [videoUploadProgress, setVideoUploadProgress] = useState<number | null>(null);
+  const [bunnyEncodeProgress, setBunnyEncodeProgress] = useState<number>(0);
+  const [videoFileName, setVideoFileName] = useState<string | null>(null);
+  const [videoFileSize, setVideoFileSize] = useState<string | null>(null);
+  const [videoSourceTab, setVideoSourceTab] = useState<"upload" | "link">("upload");
+  const [externalVideoInput, setExternalVideoInput] = useState("");
+  const [fetchingVideoDetails, setFetchingVideoDetails] = useState(false);
+
+  const tusUploadRef = useRef<tus.Upload | null>(null);
+  const pollingIntervalRef = useRef<any>(null);
+
+  // Load Initial Data
   useEffect(() => {
-    if (open) {
-      if (initial) {
-        const unpacked = unpackProduct(initial);
-        setForm({
-          title: unpacked.title, slug: unpacked.slug,
-          description: unpacked.description || "", short_description: unpacked.short_description || "",
-          price: String(unpacked.price || ""), original_price: String(unpacked.original_price || ""),
-          price_egp: String(unpacked.price_egp !== undefined && unpacked.price_egp !== null ? unpacked.price_egp : unpacked.price || ""),
-          original_price_egp: String(unpacked.original_price_egp !== undefined && unpacked.original_price_egp !== null ? unpacked.original_price_egp : unpacked.original_price || ""),
-          price_usd: String(unpacked.price_usd !== undefined && unpacked.price_usd !== null ? unpacked.price_usd : ""),
-          original_price_usd: String(unpacked.original_price_usd !== undefined && unpacked.original_price_usd !== null ? unpacked.original_price_usd : ""),
-          status: unpacked.status === "نشط" ? "Active" : unpacked.status === "مسودة" ? "Draft" : unpacked.status === "مخفي" ? "Hidden" : unpacked.status, 
-          is_featured: unpacked.is_featured,
-          image_url: unpacked.image_url || "", file_url: unpacked.file_url || "",
-          category: unpacked.category === "الأتمتة" ? "Automation" : unpacked.category === "الذكاء الاصطناعي" ? "Artificial Intelligence" : unpacked.category === "صناعة المحتوى" ? "Content Creation" : unpacked.category || "", 
-          slides: unpacked.slides,
-          file_type: unpacked.file_type,
-          displayTags: unpacked.displayTags,
-          seo_title: unpacked.seo_title || "",
-          seo_description: unpacked.seo_description || ""
-        });
-      } else {
-        setForm({
-          title: "", slug: "", description: "", short_description: "",
-          price: "", original_price: "", status: "Active",
-          price_egp: "", original_price_egp: "", price_usd: "", original_price_usd: "",
-          is_featured: false, image_url: "", file_url: "", category: "Automation", 
-          video_url: "", gallery: [""], file_type: "zip", displayTags: "",
-          seo_title: "", seo_description: ""
-        });
-      }
-      setActiveTab("general");
-    }
-  }, [open, initial]);
+    fetchProducts();
+    loadCategories();
+  }, []);
 
-  async function handleSave() {
+  const loadCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("product_categories")
+        .select("name")
+        .order("order_index", { ascending: true });
+      if (!error && data) {
+        setCategories(data.map((c: any) => c.name));
+      }
+    } catch (e) {
+      console.warn("Could not load categories dynamically:", e);
+    }
+  };
+
+  async function fetchProducts() {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setProducts(data as Product[]);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load products");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Toggles & Initializers
+  const handleCreateNewProduct = () => {
+    setSelectedProduct(null);
+    setForm({
+      title: "", arabic_title: "", slug: "", description: "", short_description: "",
+      price_egp: "", original_price_egp: "", price_usd: "", original_price_usd: "",
+      status: "Active", is_featured: false,
+      image_url: "", video_url: "", gallery: ["", "", "", ""],
+      file_url: "", file_type: "zip", displayTags: "",
+      seo_title: "", seo_description: ""
+    });
+    setBunnyUploadStatus(null);
+    setVideoUploadProgress(null);
+    setBunnyEncodeProgress(0);
+    setVideoFileName(null);
+    setVideoFileSize(null);
+    setVideoSourceTab("upload");
+    setExternalVideoInput("");
+    setView("form");
+  };
+
+  const handleEditProduct = (product: Product) => {
+    const unpacked = unpackProduct(product);
+    setSelectedProduct(product);
+    setForm({
+      title: unpacked.title || "",
+      arabic_title: unpacked.arabic_title || "",
+      slug: unpacked.slug || "",
+      description: unpacked.description || "",
+      short_description: unpacked.short_description || "",
+      price_egp: unpacked.price_egp !== undefined && unpacked.price_egp !== null ? String(unpacked.price_egp) : String(unpacked.price || ""),
+      original_price_egp: unpacked.original_price_egp !== undefined && unpacked.original_price_egp !== null ? String(unpacked.original_price_egp) : String(unpacked.original_price || ""),
+      price_usd: unpacked.price_usd !== undefined && unpacked.price_usd !== null ? String(unpacked.price_usd) : "",
+      original_price_usd: unpacked.original_price_usd !== undefined && unpacked.original_price_usd !== null ? String(unpacked.original_price_usd) : "",
+      status: unpacked.status === "نشط" ? "Active" : unpacked.status === "مسودة" ? "Draft" : unpacked.status === "مخفي" ? "Hidden" : unpacked.status,
+      is_featured: !!unpacked.is_featured,
+      image_url: unpacked.image_url || "",
+      video_url: unpacked.video_url || "",
+      gallery: Array.isArray(unpacked.gallery) ? [...unpacked.gallery] : ["", "", "", ""],
+      file_url: unpacked.file_url || "",
+      file_type: unpacked.file_type || "zip",
+      displayTags: unpacked.displayTags || "",
+      seo_title: unpacked.seo_title || "",
+      seo_description: unpacked.seo_description || ""
+    });
+
+    setBunnyUploadStatus(null);
+    setVideoUploadProgress(null);
+    setBunnyEncodeProgress(0);
+    setVideoFileName(null);
+    setVideoFileSize(null);
+    
+    if (unpacked.video_url) {
+      setVideoSourceTab("link");
+      setExternalVideoInput(unpacked.video_url);
+    } else {
+      setVideoSourceTab("upload");
+      setExternalVideoInput("");
+    }
+
+    setView("form");
+  };
+
+  const handleDeleteProduct = async (id: string, title: string) => {
+    if (!confirm(`Are you sure you want to permanently delete "${title}"?`)) return;
+    try {
+      const { error } = await supabase.from("products").delete().eq("id", id);
+      if (error) throw error;
+      toast.success("Product deleted successfully!");
+      fetchProducts();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete product");
+    }
+  };
+
+  // Image Client Upload Handlers
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: "image_url" | number) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!validateImageFile(file)) return;
+
+    const pathNamespace = field === "image_url" ? "products/covers" : "products/gallery";
+    const uploadFieldKey = typeof field === "number" ? `gallery-${field}` : field;
+
+    setUploadingField(uploadFieldKey);
+    setUploadProgress(0);
+
+    try {
+      // Direct client-side storage upload (Course system style)
+      const url = await uploadFile(file, "course-images", pathNamespace);
+      if (!url) throw new Error("Upload returned an empty URL");
+
+      if (field === "image_url") {
+        setForm((prev: any) => ({ ...prev, image_url: url }));
+      } else {
+        const newGallery = [...form.gallery];
+        newGallery[field] = url;
+        setForm((prev: any) => ({ ...prev, gallery: newGallery }));
+      }
+      toast.success("Image uploaded successfully! 🖼️");
+    } catch (err: any) {
+      toast.error(err.message || "Image upload failed");
+    } finally {
+      setUploadingField(null);
+      setUploadProgress(null);
+    }
+  };
+
+  // Private File Deliverable Upload Handler
+  const handleDeliverableUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error("File size is too large. Maximum size is 500MB.");
+      return;
+    }
+
+    setUploadingField("file_url");
+    setUploadProgress(0);
+
+    try {
+      // Direct upload to private bucket under products/downloads namespace
+      const url = await uploadPrivateFile(file, "lesson-assets", "products/downloads", (pct) => {
+        setUploadProgress(pct);
+      });
+
+      if (!url) throw new Error("Upload returned an empty URL");
+
+      setForm((prev: any) => ({ ...prev, file_url: url }));
+      toast.success("Private deliverable file uploaded! 🔒");
+    } catch (err: any) {
+      toast.error(err.message || "File upload failed");
+    } finally {
+      setUploadingField(null);
+      setUploadProgress(null);
+    }
+  };
+
+  // Bunny Stream Video Upload Handler
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!validateVideoFile(file)) return;
+
+    setVideoFileName(file.name);
+    const sizeInMB = (file.size / (1024 * 1024)).toFixed(1);
+    setVideoFileSize(`${sizeInMB} MB`);
+
+    cancelVideoUpload();
+
+    setBunnyUploadStatus('Uploading');
+    setVideoUploadProgress(0);
+    setBunnyEncodeProgress(0);
+
+    try {
+      // 1. Create placeholder and retrieve TUS credentials from backend
+      const createRes = await fetch(`/api/admin/bunny/create-video`, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ title: form.title || file.name })
+      });
+      if (!createRes.ok) {
+        const errData = await createRes.json().catch(() => ({}));
+        throw new Error(errData.error || createRes.statusText);
+      }
+      const { videoId, signature, expiry, libraryId } = await createRes.json();
+
+      // 2. Perform client-side direct TUS upload to Bunny Stream
+      const upload = new tus.Upload(file, {
+        endpoint: "https://video.bunnycdn.com/tusupload",
+        retryDelays: [0, 3000, 5000, 10000, 20000],
+        headers: {
+          AuthorizationSignature: signature,
+          AuthorizationExpire: expiry.toString(),
+          VideoId: videoId,
+          LibraryId: libraryId,
+        },
+        metadata: {
+          filename: file.name,
+          filetype: file.type,
+        },
+        onError: (error) => {
+          if (!error.message.includes("abort")) {
+            throw new Error(error.message);
+          }
+        },
+        onProgress: (bytesUploaded, bytesTotal) => {
+          const percentage = Math.round((bytesUploaded / bytesTotal) * 100);
+          setVideoUploadProgress(percentage);
+        },
+        onSuccess: () => {
+          // Polling status
+          setBunnyUploadStatus('Encoding');
+          setVideoUploadProgress(0);
+
+          const interval = setInterval(async () => {
+            try {
+              const res = await fetch(`/api/admin/bunny/video?videoId=${videoId}`);
+              if (!res.ok) return;
+              const data = await res.json();
+              
+              if (data.status === 3 || data.status === 4) {
+                clearInterval(interval);
+                pollingIntervalRef.current = null;
+                setBunnyUploadStatus('Ready');
+                setVideoUploadProgress(100);
+                
+                const playUrl = `https://iframe.mediadelivery.net/play/${libraryId}/${videoId}/playlist.m3u8`;
+                setForm((prev: any) => ({ ...prev, video_url: playUrl }));
+                toast.success(`Video processed successfully! 🚀`);
+              } else if (data.status === 5 || data.status === 8) {
+                clearInterval(interval);
+                pollingIntervalRef.current = null;
+                setBunnyUploadStatus('Failed');
+                toast.error("Failed to encode video on Bunny Stream.");
+              } else {
+                setBunnyEncodeProgress(data.encodeProgress || 0);
+              }
+            } catch (err: any) {
+              console.warn("Polling error:", err);
+            }
+          }, 4000);
+
+          pollingIntervalRef.current = interval;
+        },
+      });
+
+      tusUploadRef.current = upload;
+      upload.start();
+
+    } catch (err: any) {
+      setBunnyUploadStatus('Failed');
+      toast.error(err.message || "Bunny Stream upload failed");
+      setVideoFileName(null);
+      setVideoFileSize(null);
+    }
+  };
+
+  const cancelVideoUpload = () => {
+    if (tusUploadRef.current) {
+      tusUploadRef.current.abort();
+      tusUploadRef.current = null;
+    }
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  };
+
+  const handleLinkExternalVideo = () => {
+    if (!externalVideoInput) {
+      toast.error("Please enter a video URL or ID");
+      return;
+    }
+    setForm((prev: any) => ({ ...prev, video_url: externalVideoInput }));
+    toast.success("External video link set!");
+  };
+
+  // Safe Deletes (No hard-deletes from storage without explicit actions)
+  const handleDeleteMedia = (field: "image_url" | "video_url" | number) => {
+    if (!confirm("Remove this media URL? (The file remains in storage unless explicitly deleted)")) return;
+    if (field === "image_url") {
+      setForm((prev: any) => ({ ...prev, image_url: "" }));
+    } else if (field === "video_url") {
+      setForm((prev: any) => ({ ...prev, video_url: "" }));
+      cancelVideoUpload();
+      setBunnyUploadStatus(null);
+      setVideoUploadProgress(null);
+    } else {
+      const newGallery = [...form.gallery];
+      newGallery[field] = "";
+      setForm((prev: any) => ({ ...prev, gallery: newGallery }));
+    }
+  };
+
+  // Save Functionality
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!form.title.trim()) { toast.error("Product title is required"); return; }
-    if (!form.price || isNaN(Number(form.price))) { toast.error("Price is invalid"); return; }
+    if (!form.price_egp || isNaN(Number(form.price_egp))) { toast.error("Price in EGP is invalid"); return; }
 
     setSaving(true);
-    const price_egp = form.price_egp ? parseFloat(form.price_egp) : (parseFloat(form.price) || 0);
-    const original_price_egp = form.original_price_egp ? parseFloat(form.original_price_egp) : (form.original_price ? parseFloat(form.original_price) : null);
+    const price_egp = parseFloat(form.price_egp);
+    const original_price_egp = form.original_price_egp ? parseFloat(form.original_price_egp) : null;
     const price_usd = form.price_usd ? parseFloat(form.price_usd) : 0;
     const original_price_usd = form.original_price_usd ? parseFloat(form.original_price_usd) : null;
-    
-    // Determine primary image for the database column
+
     let finalImageUrl = form.image_url || "";
     if (!finalImageUrl) {
-      const primarySlide = form.slides[0];
-      finalImageUrl = primarySlide && primarySlide.type === 'image' ? primarySlide.url : "";
-    }
-    if (!finalImageUrl) {
-      const firstImg = form.slides.find((s: any) => s.type === 'image' && s.url);
-      finalImageUrl = firstImg ? firstImg.url : "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=800";
+      finalImageUrl = form.gallery.find((g: string) => g) || "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=800";
     }
 
     const mappedStatus = form.status === "Active" ? "نشط" : form.status === "Draft" ? "مسودة" : "مخفي";
-    const mappedCategory = form.category === "Automation" ? "الأتمتة" : form.category === "Artificial Intelligence" ? "الذكاء الاصطناعي" : "صناعة المحتوى";
+    
+    // Category mapping: match dynamic category strings or fallback
+    let mappedCategory = form.category;
+    if (form.category === "Automation") mappedCategory = "الأتمتة";
+    else if (form.category === "Artificial Intelligence") mappedCategory = "الذكاء الاصطناعي";
+    else if (form.category === "Content Creation") mappedCategory = "صناعة المحتوى";
 
     const payload = {
       title: form.title.trim(),
-      slug: form.slug || generateSlug(form.title),
+      arabic_title: form.arabic_title.trim() || null, // Write directly to schema column
+      slug: form.slug.trim() || generateSlug(form.title),
       description: form.description,
       short_description: form.short_description,
       price: price_egp,
@@ -223,626 +548,761 @@ function ProductFormDialog({ open, onClose, onSaved, initial }: { open: boolean;
     };
 
     try {
-      if (initial) {
-        const { error } = await supabase.from("products").update(payload).eq("id", initial.id);
+      if (selectedProduct) {
+        const { error } = await supabase.from("products").update(payload).eq("id", selectedProduct.id);
         if (error) throw error;
-        toast.success("Product updated successfully!");
+        toast.success("Product updated successfully! 🎉");
       } else {
         const { error } = await supabase.from("products").insert({ ...payload, sales: 0, views: 0 });
         if (error) throw error;
-        toast.success("Product added successfully!");
+        toast.success("Product created successfully! 🚀");
       }
-      onSaved();
-      onClose();
+      fetchProducts();
+      setView("list");
     } catch (err: any) {
-      toast.error(err.message || "An error occurred while saving");
+      toast.error(err.message || "Failed to save product changes");
     } finally {
       setSaving(false);
     }
-  }
-
-  const handleSlideUpload = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    const url = await upload(file);
-    if (url) {
-      const newSlides = [...form.slides];
-      newSlides[index].url = url;
-      setForm({ ...form, slides: newSlides });
-      toast.success("Uploaded successfully!");
-    }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = await upload(file);
-    if (url) {
-      setForm({ ...form, file_url: url });
-      toast.success("File uploaded successfully!");
-    }
-  };
-
-  const updateSlide = (index: number, updates: any) => {
-    const newSlides = [...form.slides];
-    newSlides[index] = { ...newSlides[index], ...updates };
-    setForm({ ...form, slides: newSlides });
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="border-white/8 text-white sm:max-w-4xl max-h-[95vh] overflow-hidden p-0 rounded-[2rem]" style={{ background: "#080810", border: "1px solid rgba(255,255,255,0.08)" }} dir="ltr">
-        <div className="flex h-full min-h-[600px] text-left">
-          {/* Sidebar Tabs */}
-          <div className="w-64 border-r border-white/5 bg-black/20 p-6 flex flex-col gap-2">
-            <DialogHeader className="mb-8">
-              <DialogTitle className="text-xl pl-2 text-white">
-                {initial ? "Edit Product" : "New Product"}
-              </DialogTitle>
-            </DialogHeader>
-            
-            {[
-              { id: "general", label: "General Info", icon: Layout },
-              { id: "media", label: "Media & Gallery", icon: Video },
-              { id: "files", label: "Digital Files", icon: FileText },
-              { id: "seo", label: "SEO Settings", icon: Globe },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all cursor-pointer",
-                  activeTab === tab.id 
-                    ? "bg-[#D6004B] text-white shadow-lg shadow-[#D6004B]/20" 
-                    : "text-zinc-500 hover:text-white hover:bg-white/5"
-                )}
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            ))}
+    <div className="space-y-8 animate-in fade-in duration-700 p-2 md:p-6 text-left font-sans" style={{ minHeight: "100vh" }} dir="ltr">
+      
+      {/* Header Panel */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 border-b border-white/5 pb-6">
+        <div>
+          <h1 className="text-3xl font-black text-white font-sans tracking-tight">
+            {view === "list" ? "Digital Products Hub" : selectedProduct ? "Edit Product Asset" : "Add Product Asset"}
+          </h1>
+          <p className="text-zinc-500 text-xs mt-1">
+            {view === "list" 
+              ? `${products.length} registered digital products in the store database`
+              : "Premium workspace for uploading, pricing, and configuring digital assets"}
+          </p>
+        </div>
+        
+        {view === "list" ? (
+          <button
+            onClick={handleCreateNewProduct}
+            className="flex items-center justify-center gap-2 px-6 h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl font-bold text-xs transition-all active:scale-95 shadow-lg shadow-rose-600/20 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> Create Product
+          </button>
+        ) : (
+          <button
+            onClick={() => setView("list")}
+            className="flex items-center justify-center gap-2 px-6 h-12 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-bold text-xs border border-white/5 transition-all cursor-pointer"
+          >
+            <ArrowRight className="w-4 h-4" /> Back to Hub
+          </button>
+        )}
+      </div>
 
-            <div className="mt-auto pt-6 border-t border-white/5">
-               <button
-                  onClick={onClose}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-zinc-500 hover:bg-white/5 transition-all cursor-pointer"
+      {/* VIEW: LIST (Matching Courses visual card grid) */}
+      {view === "list" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-96 rounded-3xl bg-white/5 animate-pulse" />)
+          ) : products.length === 0 ? (
+            <div className="col-span-full text-center py-20 bg-white/[0.02] border border-white/5 rounded-3xl">
+              <Package className="w-16 h-16 text-zinc-700 mx-auto mb-4" />
+              <p className="text-zinc-500 font-bold mb-4">No digital products registered yet.</p>
+              <button onClick={handleCreateNewProduct} className="px-6 py-3 bg-rose-600 hover:bg-rose-700 rounded-xl font-bold text-xs inline-flex items-center gap-2 cursor-pointer">
+                <Plus className="w-4 h-4" /> Create Your First Product
+              </button>
+            </div>
+          ) : (
+            products.map((p) => {
+              return (
+                <div key={p.id} className="bg-[#0a0a0f] border border-white/5 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between hover:border-white/10 transition-all group">
+                  <div className="relative h-44 bg-zinc-900 border-b border-white/5">
+                    <img src={safeImageSrc(p.image_url)} alt={p.title} className="w-full h-full object-cover opacity-85 group-hover:scale-103 transition-transform duration-500" />
+                    <div className="absolute top-4 left-4 z-20 flex gap-2">
+                      <span className={cn(
+                        "text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded border border-none",
+                        p.status === 'نشط' || p.status === 'Active' ? "bg-emerald-950 text-emerald-400" :
+                        p.status === 'مسودة' || p.status === 'Draft' ? "bg-amber-950 text-amber-400" :
+                        "bg-zinc-800 text-zinc-400"
+                      )}>
+                        {p.status === 'نشط' ? 'Active' : p.status === 'مسودة' ? 'Draft' : p.status === 'مخفي' ? 'Hidden' : p.status}
+                      </span>
+                      {p.is_featured && (
+                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-900/30">
+                          Featured
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">
+                        {p.category === "الأتمتة" ? "Automation" : p.category === "الذكاء الاصطناعي" ? "Artificial Intelligence" : p.category === "صناعة المحتوى" ? "Content Creation" : p.category}
+                      </span>
+                      <h3 className="text-base font-alexandria font-bold text-white line-clamp-2">{p.title}</h3>
+                      {p.arabic_title && <p className="text-xs text-zinc-400 font-bold font-cairo line-clamp-1">{p.arabic_title}</p>}
+                    </div>
+
+                    <div className="flex justify-between items-center py-2 border-t border-b border-white/5">
+                      <div className="flex flex-col">
+                        <span className="text-rose-400 text-sm font-bold font-sans">
+                          {formatPrice(Number(p.price_egp || p.price), 'EGP').replace("ج.م", "L.E")}
+                        </span>
+                        <span className="text-emerald-400 text-[10px] font-sans">
+                          ${p.price_usd || 0}
+                        </span>
+                      </div>
+                      <div className="text-right flex flex-col">
+                        <span className="text-zinc-500 text-[9px] font-black uppercase tracking-widest">Sales & Views</span>
+                        <span className="text-zinc-400 text-xs font-bold font-sans mt-0.5">
+                          {p.sales || 0} purchases / {p.views || 0} clicks
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => handleEditProduct(p)} className="h-10 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer">
+                        <Edit className="w-3.5 h-3.5" /> <span>Manage Asset</span>
+                      </button>
+                      <button onClick={() => handleDeleteProduct(p.id, p.title)} className="h-10 rounded-xl bg-red-950/15 border border-red-900/10 hover:bg-red-950/30 text-red-400 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer">
+                        <Trash2 className="w-3.5 h-3.5" /> <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* VIEW: FORM (Premium Rebuilt Workspace) */}
+      {view === "form" && (
+        <form onSubmit={handleSave} className="space-y-10">
+          
+          {/* Section 1: Basic Digital Product Info */}
+          <div className="bg-[#0a0a0f] border border-white/5 rounded-3xl p-6 md:p-8 shadow-2xl">
+            <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-4">
+              <h2 className="text-lg font-alexandria font-bold text-white flex items-center gap-2">
+                <Package className="w-5 h-5 text-rose-500" />
+                Product Details
+              </h2>
+              <button
+                type="submit"
+                disabled={saving || uploadingField !== null}
+                className="h-10 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-lg text-xs cursor-pointer disabled:opacity-55"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                <span>Save Changes</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-zinc-400">English Title (Main) *</label>
+                <input 
+                  required 
+                  value={form.title} 
+                  onChange={e => setForm({ ...form, title: e.target.value })} 
+                  className="bg-white/5 border border-white/5 rounded-xl py-3.5 px-4 text-sm focus:border-rose-500/50 text-white outline-none" 
+                  placeholder="e.g. n8n Professional Templates Bundle" 
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-zinc-400">Arabic Title Support</label>
+                <input 
+                  value={form.arabic_title} 
+                  onChange={e => setForm({ ...form, arabic_title: e.target.value })} 
+                  className="bg-white/5 border border-white/5 rounded-xl py-3.5 px-4 text-sm focus:border-rose-500/50 text-white outline-none text-right font-cairo" 
+                  placeholder="مثال: حزمة قوالب أتمتة ممتازة" 
+                  dir="rtl"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-zinc-400">Slug</label>
+                <input 
+                  value={form.slug} 
+                  onChange={e => setForm({ ...form, slug: e.target.value })} 
+                  className="bg-white/5 border border-white/5 rounded-xl py-3.5 px-4 text-sm text-zinc-300 outline-none" 
+                  placeholder="auto-generated-slug" 
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-zinc-400">Category Selector</label>
+                <select 
+                  value={form.category} 
+                  onChange={e => setForm({ ...form, category: e.target.value })} 
+                  className="bg-[#0f0f15] border border-white/5 rounded-xl py-3.5 px-4 text-sm text-white outline-none cursor-pointer"
                 >
-                  Cancel
-                </button>
+                  {(categories.length > 0 ? categories : ["Automation", "Artificial Intelligence", "Content Creation"]).map((cat) => (
+                    <option key={cat} value={cat} className="bg-[#0f0f15]">{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-zinc-400">Product Status</label>
+                <select 
+                  value={form.status} 
+                  onChange={e => setForm({ ...form, status: e.target.value as any })} 
+                  className="bg-[#0f0f15] border border-white/5 rounded-xl py-3.5 px-4 text-sm text-white outline-none cursor-pointer"
+                >
+                  <option value="Active" className="bg-[#0f0f15]">Active (Visible in store)</option>
+                  <option value="Draft" className="bg-[#0f0f15]">Draft (Internal preview)</option>
+                  <option value="Hidden" className="bg-[#0f0f15]">Hidden (Completely invisible)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-4 bg-white/[0.01] border border-white/5 rounded-xl p-4 mt-4">
+                <input 
+                  type="checkbox" 
+                  id="isFeaturedProductCheckbox"
+                  checked={form.is_featured} 
+                  onChange={e => setForm({ ...form, is_featured: e.target.checked })} 
+                  className="w-4 h-4 text-rose-600 border-white/10 rounded focus:ring-rose-500 cursor-pointer"
+                />
+                <label htmlFor="isFeaturedProductCheckbox" className="text-xs font-bold text-zinc-300 cursor-pointer select-none">
+                  Featured Product (Highlight in main storefront collection)
+                </label>
+              </div>
+
             </div>
           </div>
 
-          {/* Main Content Area */}
-          <div className="flex-1 flex flex-col min-w-0">
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
-                  transition={{ duration: 0.2 }}
-                  className="space-y-6"
-                >
-                  {activeTab === "general" && (
-                    <div className="grid gap-6">
-                      <div className="space-y-1.5">
-                        <Label className="text-sm font-bold" style={{ color: "#d4d4d8" }}>Product Title *</Label>
-                        <Input value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="h-12 rounded-xl text-white border-white/10" style={{ background: "rgba(255,255,255,0.05)" }} placeholder="e.g. n8n Professional Templates Bundle" />
+          {/* Section 2: Pricing System */}
+          <div className="bg-[#0a0a0f] border border-white/5 rounded-3xl p-6 md:p-8 shadow-2xl">
+            <h2 className="text-lg font-alexandria font-bold text-white mb-6 border-b border-white/5 pb-4">
+              Pricing System
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-rose-400">Price in EGP *</label>
+                <input 
+                  type="number" 
+                  required 
+                  value={form.price_egp} 
+                  onChange={e => setForm({ ...form, price_egp: e.target.value })} 
+                  className="bg-white/5 border border-white/5 rounded-xl py-3.5 px-4 text-sm focus:border-rose-500/50 text-white outline-none" 
+                  placeholder="e.g. 500" 
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-zinc-400">Original Price (EGP) - Crossed out</label>
+                <input 
+                  type="number" 
+                  value={form.original_price_egp} 
+                  onChange={e => setForm({ ...form, original_price_egp: e.target.value })} 
+                  className="bg-white/5 border border-white/5 rounded-xl py-3.5 px-4 text-sm focus:border-rose-500/50 text-white outline-none" 
+                  placeholder="e.g. 1000" 
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-emerald-400">Price in USD *</label>
+                <input 
+                  type="number" 
+                  required 
+                  value={form.price_usd} 
+                  onChange={e => setForm({ ...form, price_usd: e.target.value })} 
+                  className="bg-white/5 border border-white/5 rounded-xl py-3.5 px-4 text-sm focus:border-emerald-550/50 text-white outline-none" 
+                  placeholder="e.g. 15" 
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-zinc-400">Original Price (USD) - Crossed out</label>
+                <input 
+                  type="number" 
+                  value={form.original_price_usd} 
+                  onChange={e => setForm({ ...form, original_price_usd: e.target.value })} 
+                  className="bg-white/5 border border-white/5 rounded-xl py-3.5 px-4 text-sm focus:border-emerald-550/50 text-white outline-none" 
+                  placeholder="e.g. 30" 
+                />
+              </div>
+
+            </div>
+          </div>
+
+          {/* Section 3: Descriptions */}
+          <div className="bg-[#0a0a0f] border border-white/5 rounded-3xl p-6 md:p-8 shadow-2xl">
+            <h2 className="text-lg font-alexandria font-bold text-white mb-6 border-b border-white/5 pb-4">
+              Description Workspace
+            </h2>
+            <div className="space-y-6">
+              
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-zinc-400">Short Compelling Overview</label>
+                <input 
+                  value={form.short_description} 
+                  onChange={e => setForm({ ...form, short_description: e.target.value })} 
+                  className="bg-white/5 border border-white/5 rounded-xl py-3.5 px-4 text-sm text-white focus:border-rose-500/50 outline-none" 
+                  placeholder="Appears directly under the title in card previews" 
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-zinc-400">Full & Professional Rich description</label>
+                <RichTextEditor 
+                  label=""
+                  value={form.description}
+                  onChange={val => setForm((prev: any) => ({ ...prev, description: val }))}
+                  placeholder="Write a highly-converting description detail for your storefront..."
+                />
+              </div>
+
+            </div>
+          </div>
+
+          {/* Section 4: Advanced Media & Gallery System */}
+          <div className="bg-[#0a0a0f] border border-white/5 rounded-3xl p-6 md:p-8 shadow-2xl">
+            <h2 className="text-lg font-alexandria font-bold text-white mb-6 border-b border-white/5 pb-4">
+              Media & Assets System
+            </h2>
+            
+            <div className="space-y-8">
+              
+              {/* Cover Image Upload (Course design style with Drag & Drop overlay) */}
+              <div className="border border-white/5 bg-white/[0.01] rounded-2xl p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5 text-rose-500" />
+                  <span className="text-sm font-bold text-white">Cover Display Image (JPEG/PNG/WebP, max 15MB)</span>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                  
+                  {/* Drag-Drop Box */}
+                  <div className="border-2 border-dashed border-white/10 hover:border-rose-500/40 rounded-xl p-8 text-center transition-all bg-black/25 relative group min-h-[140px] flex items-center justify-center">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={(e) => handleImageUpload(e, "image_url")}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                      disabled={uploadingField === "image_url"}
+                    />
+                    
+                    <div className="space-y-2">
+                      <UploadCloud className="w-8 h-8 text-zinc-500 group-hover:text-rose-500 mx-auto transition-colors" />
+                      <div className="text-xs font-bold text-white">Drag cover image here or click to browse</div>
+                      <p className="text-[10px] text-zinc-500">Public bucket: products/covers/</p>
+                    </div>
+
+                    {uploadingField === "image_url" && (
+                      <div className="absolute inset-0 bg-[#0a0a0f]/95 rounded-xl flex flex-col items-center justify-center p-4 z-20">
+                        <Loader2 className="w-6 h-6 text-rose-500 animate-spin" />
+                        <span className="text-[10px] text-zinc-400 font-bold mt-2">Uploading image...</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-sm font-bold text-rose-400">Price in EGP *</Label>
-                          <Input type="number" value={form.price_egp} onChange={e => setForm({...form, price_egp: e.target.value, price: e.target.value})} className="h-12 rounded-xl text-white border-white/10" style={{ background: "rgba(255,255,255,0.05)" }} />
+                    )}
+                  </div>
+
+                  {/* Preview Container */}
+                  <div className="bg-black/35 rounded-xl p-4 border border-white/5 flex flex-col justify-center gap-3">
+                    {form.image_url ? (
+                      <div className="flex items-center gap-4">
+                        <div className="relative w-28 aspect-video rounded-lg overflow-hidden border border-white/10 shrink-0">
+                          <Image src={form.image_url} alt="Cover Preview" fill className="object-cover" />
                         </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-sm font-bold text-zinc-400">Original Price (EGP)</Label>
-                          <Input type="number" value={form.original_price_egp} onChange={e => setForm({...form, original_price_egp: e.target.value, original_price: e.target.value})} className="h-12 rounded-xl text-white border-white/10" style={{ background: "rgba(255,255,255,0.05)" }} />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-[10px] text-zinc-500 block truncate font-mono">{form.image_url}</span>
+                          <button 
+                            type="button" 
+                            onClick={() => handleDeleteMedia("image_url")} 
+                            className="mt-2 text-xs font-bold text-red-500 hover:text-red-400 flex items-center gap-1 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Remove Cover
+                          </button>
                         </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-zinc-650 italic text-center py-6">No cover image uploaded. Will default to first gallery slot.</p>
+                    )}
+                    <input 
+                      value={form.image_url} 
+                      onChange={e => setForm({ ...form, image_url: e.target.value })} 
+                      className="bg-white/5 border border-white/5 rounded-lg py-2 px-3 text-xs text-zinc-300 outline-none mt-1" 
+                      placeholder="Or enter direct cover URL..." 
+                    />
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Promo Video (Course system implementation) */}
+              <div className="border border-white/5 bg-white/[0.01] rounded-2xl p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Play className="w-5 h-5 text-rose-500" />
+                  <span className="text-sm font-bold text-white">Promotional Video Workspace (Max 500MB)</span>
+                </div>
+
+                <div className="flex bg-black/40 p-1.5 rounded-xl border border-white/5 max-w-sm">
+                  <button
+                    type="button"
+                    onClick={() => setVideoSourceTab("upload")}
+                    className={cn(
+                      "flex-1 py-2 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-1 cursor-pointer",
+                      videoSourceTab === "upload" ? "bg-rose-600 text-white" : "text-zinc-500 hover:text-white"
+                    )}
+                  >
+                    Upload Video
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVideoSourceTab("link")}
+                    className={cn(
+                      "flex-1 py-2 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-1 cursor-pointer",
+                      videoSourceTab === "link" ? "bg-rose-600 text-white" : "text-zinc-500 hover:text-white"
+                    )}
+                  >
+                    Link External
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                  
+                  {videoSourceTab === "upload" && (
+                    <div className="border-2 border-dashed border-white/10 hover:border-rose-500/40 rounded-xl p-8 text-center transition-all bg-black/25 relative group min-h-[140px] flex items-center justify-center">
+                      <input 
+                        type="file" 
+                        accept="video/*" 
+                        onChange={handleVideoUpload}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                        disabled={bunnyUploadStatus === "Uploading" || bunnyUploadStatus === "Encoding"}
+                      />
+                      <div className="space-y-2">
+                        <UploadCloud className="w-8 h-8 text-zinc-500 group-hover:text-rose-500 mx-auto transition-colors" />
+                        <div className="text-xs font-bold text-white">Drag video here or click to browse</div>
+                        <p className="text-[10px] text-zinc-500">Supports direct upload pipeline to Bunny Stream</p>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-sm font-bold text-emerald-400">Price in USD *</Label>
-                          <Input type="number" value={form.price_usd} onChange={e => setForm({...form, price_usd: e.target.value})} className="h-12 rounded-xl text-white border-white/10" style={{ background: "rgba(255,255,255,0.05)" }} />
+                      {videoUploadProgress !== null && bunnyUploadStatus === "Uploading" && (
+                        <div className="absolute inset-0 bg-[#0a0a0f]/95 rounded-xl flex flex-col items-center justify-center p-6 space-y-2 z-20">
+                          <Loader2 className="w-6 h-6 text-rose-500 animate-spin" />
+                          <div className="w-full max-w-xs space-y-1">
+                            <div className="flex justify-between text-[10px] font-bold text-white">
+                              <span>Uploading to Bunny Stream...</span>
+                              <span>{videoUploadProgress}%</span>
+                            </div>
+                            <div className="w-full bg-white/10 h-1 rounded-full overflow-hidden">
+                              <div className="bg-rose-500 h-full" style={{ width: `${videoUploadProgress}%` }} />
+                            </div>
+                            <p className="text-[9px] text-zinc-500 truncate">{videoFileName} ({videoFileSize})</p>
+                          </div>
                         </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-sm font-bold text-zinc-400">Original Price (USD)</Label>
-                          <Input type="number" value={form.original_price_usd} onChange={e => setForm({...form, original_price_usd: e.target.value})} className="h-12 rounded-xl text-white border-white/10" style={{ background: "rgba(255,255,255,0.05)" }} />
+                      )}
+
+                      {bunnyUploadStatus === "Encoding" && (
+                        <div className="absolute inset-0 bg-[#0a0a0f]/95 rounded-xl flex flex-col items-center justify-center p-6 space-y-2 z-20">
+                          <Loader2 className="w-6 h-6 text-amber-500 animate-spin" />
+                          <div className="w-full max-w-xs space-y-1">
+                            <div className="flex justify-between text-[10px] font-bold text-white animate-pulse">
+                              <span>Processing & Encoding video...</span>
+                              <span>{bunnyEncodeProgress}%</span>
+                            </div>
+                            <div className="w-full bg-white/10 h-1 rounded-full overflow-hidden">
+                              <div className="bg-amber-500 h-full" style={{ width: `${bunnyEncodeProgress}%` }} />
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-sm font-bold" style={{ color: "#d4d4d8" }}>Status</Label>
-                          <select value={form.status} onChange={e => setForm({...form, status: e.target.value as any})} className="w-full h-12 rounded-xl px-4 text-white appearance-none outline-none border border-white/10 cursor-pointer" style={{ background: "rgba(255,255,255,0.05)" }}>
-                            <option value="Active" className="bg-[#080810]">Active (Visible in store)</option>
-                            <option value="Draft" className="bg-[#080810]">Draft (Internal preview)</option>
-                            <option value="Hidden" className="bg-[#080810]">Hidden (Completely invisible)</option>
-                          </select>
+                      )}
+                    </div>
+                  )}
+
+                  {videoSourceTab === "link" && (
+                    <div className="bg-black/35 rounded-xl p-6 border border-white/5 space-y-3">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-[10px] font-bold text-zinc-400">Video Link / Bunny HLS URL / YouTube URL</label>
+                        <div className="flex gap-2">
+                          <input 
+                            value={externalVideoInput} 
+                            onChange={e => setExternalVideoInput(e.target.value)} 
+                            className="bg-white/5 border border-white/5 rounded-lg py-2 px-3 text-xs text-white outline-none flex-1" 
+                            placeholder="https://iframe.mediadelivery.net/play/..."
+                          />
+                          <button 
+                            type="button" 
+                            onClick={handleLinkExternalVideo} 
+                            className="px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold cursor-pointer"
+                          >
+                            Set Link
+                          </button>
                         </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-sm font-bold" style={{ color: "#d4d4d8" }}>Category</Label>
-                          <select value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="w-full h-12 rounded-xl px-4 text-white appearance-none outline-none border border-white/10 cursor-pointer" style={{ background: "rgba(255,255,255,0.05)" }}>
-                            <option value="Automation" className="bg-[#080810]">Automation</option>
-                            <option value="Artificial Intelligence" className="bg-[#080810]">Artificial Intelligence</option>
-                            <option value="Content Creation" className="bg-[#080810]">Content Creation</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-sm font-bold" style={{ color: "#d4d4d8" }}>Short Description</Label>
-                        <Input value={form.short_description} onChange={e => setForm({...form, short_description: e.target.value})} className="h-12 rounded-xl text-white border-white/10" style={{ background: "rgba(255,255,255,0.05)" }} placeholder="Appears directly below the title" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-sm font-bold" style={{ color: "#d4d4d8" }}>Full Description</Label>
-                        <textarea 
-                          value={form.description} 
-                          onChange={e => setForm({...form, description: e.target.value})} 
-                          rows={6}
-                          className="w-full p-4 rounded-xl text-white text-sm outline-none resize-none border border-white/10" 
-                          style={{ background: "rgba(255,255,255,0.05)" }}
-                          placeholder="Write a detailed description of the product..."
-                        />
                       </div>
                     </div>
                   )}
 
-                  {activeTab === "media" && (
-                    <div className="space-y-8">
-                      <div className="space-y-3 bg-white/[0.02] border border-white/5 p-6 rounded-[2rem]">
-                        <div className="flex items-center gap-2">
-                          <ImageIcon className="w-5 h-5 text-rose-500" />
-                          <h4 className="font-bold text-white text-sm">Product Cover Image (Main thumbnail display)</h4>
+                  {/* Video Preview */}
+                  <div className="bg-black/35 rounded-xl p-4 border border-white/5 min-h-[140px] flex flex-col justify-center items-center">
+                    {form.video_url ? (
+                      <div className="w-full space-y-3">
+                        <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-white/10">
+                          {form.video_url.includes('youtube.com') || form.video_url.includes('youtu.be') ? (
+                            <iframe 
+                              src={`https://www.youtube.com/embed/${form.video_url.split('v=')[1]?.split('&')[0] || form.video_url.split('/').pop()}`}
+                              className="w-full h-full border-none"
+                              allowFullScreen
+                            />
+                          ) : (
+                            <video src={form.video_url} className="w-full h-full object-cover" controls preload="metadata" />
+                          )}
                         </div>
-                        <p className="text-zinc-500 text-xs font-sans">This image will display store-wide on product catalogs in place of auto-playing videos.</p>
-                        <div className="flex gap-3">
-                          <Input 
-                            value={form.image_url} 
-                            onChange={e => setForm({...form, image_url: e.target.value})} 
-                            className="h-12 rounded-xl text-white flex-1 border-white/10" 
-                            style={{ background: "rgba(255,255,255,0.05)" }} 
-                            placeholder="Cover Image URL..." 
-                          />
-                          <Button
-                            onClick={async () => {
-                              const input = document.createElement("input");
-                              input.type = "file";
-                              input.accept = "image/*";
-                              input.onchange = async (e: any) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  const url = await upload(file);
-                                  if (url) {
-                                    setForm((prev: any) => ({ ...prev, image_url: url }));
-                                    toast.success("Cover image uploaded successfully!");
-                                  }
-                                }
-                              };
-                              input.click();
-                            }}
-                            type="button"
-                            className="h-12 px-6 rounded-xl font-bold text-xs bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-2 cursor-pointer"
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-zinc-500 truncate font-mono max-w-[180px]">{form.video_url}</span>
+                          <button 
+                            type="button" 
+                            onClick={() => handleDeleteMedia("video_url")} 
+                            className="text-xs font-bold text-red-500 hover:text-red-400 flex items-center gap-1 cursor-pointer"
                           >
-                            <UploadCloud className="w-4 h-4" />
-                            <span>Upload Image</span>
-                          </Button>
+                            <Trash2 className="w-3.5 h-3.5" /> Remove Video
+                          </button>
                         </div>
-                        {form.image_url && (
-                          <div className="relative w-32 aspect-video rounded-xl overflow-hidden border border-white/10 mt-2">
-                            <Image src={form.image_url} alt="Cover Preview" fill className="object-cover" />
+                      </div>
+                    ) : (
+                      <p className="text-xs text-zinc-650 italic text-center py-6">No promotional video linked or uploaded.</p>
+                    )}
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Gallery Items Upload Grid (4 slots, move & shift support) */}
+              <div className="space-y-4">
+                <span className="text-sm font-bold text-white block">Additional Image Gallery (JPEG/PNG/WebP, max 15MB)</span>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                  {form.gallery.map((url: string, idx: number) => {
+                    const isUploading = uploadingField === `gallery-${idx}`;
+                    return (
+                      <div 
+                        key={idx} 
+                        className="bg-white/[0.01] hover:bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex flex-col justify-between items-stretch gap-3 relative group"
+                      >
+                        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-550 block">Gallery Slot {idx + 1}</span>
+                        
+                        {/* Drag and drop upload card */}
+                        <div className="relative aspect-square rounded-xl overflow-hidden border border-dashed border-white/10 hover:border-rose-500/30 flex flex-col items-center justify-center bg-black/25">
+                          {url ? (
+                            <>
+                              <img src={url} alt={`Gallery Slot ${idx}`} className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                                <UploadCloud className="w-5 h-5 text-white" />
+                                <span className="text-[9px] font-bold text-white uppercase">Replace</span>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <UploadCloud className="w-6 h-6 text-zinc-500 group-hover:text-rose-500 mb-1 transition-colors" />
+                              <span className="text-[8px] font-black text-zinc-500 uppercase">Browse</span>
+                            </>
+                          )}
+
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={(e) => handleImageUpload(e, idx)} 
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                            disabled={isUploading}
+                          />
+
+                          {isUploading && (
+                            <div className="absolute inset-0 bg-[#0a0a0f]/95 rounded-xl flex flex-col items-center justify-center z-20">
+                              <Loader2 className="w-4 h-4 text-rose-500 animate-spin" />
+                              <span className="text-[8px] text-zinc-400 font-bold mt-2">Uploading...</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Input URL for manual backup */}
+                        <input 
+                          value={url} 
+                          onChange={(e) => {
+                            const newG = [...form.gallery];
+                            newG[idx] = e.target.value;
+                            setForm({ ...form, gallery: newG });
+                          }}
+                          className="bg-white/5 border border-white/5 rounded-lg py-1.5 px-2 text-[10px] text-zinc-300 outline-none font-mono" 
+                          placeholder="Gallery URL..." 
+                        />
+
+                        {/* Slide tools: swap order (Move Left / Move Right), delete */}
+                        {url && (
+                          <div className="flex items-center justify-between border-t border-white/5 pt-2">
+                            <div className="flex gap-1">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => {
+                                  const swapped = arraySwap(form.gallery, idx, idx - 1);
+                                  setForm((prev: any) => ({ ...prev, gallery: swapped }));
+                                  toast.success("Shifted item left!");
+                                }}
+                                className="p-1 rounded bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                              >
+                                <ArrowLeft className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === form.gallery.length - 1}
+                                onClick={() => {
+                                  const swapped = arraySwap(form.gallery, idx, idx + 1);
+                                  setForm((prev: any) => ({ ...prev, gallery: swapped }));
+                                  toast.success("Shifted item right!");
+                                }}
+                                className="p-1 rounded bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                              >
+                                <ArrowRight className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMedia(idx)}
+                              className="p-1 rounded bg-red-950/15 border border-red-900/10 hover:bg-red-950/30 text-red-500 cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         )}
                       </div>
+                    );
+                  })}
+                </div>
+              </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {form.slides.map((slide: any, idx: number) => (
-                          <div 
-                            key={idx} 
-                            className={cn(
-                              "relative group flex flex-col gap-3 p-4 rounded-[2rem] border transition-all duration-500",
-                              idx === 0 ? "md:col-span-2 border-rose-600/30 bg-rose-600/5 shadow-2xl shadow-rose-600/10" : "border-white/5 bg-white/[0.02] hover:bg-white/[0.05]"
-                            )}
-                          >
-                            <div className="flex items-center justify-between">
-                              <Badge className={cn(
-                                "text-[8px] font-black uppercase tracking-widest",
-                                idx === 0 ? "bg-rose-600 text-white" : "bg-zinc-800 text-zinc-400"
-                              )}>
-                                {idx === 0 ? "Primary Display" : `Slide ${idx + 1}`}
-                              </Badge>
-                              <div className="flex bg-black/40 p-1 rounded-full border border-white/5">
-                                <button 
-                                  onClick={() => updateSlide(idx, { type: 'image' })}
-                                  className={cn("p-1.5 rounded-full transition-all cursor-pointer", slide.type === 'image' ? "bg-rose-600 text-white" : "text-zinc-500 hover:text-white")}
-                                >
-                                  <ImageIcon2 className="w-3 h-3" />
-                                </button>
-                                <button 
-                                  onClick={() => updateSlide(idx, { type: 'video' })}
-                                  className={cn("p-1.5 rounded-full transition-all cursor-pointer", slide.type === 'video' ? "bg-rose-600 text-white" : "text-zinc-500 hover:text-white")}
-                                >
-                                  <Video className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </div>
-
-                            <div 
-                              onClick={() => uploadRefs[idx].current?.click()}
-                              className={cn(
-                                "relative aspect-video rounded-2xl overflow-hidden cursor-pointer border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 group-hover:border-rose-600/50 transition-all",
-                                slide.url ? "border-solid border-transparent" : "bg-black/20"
-                              )}
-                            >
-                              {slide.url ? (
-                                <>
-                                  {slide.type === 'image' ? (
-                                    <Image src={slide.url} alt="preview" fill className="object-cover" />
-                                  ) : (
-                                    <video src={slide.url} className="w-full h-full object-cover" muted playsInline />
-                                  )}
-                                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-                                     <UploadCloud className="w-6 h-6 text-white" />
-                                     <span className="text-[10px] font-bold text-white uppercase">Replace Asset</span>
-                                  </div>
-                                </>
-                              ) : (
-                                <>
-                                  <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-rose-600/20 transition-colors">
-                                    <UploadCloud className="w-5 h-5 text-zinc-500 group-hover:text-rose-500" />
-                                  </div>
-                                  <span className="text-[10px] font-bold text-zinc-500 uppercase">Click to Upload</span>
-                                </>
-                              )}
-                              <input 
-                                type="file" 
-                                ref={uploadRefs[idx]} 
-                                className="hidden" 
-                                accept={slide.type === 'image' ? "image/*" : "video/*"} 
-                                onChange={(e) => handleSlideUpload(e, idx)} 
-                              />
-                            </div>
-
-                            <div className="space-y-1.5 mt-2">
-                              <Label className="text-[10px] font-bold text-zinc-500">Direct {slide.type === 'image' ? 'Image' : 'Video'} URL</Label>
-                              <Input 
-                                value={slide.url} 
-                                onChange={e => updateSlide(idx, { url: e.target.value })} 
-                                dir="ltr" 
-                                className="h-9 rounded-xl text-[11px] text-white border-white/10" 
-                                style={{ background: "rgba(255,255,255,0.05)" }} 
-                                placeholder="https://..." 
-                              />
-                            </div>
-                            
-                            {slide.url && (
-                              <button 
-                                onClick={() => updateSlide(idx, { url: '' })}
-                                className="absolute -top-2 -right-2 w-7 h-7 bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTab === "files" && (
-                    <div className="grid gap-6">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <Globe className="w-4 h-4 text-emerald-500" />
-                            <Label className="text-sm font-bold" style={{ color: "#d4d4d8" }}>Digital Deliverable File URL</Label>
-                          </div>
-                           <button 
-                            onClick={() => fileRef.current?.click()} 
-                            disabled={uploading}
-                            className="text-[10px] font-bold text-emerald-500 flex items-center gap-1 hover:underline cursor-pointer"
-                           >
-                              <FileUp className="w-3.5 h-3.5" />
-                              Upload Deliverable
-                           </button>
-                           <input type="file" ref={fileRef} className="hidden" onChange={(e) => handleFileUpload(e)} />
-                        </div>
-                        <Input value={form.file_url} onChange={e => setForm({...form, file_url: e.target.value})} dir="ltr" className="h-12 rounded-xl text-white border-white/10" style={{ background: "rgba(255,255,255,0.05)" }} placeholder="Direct download URL..." />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-sm font-bold" style={{ color: "#d4d4d8" }}>File Type Extension</Label>
-                          <select value={form.file_type} onChange={e => setForm({...form, file_type: e.target.value})} className="w-full h-12 rounded-xl px-4 text-white outline-none appearance-none border border-white/10 cursor-pointer" style={{ background: "rgba(255,255,255,0.05)" }}>
-                            <option value="zip" className="bg-[#080810]">ZIP / Archive</option>
-                            <option value="pdf" className="bg-[#080810]">PDF Document</option>
-                            <option value="json" className="bg-[#080810]">JSON File</option>
-                            <option value="video" className="bg-[#080810]">MP4 Video</option>
-                            <option value="link" className="bg-[#080810]">External Link</option>
-                          </select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-sm font-bold" style={{ color: "#d4d4d8" }}>Search Keywords (Tags)</Label>
-                          <Input value={form.displayTags} onChange={e => setForm({...form, displayTags: e.target.value})} className="h-12 rounded-xl text-white border-white/10" style={{ background: "rgba(255,255,255,0.05)" }} placeholder="template, n8n, automation" />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTab === "seo" && (
-                    <div className="grid gap-6">
-                      <div className="space-y-1.5">
-                        <Label className="text-sm font-bold" style={{ color: "#d4d4d8" }}>Meta Title (SEO)</Label>
-                        <Input value={form.seo_title} onChange={e => setForm({...form, seo_title: e.target.value})} className="h-12 rounded-xl text-white border-white/10" style={{ background: "rgba(255,255,255,0.05)" }} placeholder="Displayed on search engine indexes" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-sm font-bold" style={{ color: "#d4d4d8" }}>Meta Description (SEO)</Label>
-                        <textarea 
-                          value={form.seo_description} 
-                          onChange={e => setForm({...form, seo_description: e.target.value})} 
-                          rows={4}
-                          className="w-full p-4 rounded-xl text-white text-sm outline-none resize-none border border-white/10" 
-                          style={{ background: "rgba(255,255,255,0.05)" }}
-                          placeholder="Brief synopsis..."
-                        />
-                      </div>
-                    </div>
-                  )}
-                </motion.div>
-              </AnimatePresence>
-            </div>
-
-            {/* Footer Buttons */}
-            <div className="p-8 border-t border-white/5 flex items-center justify-between bg-black/20">
-               <div className="text-xs text-zinc-600">
-                  {uploading ? (
-                    <span className="text-rose-500 flex items-center gap-2 animate-pulse">
-                      <Loader2 className="w-4 h-4 animate-spin" /> Uploading file...
-                    </span>
-                  ) : "* Indicated fields are mandatory"}
-               </div>
-               <Button 
-                onClick={handleSave} 
-                disabled={saving || uploading} 
-                className="h-14 px-10 rounded-2xl font-black text-lg transition-all active:scale-95 cursor-pointer"
-                style={{ 
-                  background: "linear-gradient(135deg, #D6004B, #ff2d6b)", 
-                  boxShadow: "0 8px 32px rgba(214,0,75,0.4)",
-                  color: "#ffffff"
-                }}
-              >
-                {saving ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Saving Changes...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    <Save className="w-5 h-5" />
-                    Save Product Asset
-                  </span>
-                )}
-              </Button>
             </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
-// ── Delete Dialog ────────────────────────────────────────────────────────
-function DeleteDialog({ product, onClose, onDeleted }: { product: Product; onClose: () => void; onDeleted: () => void }) {
-  const [deleting, setDeleting] = useState(false);
-  async function handleDelete() {
-    setDeleting(true);
-    try {
-      const { error } = await supabase.from("products").delete().eq("id", product.id);
-      if (error) throw error;
-      toast.success("Deleted successfully!");
-      onDeleted();
-      onClose();
-    } catch (err: any) {
-      toast.error(err.message || "Delete failed");
-    } finally {
-      setDeleting(false);
-    }
-  }
-  return (
-    <Dialog open onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="bg-[#080810] border-red-500/20 text-white sm:max-w-md rounded-[2rem] p-8" dir="ltr">
-        <DialogHeader><DialogTitle className="text-red-500 text-xl font-bold">Delete Product Permanently</DialogTitle></DialogHeader>
-        <p className="py-6 text-zinc-400 leading-relaxed text-left">Are you sure you want to permanently delete <span className="text-white font-bold">"{product.title}"</span>?</p>
-        <div className="flex gap-3">
-          <Button variant="ghost" onClick={onClose} className="flex-1 h-12 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 cursor-pointer">Cancel</Button>
-          <Button onClick={handleDelete} disabled={deleting} variant="destructive" className="flex-1 h-12 rounded-xl bg-red-600 hover:bg-red-700 cursor-pointer">
-            {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm Delete"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
+          {/* Section 5: Deliverables Workspace */}
+          <div className="bg-[#0a0a0f] border border-white/5 rounded-3xl p-6 md:p-8 shadow-2xl">
+            <h2 className="text-lg font-alexandria font-bold text-white mb-6 border-b border-white/5 pb-4">
+              Digital Deliverables
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              <div className="flex flex-col gap-2 md:col-span-2">
+                <label className="text-xs font-bold text-zinc-400 flex items-center justify-between">
+                  <span>File Deliverable URL (Protected downloads)</span>
+                  <label className="text-emerald-400 text-xs hover:underline flex items-center gap-1 cursor-pointer">
+                    <FileUp className="w-3.5 h-3.5" />
+                    <span>Upload deliverable (Direct private storage)</span>
+                    <input 
+                      type="file" 
+                      onChange={handleDeliverableUpload}
+                      className="hidden" 
+                      disabled={uploadingField !== null}
+                    />
+                  </label>
+                </label>
+                <div className="flex gap-2">
+                  <input 
+                    value={form.file_url} 
+                    onChange={e => setForm({ ...form, file_url: e.target.value })} 
+                    className="bg-white/5 border border-white/5 rounded-xl py-3.5 px-4 text-sm text-white focus:border-rose-500/50 outline-none flex-1 font-mono" 
+                    placeholder="https://... (Deliverable file download URL)" 
+                  />
+                  {form.file_url && (
+                    <button 
+                      type="button"
+                      onClick={() => setForm({ ...form, file_url: "" })}
+                      className="p-3 bg-red-950/15 border border-red-900/10 text-red-500 rounded-xl flex items-center justify-center cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                {uploadingField === "file_url" && (
+                  <div className="w-full bg-white/5 rounded-lg p-3 flex flex-col gap-1">
+                    <span className="text-[10px] text-zinc-400 font-bold">Uploading secure deliverable file: {uploadProgress}%</span>
+                    <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500" style={{ width: `${uploadProgress}%` }} />
+                    </div>
+                  </div>
+                )}
+              </div>
 
-// ── Main Page Component ──────────────────────────────────────────────────
-export default function AdminProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
-  const [addOpen, setAddOpen] = useState(false);
-  const [editProduct, setEditProduct] = useState<Product | null>(null);
-  const [deleteProduct, setDeleteProduct] = useState<Product | null>(null);
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-zinc-400">File Format Extension</label>
+                <select 
+                  value={form.file_type} 
+                  onChange={e => setForm({ ...form, file_type: e.target.value })} 
+                  className="bg-[#0f0f15] border border-white/5 rounded-xl py-3.5 px-4 text-sm text-white outline-none cursor-pointer"
+                >
+                  <option value="zip" className="bg-[#0f0f15]">ZIP / Rar Archive</option>
+                  <option value="pdf" className="bg-[#0f0f15]">PDF Document</option>
+                  <option value="json" className="bg-[#0f0f15]">JSON Workflow File</option>
+                  <option value="video" className="bg-[#0f0f15]">MP4 Video Deliverable</option>
+                  <option value="link" className="bg-[#0f0f15]">External Redirection Link</option>
+                </select>
+              </div>
 
-  const hasFetched = useRef(false);
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-zinc-400">Search Keywords (Tags - comma separated)</label>
+                <input 
+                  value={form.displayTags} 
+                  onChange={e => setForm({ ...form, displayTags: e.target.value })} 
+                  className="bg-white/5 border border-white/5 rounded-xl py-3.5 px-4 text-sm text-white focus:border-rose-500/50 outline-none" 
+                  placeholder="e.g. n8n, workflow, template" 
+                />
+              </div>
 
-  async function fetchProducts() {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .order("created_at", { ascending: false });
+            </div>
+          </div>
 
-      if (error) throw error;
-      setProducts(data as Product[]);
-    } catch (err: any) {
-      console.error("[FETCH_ERROR]", err);
-      setError(err.message || "Failed to load products");
-    } finally {
-      setLoading(false);
-    }
-  }
+          {/* Section 6: SEO Metadata */}
+          <div className="bg-[#0a0a0f] border border-white/5 rounded-3xl p-6 md:p-8 shadow-2xl">
+            <h2 className="text-lg font-alexandria font-bold text-white mb-6 border-b border-white/5 pb-4">
+              SEO Engine Settings
+            </h2>
+            <div className="grid grid-cols-1 gap-6">
+              
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-zinc-400">Meta Title</label>
+                <input 
+                  value={form.seo_title} 
+                  onChange={e => setForm({ ...form, seo_title: e.target.value })} 
+                  className="bg-white/5 border border-white/5 rounded-xl py-3.5 px-4 text-sm text-white focus:border-rose-500/50 outline-none" 
+                  placeholder="Title shown on Search Engines" 
+                />
+              </div>
 
-  useEffect(() => {
-    if (hasFetched.current) return;
-    hasFetched.current = true;
-    fetchProducts();
-  }, []);
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-zinc-400">Meta Description</label>
+                <textarea 
+                  value={form.seo_description} 
+                  onChange={e => setForm({ ...form, seo_description: e.target.value })} 
+                  rows={4}
+                  className="bg-white/5 border border-white/5 rounded-xl py-3.5 px-4 text-sm text-white focus:border-rose-500/50 outline-none resize-none" 
+                  placeholder="Short summary paragraph shown in search indexes..."
+                />
+              </div>
 
-  return (
-    <div className="space-y-8 animate-in fade-in duration-700 p-2 md:p-4 text-left font-sans" style={{ minHeight: "100vh" }} dir="ltr">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold text-white">Digital Products Hub</h1>
-          <p className="text-zinc-500 text-sm mt-1">Cumulative {products.length} registered digital products in database</p>
-        </div>
-        <button
-          onClick={() => setAddOpen(true)}
-          className="flex items-center gap-2 px-6 h-12 rounded-2xl font-bold text-white transition-all active:scale-95 cursor-pointer"
-          style={{ background: "linear-gradient(135deg, #D6004B, #ff2d6b)", boxShadow: "0 8px 32px rgba(214,0,75,0.35)" }}
-        >
-          <Plus className="w-5 h-5" /> Create Product
-        </button>
-      </div>
+            </div>
+          </div>
 
-      {/* Table Card */}
-      <div className="overflow-hidden rounded-[2.5rem]" style={{ background: "rgba(16,16,26,0.8)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 24px 64px rgba(0,0,0,0.4)" }}>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
-                <TableHead className="py-6 pl-8 text-xs uppercase tracking-widest font-black text-zinc-500">Product Asset</TableHead>
-                <TableHead className="text-xs uppercase tracking-widest font-black text-zinc-500">Price & Currency</TableHead>
-                <TableHead className="text-xs uppercase tracking-widest font-black text-zinc-500">Total Sales</TableHead>
-                <TableHead className="text-xs uppercase tracking-widest font-black text-zinc-500">Status</TableHead>
-                <TableHead className="w-20" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i} className="border-white/5">
-                    <TableCell className="py-6 pl-8 animate-pulse"><div className="h-10 w-full bg-white/5 rounded" /></TableCell>
-                    <TableCell><div className="h-4 w-16 bg-white/5 rounded" /></TableCell>
-                    <TableCell><div className="h-4 w-8 bg-white/5 rounded" /></TableCell>
-                    <TableCell><div className="h-6 w-16 bg-white/5 rounded" /></TableCell>
-                    <TableCell />
-                  </TableRow>
-                ))
-              ) : products.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-64 text-center text-zinc-600">No digital products registered yet.</TableCell>
-                </TableRow>
-              ) : (
-                products.map((p) => (
-                  <TableRow key={p.id} className="border-white/5 hover:bg-white/[0.02] transition-colors group">
-                    <TableCell className="py-5 pl-8">
-                      <div className="flex items-center gap-5 text-left">
-                        <div className="w-14 h-14 rounded-2xl bg-zinc-800 relative overflow-hidden shrink-0 flex items-center justify-center border border-white/5">
-                          {(() => {
-                            const videoUrl = p.tags?.find(t => t.startsWith("video:"))?.replace("video:", "");
-                            const isYouTube = videoUrl?.includes("youtube.com") || videoUrl?.includes("youtu.be");
-                            const ytId = isYouTube ? (videoUrl?.split('v=')[1]?.split('&')[0] || videoUrl?.split('/').pop()) : null;
+          {/* Footer Save Row */}
+          <div className="p-6 bg-[#0a0a0f] border border-white/5 rounded-3xl flex items-center justify-between shadow-2xl">
+            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">* Indicated fields are required</span>
+            <button
+              type="submit"
+              disabled={saving || uploadingField !== null}
+              className="h-14 px-10 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white rounded-2xl font-black text-sm tracking-widest uppercase transition-all shadow-xl hover:shadow-rose-600/30 cursor-pointer disabled:opacity-55"
+            >
+              {saving ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" /> Saving Product...
+                </span>
+              ) : "Save Product Asset"}
+            </button>
+          </div>
 
-                            if (isYouTube && ytId) {
-                              return (
-                                <Image 
-                                  src={`https://img.youtube.com/vi/${ytId}/default.jpg`}
-                                  alt={p.title}
-                                  fill
-                                  className="object-cover"
-                                />
-                              );
-                            } else if (videoUrl) {
-                              return (
-                                <div className="relative w-full h-full">
-                                  <video 
-                                    src={`${videoUrl}#t=0.1`}
-                                    className="w-full h-full object-cover"
-                                    muted
-                                    playsInline
-                                    preload="metadata"
-                                  />
-                                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                    <span className="text-[7px] font-bold bg-rose-600 text-white px-1.5 py-0.5 rounded-full uppercase tracking-tighter shadow-lg">Video</span>
-                                  </div>
-                                </div>
-                              );
-                            } else if (p.image_url) {
-                              return (
-                                <Image 
-                                  src={safeImageSrc(p.image_url)} 
-                                  alt={p.title} 
-                                  fill 
-                                  className="object-cover" 
-                                  sizes="56px" 
-                                  unoptimized={p.image_url.startsWith("file://")}
-                                />
-                              );
-                            } else {
-                              return <ImageIcon className="w-6 h-6 text-zinc-600" />;
-                            }
-                          })()}
-                        </div>
-                        <div>
-                          <div className="font-bold text-white text-base group-hover:text-rose-500 transition-colors">{p.title}</div>
-                          {p.short_description && <div className="text-[11px] text-zinc-500 mt-0.5 line-clamp-1">{p.short_description}</div>}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-bold text-white">
-                      <div className="text-rose-400">{formatPrice(Number(p.price_egp || p.price), 'EGP').replace("ج.م", "L.E")}</div>
-                      <div className="text-emerald-400 text-[10px]">${p.price_usd || 0}</div>
-                    </TableCell>
-                    <TableCell className="text-zinc-400 font-bold">{p.sales || 0}</TableCell>
-                    <TableCell>
-                      <Badge className={cn(
-                        "px-3 py-1 rounded-lg border-none",
-                        p.status === 'نشط' || p.status === 'Active' ? "bg-emerald-500/10 text-emerald-400" :
-                        p.status === 'مسودة' || p.status === 'Draft' ? "bg-amber-500/10 text-amber-400" :
-                        "bg-zinc-800 text-zinc-500"
-                      )}>
-                        {p.status === 'نشط' ? 'Active' : p.status === 'مسودة' ? 'Draft' : p.status === 'مخفي' ? 'Hidden' : p.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="pr-8">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger className="h-10 w-10 flex items-center justify-center rounded-xl text-zinc-500 hover:bg-white/10 hover:text-white transition-all outline-none cursor-pointer">
-                          <ChevronRight className="w-5 h-5 rotate-90" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-[#0d0d1a] border-white/10 p-2 rounded-2xl">
-                          <DropdownMenuItem onClick={() => setEditProduct(p)} className="cursor-pointer text-zinc-300 hover:bg-white/5 rounded-xl p-3 gap-3">
-                            <Edit2 className="w-4 h-4 text-rose-500" /> Edit Product
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setDeleteProduct(p)} className="cursor-pointer text-red-400 hover:bg-red-500/10 rounded-xl p-3 gap-3">
-                            <Trash2 className="w-4 h-4" /> Delete Product
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
+        </form>
+      )}
 
-      <ProductFormDialog open={addOpen} onClose={() => setAddOpen(false)} onSaved={fetchProducts} />
-      {editProduct && <ProductFormDialog open initial={editProduct} onClose={() => setEditProduct(null)} onSaved={fetchProducts} />}
-      {deleteProduct && <DeleteDialog product={deleteProduct} onClose={() => setDeleteProduct(null)} onDeleted={fetchProducts} />}
     </div>
   );
 }

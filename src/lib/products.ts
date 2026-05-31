@@ -45,6 +45,7 @@ export interface Product {
   views: number;
   seo_title: string | null;
   seo_description: string | null;
+  arabic_title?: string | null;
   created_at: string;
   updated_at: string;
   // Extended fields (stored in tags with prefixes)
@@ -134,7 +135,7 @@ export async function fetchActiveProducts(opts: {
     let query = supabase
       .from("products")
       .select(
-        "id, title, slug, description, short_description, price, original_price, price_egp, original_price_egp, price_usd, original_price_usd, discount_pct, is_featured, image_url, file_url, category, tags, sales, created_at"
+        "id, title, arabic_title, slug, description, short_description, price, original_price, price_egp, original_price_egp, price_usd, original_price_usd, discount_pct, is_featured, image_url, file_url, category, tags, sales, created_at"
       )
       .eq("status", "نشط")
       .order("is_featured", { ascending: false })
