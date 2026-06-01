@@ -262,8 +262,8 @@ export default function Home() {
                 className="mb-6 md:mb-10 px-2"
               >
                 <h1 className="text-3xl sm:text-5xl md:text-7xl lg:text-8xl font-alexandria font-black text-white leading-[1.3] md:leading-tight tracking-tighter block mb-1 md:mb-2">
-                  طوّر أعمالك بالذكاء الإصطناعي <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ff0f53] via-[#ff2d6b] to-[#ff00b3]">مع يوسف أوتوميتس</span>
+                  ضاعف إنتاجيتك مع <br />
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ff0f53] via-[#ff2d6b] to-[#ff00b3]">يوسف أوتوميتس</span>
                 </h1>
               </motion.div>
               
