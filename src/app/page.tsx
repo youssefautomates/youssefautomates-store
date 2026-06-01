@@ -252,7 +252,7 @@ export default function Home() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 md:h-3 md:w-3 bg-rose-500"></span>
                 </span>
-                <span className="font-cairo text-[10px] md:text-sm font-bold text-rose-300 tracking-wide">أكاديمية الذكاء الاصطناعي وتطبيقات الأتمتة الذكية والأنظمة الإبداعية</span>
+                <span className="font-cairo text-[10px] md:text-sm font-bold text-rose-300 tracking-wide">مرحباً بك في أكاديمية يوسف أوتوميتس</span>
               </motion.div>
 
               <motion.div
