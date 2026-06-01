@@ -252,7 +252,7 @@ export default function Home() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 md:h-3 md:w-3 bg-rose-500"></span>
                 </span>
-                <span className="font-cairo text-[10px] md:text-sm font-bold text-rose-300 tracking-wide">أكاديمية احتراف صناعة المحتوى البصري والرسوم المتحركة بالذكاء الاصطناعي</span>
+                <span className="font-cairo text-[10px] md:text-sm font-bold text-rose-300 tracking-wide">أكاديمية الذكاء الاصطناعي وتطبيقات الأتمتة الذكية والأنظمة الإبداعية</span>
               </motion.div>
 
               <motion.div
@@ -262,8 +262,8 @@ export default function Home() {
                 className="mb-6 md:mb-10 px-2"
               >
                 <h1 className="text-3xl sm:text-5xl md:text-7xl lg:text-8xl font-alexandria font-black text-white leading-[1.3] md:leading-tight tracking-tighter block mb-1 md:mb-2">
-                  احترف الذكاء الاصطناعي مع <br className="sm:hidden" />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ff0f53] via-[#ff2d6b] to-[#ff00b3]">جو سكول</span>
+                  طوّر أعمالك بالذكاء الإصطناعي <br />
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ff0f53] via-[#ff2d6b] to-[#ff00b3]">مع يوسف أوتوميتس</span>
                 </h1>
               </motion.div>
               
@@ -273,7 +273,7 @@ export default function Home() {
                 transition={{ duration: 0.8, delay: 0.2 }}
                 className="text-sm md:text-2xl text-zinc-400 font-cairo max-w-3xl mx-auto mb-8 md:mb-14 leading-relaxed"
               >
-                أحصل على أفضل الدورات في <span className="text-white font-bold">توليد الفيديو وصناعة المحتوى بالذكاء الاصطناعي</span>، وأكتشف أحدث <span className="text-white font-bold">أصولنا ومصادرنا للمبدعين</span>
+                احصل على أقوى الكورسات والمنتجات الرقمية في <span className="text-white font-bold">أتمتة الأعمال، سير العمل الذكي</span>، الأدوات الإبداعية، والإنتاج البصري المتقدم بالذكاء الاصطناعي.
               </motion.p>
               
               <motion.div

@@ -905,7 +905,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
                             />
                           ) : (
                             <div className="w-full h-full bg-zinc-900 flex items-center justify-center font-bold text-[10px] text-zinc-500">
-                              JoeSchool
+                              Youssef Automates
                             </div>
                           )}
                           {discount && (

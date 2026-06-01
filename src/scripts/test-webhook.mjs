@@ -63,7 +63,7 @@ async function runTest() {
       status: "pending",
       payment_id: String(paymobOrderId),
       customer_name: "أحمد المطور التجريبي",
-      customer_email: "test-student@joeschool.com",
+      customer_email: "test-student@youssefautomates.com",
       created_at: new Date().toISOString()
     }).select().single();
 
@@ -104,7 +104,7 @@ async function runTest() {
         billing_data: {
           first_name: "أحمد",
           last_name: "المطور",
-          email: "test-student@joeschool.com"
+          email: "test-student@youssefautomates.com"
         }
       },
       order: {

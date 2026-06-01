@@ -1,5 +1,5 @@
 -- ============================================================================
--- 🎓 JoeSchool - Add Arabic Title Support to Products Table
+-- 🎓 Youssef Automates - Add Arabic Title Support to Products Table
 -- Migration: 20260531000000_add_arabic_title_to_products.sql
 -- ============================================================================
 

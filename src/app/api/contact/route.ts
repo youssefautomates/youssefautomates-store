@@ -12,8 +12,8 @@ export async function POST(req: Request) {
     }
 
     const { data, error } = await resend.emails.send({
-      from: "JoeSchool <onboarding@resend.dev>",
-      to: process.env.ADMIN_EMAIL || "joeschool.ai@gmail.com",
+      from: "Youssef Automates <onboarding@resend.dev>",
+      to: process.env.ADMIN_EMAIL || "admin@youssefautomates.com",
       subject: `رسالة جديدة من: ${name}`,
       replyTo: email,
       html: `

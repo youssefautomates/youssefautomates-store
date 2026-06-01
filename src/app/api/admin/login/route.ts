@@ -5,7 +5,7 @@ export async function POST(request: Request) {
   try {
     const { email, password, rememberMe } = await request.json();
 
-    const validEmail = process.env.ADMIN_EMAIL || 'admin@joeschool.com';
+    const validEmail = process.env.ADMIN_EMAIL || 'admin@youssefautomates.com';
     const validPassword = process.env.ADMIN_PASSWORD || '@Youssefmostafa26';
 
     if (email === validEmail && password === validPassword) {

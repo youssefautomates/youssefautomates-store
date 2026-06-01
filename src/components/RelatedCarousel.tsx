@@ -108,7 +108,7 @@ export default function RelatedCarousel({
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-white/20 font-bold bg-neutral-900">
-                          JoeSchool
+                          Youssef Automates
                         </div>
                       )}
                       

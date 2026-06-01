@@ -68,7 +68,7 @@ export default function CoursesPage() {
     "الكل",
     ...(dynamicCategories.length > 0
       ? dynamicCategories
-      : ["دورات صناعة المحتوى", "دورات الرسوم المتحركة", "الدورات المجانية"])
+      : ["أتمتة الأعمال", "الذكاء الاصطناعي", "صناعة المحتوى", "الدورات المجانية"])
   ];
 
   const filteredCourses = coursesList.filter((course) => {
@@ -104,7 +104,7 @@ export default function CoursesPage() {
               className="inline-flex items-center gap-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 px-4 py-1.5 rounded-full mb-6 font-bold text-xs md:text-sm"
             >
               <Sparkles className="w-4 h-4 animate-pulse" />
-              <span>أكاديمية JoeSchool للتعليم الرقمي</span>
+              <span>أكاديمية يوسف أوتوميتس للتعليم الرقمي</span>
             </motion.div>
 
             <motion.h1
@@ -115,7 +115,7 @@ export default function CoursesPage() {
             >
               انطلق نحو الاحتراف مع <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ff0f53] to-[#ff00b3]">
-                أرقى دورات صناعة المحتوى بالذكاء الاصطناعي والسرد الرقمي
+                أرقى دورات أتمتة الأعمال والذكاء الاصطناعي وصناعة المحتوى
               </span>
             </motion.h1>
 
@@ -125,7 +125,7 @@ export default function CoursesPage() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-zinc-400 text-sm sm:text-lg max-w-2xl mx-auto leading-relaxed"
             >
-              اختر مسارك الإبداعي من بين حزم الدروس الاحترافية المصممة لتأهيلك لإنتاج الفيديو، الرسوم المتحركة، وصناعة المحتوى البصري المتقدم بالذكاء الاصطناعي.
+              اختر مسارك الاحترافي من بين حزم الدروس المصممة لتأهيلك لبناء أنظمة الأتمتة، تطبيقات الذكاء الاصطناعي، وإنتاج المحتوى الإبداعي المتميز.
             </motion.p>
           </div>
         </section>
@@ -155,7 +155,7 @@ export default function CoursesPage() {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
               <Loader2 className="w-10 h-10 text-rose-500 animate-spin" />
-              <p className="text-zinc-400 text-sm font-medium">جاري تحميل المسارات التعليمية الإبداعية...</p>
+              <p className="text-zinc-400 text-sm font-medium">جاري تحميل المسارات التعليمية الاحترافية...</p>
             </div>
           ) : filteredCourses.length === 0 ? (
             <div className="text-center py-20 bg-white/[0.02] border border-white/5 rounded-3xl p-8 max-w-md mx-auto">

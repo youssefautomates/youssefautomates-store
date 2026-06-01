@@ -57,10 +57,10 @@ export async function POST(request: Request) {
     const source = detectSource(transaction);
     console.log(`[PAYMOB_WEBHOOK][${requestId}] Source: ${source} | Order: ${paymobOrderId} | Success: ${isSuccess} | Txn: ${txnId}`);
 
-    // Route other merchant profiles if needed (e.g., JoeSchool passthrough)
-    if (source === "joeschool") {
-      console.log(`[PAYMOB_WEBHOOK][${requestId}] 🎓 JoeSchool payment — passing through`);
-      return NextResponse.json({ success: true, source: "joeschool", message: "Handled by JoeSchool" });
+    // Route other merchant profiles if needed (e.g., Youssef Automates passthrough)
+    if (source === "youssefautomates") {
+      console.log(`[PAYMOB_WEBHOOK][${requestId}] 🎓 Youssef Automates payment — passing through`);
+      return NextResponse.json({ success: true, source: "youssefautomates", message: "Handled by Youssef Automates" });
     }
 
     // ── 3. Find Matching Supabase Order ───────────────────────────
@@ -355,13 +355,13 @@ function detectSource(transaction: any): string {
   const merchantOrderId = transaction.order?.merchant_order_id;
   if (typeof merchantOrderId === "string") {
     if (merchantOrderId.startsWith("store-")) return "store";
-    if (merchantOrderId.startsWith("joeschool-")) return "joeschool";
+    if (merchantOrderId.startsWith("youssefautomates-")) return "youssefautomates";
   }
 
   const extraDesc = transaction.extra_description;
   if (typeof extraDesc === "string") {
     if (extraDesc.includes("store")) return "store";
-    if (extraDesc.includes("joeschool")) return "joeschool";
+    if (extraDesc.includes("youssefautomates")) return "youssefautomates";
   }
 
   return "store";

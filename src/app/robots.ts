@@ -6,6 +6,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
     },
-    sitemap: 'https://joeschool.com/sitemap.xml',
+    sitemap: 'https://youssefautomates.com/sitemap.xml',
   };
 }

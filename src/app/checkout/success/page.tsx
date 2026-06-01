@@ -340,7 +340,7 @@ function SuccessContent() {
           <div className="w-9 h-9 flex items-center justify-center">
             <img
               src="/logo.png"
-              alt="JoeSchool"
+              alt="Youssef Automates"
               className="w-full h-full object-contain drop-shadow-[0_0_12px_rgba(16,185,129,0.3)]"
               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
             />
